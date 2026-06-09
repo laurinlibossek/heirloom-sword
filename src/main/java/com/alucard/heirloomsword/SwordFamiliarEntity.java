@@ -35,6 +35,8 @@ public class SwordFamiliarEntity extends Entity {
             SynchedEntityData.defineId(SwordFamiliarEntity.class, EntityDataSerializers.OPTIONAL_UUID);
     private static final EntityDataAccessor<Integer> DATA_STATE =
             SynchedEntityData.defineId(SwordFamiliarEntity.class, EntityDataSerializers.INT);
+    private static final EntityDataAccessor<Integer> DATA_GUARD_COOLDOWN =
+            SynchedEntityData.defineId(SwordFamiliarEntity.class, EntityDataSerializers.INT);
 
     private static final double HOVER_RADIUS = 1.5;
     private static final double COLLISION_SPHERE_RADIUS = 0.4;
@@ -129,6 +131,7 @@ public class SwordFamiliarEntity extends Entity {
     protected void defineSynchedData(SynchedEntityData.Builder builder) {
         builder.define(DATA_OWNER_UUID, Optional.empty());
         builder.define(DATA_STATE, FamiliarState.HOVERING.getId());
+        builder.define(DATA_GUARD_COOLDOWN, 0);
     }
 
     @Override
@@ -139,12 +142,16 @@ public class SwordFamiliarEntity extends Entity {
         if (tag.contains("FamiliarState")) {
             setState(FamiliarState.fromId(tag.getInt("FamiliarState")));
         }
+        if (tag.contains("guardCooldown")) {
+            setGuardCooldown(tag.getInt("guardCooldown"));
+        }
     }
 
     @Override
     protected void addAdditionalSaveData(CompoundTag tag) {
         getOwnerUUID().ifPresent(uuid -> tag.putUUID("OwnerUUID", uuid));
         tag.putInt("FamiliarState", getState().getId());
+        tag.putInt("guardCooldown", getGuardCooldown());
     }
 
     public Optional<UUID> getOwnerUUID() {
@@ -164,6 +171,14 @@ public class SwordFamiliarEntity extends Entity {
 
     public void setState(FamiliarState state) {
         this.entityData.set(DATA_STATE, state.getId());
+    }
+
+    public int getGuardCooldown() {
+        return this.entityData.get(DATA_GUARD_COOLDOWN);
+    }
+
+    private void setGuardCooldown(int ticks) {
+        this.entityData.set(DATA_GUARD_COOLDOWN, ticks);
     }
 
     @Override
@@ -194,6 +209,7 @@ public class SwordFamiliarEntity extends Entity {
             case RETURNING -> tickReturning(owner);
             case SWEEPING_HOLD -> tickSweepingHold(owner);
             case SWEEPING_RELEASE -> tickSweepingRelease(owner);
+            case BLOCKING -> tickBlocking(owner);
         }
         updateOrientation();
     }
@@ -210,6 +226,7 @@ public class SwordFamiliarEntity extends Entity {
             case RETURNING -> tickReturningClient(owner);
             case SWEEPING_HOLD -> tickSweepingHoldClient(owner);
             case SWEEPING_RELEASE -> tickSweepingReleaseClient(owner);
+            case BLOCKING -> tickBlockingClient(owner);
         }
         updateOrientation();
     }
@@ -217,9 +234,39 @@ public class SwordFamiliarEntity extends Entity {
     // === HOVERING ===
 
     private void tickHovering(Player owner) {
+        if (getGuardCooldown() > 0) setGuardCooldown(getGuardCooldown() - 1);
         updateTargetPosition(owner);
         applySpringPhysics();
         updateMobAwareness(owner);
+    }
+
+    // === BLOCKING ===
+
+    public void startBlocking() {
+        setState(FamiliarState.BLOCKING);
+    }
+
+    public void stopBlocking() {
+        // block_slash animation fires here in Phase 8
+        setState(FamiliarState.HOVERING);
+    }
+
+    public void guardBreak() {
+        // guard_break animation fires here in Phase 8; called from Phase 9 stamina hook
+        setState(FamiliarState.HOVERING);
+        setGuardCooldown(60);
+    }
+
+    private void tickBlocking(Player owner) {
+        Vec3 target = owner.getEyePosition().add(owner.getLookAngle().scale(1.5));
+        targetPosition = target;
+        applySpringPhysics();
+    }
+
+    private void tickBlockingClient(Player owner) {
+        Vec3 target = owner.getEyePosition().add(owner.getLookAngle().scale(1.5));
+        targetPosition = target;
+        applySpringPhysics();
     }
 
     // === CHARGING ===
@@ -872,6 +919,10 @@ public class SwordFamiliarEntity extends Entity {
                 Vec3 travelDir = this.velocity.lengthSqr() > 0.001 ? this.velocity : null;
                 if (travelDir == null && (getState() == FamiliarState.SWEEPING_HOLD || getState() == FamiliarState.SWEEPING_RELEASE)) {
                     travelDir = this.sweepVelocity.lengthSqr() > 0.001 ? this.sweepVelocity : null;
+                }
+                if (travelDir == null && getState() == FamiliarState.BLOCKING) {
+                    Player owner = getOwner();
+                    if (owner != null) travelDir = owner.getLookAngle();
                 }
 
                 if (travelDir != null) {

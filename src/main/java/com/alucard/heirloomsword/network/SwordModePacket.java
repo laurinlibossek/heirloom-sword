@@ -37,7 +37,8 @@ public record SwordModePacket() implements CustomPacketPayload {
                 SwordFamiliarEntity familiar = SwordFamiliarEntity.findForOwner(level, player.getUUID());
                 if (familiar != null
                         && familiar.getState() != FamiliarState.HOVERING
-                        && familiar.getState() != FamiliarState.SWEEPING_HOLD) {
+                        && familiar.getState() != FamiliarState.SWEEPING_HOLD
+                        && familiar.getState() != FamiliarState.BLOCKING) {
                     return; // F is locked during other active states
                 }
                 HeirloomSwordItem.setMode(held, SwordMode.NORMAL);

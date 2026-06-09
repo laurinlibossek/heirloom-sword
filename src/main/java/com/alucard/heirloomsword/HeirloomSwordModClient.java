@@ -2,6 +2,7 @@ package com.alucard.heirloomsword;
 
 import com.alucard.heirloomsword.client.SwordFamiliarRenderer;
 import com.alucard.heirloomsword.network.SwordChargePacket;
+import com.alucard.heirloomsword.network.SwordGuardPacket;
 import com.alucard.heirloomsword.network.SwordLaunchPacket;
 import com.alucard.heirloomsword.network.SwordModePacket;
 import com.alucard.heirloomsword.network.SwordMomentumPacket;
@@ -44,6 +45,7 @@ public class HeirloomSwordModClient {
         public static void onRegisterKeyMappings(RegisterKeyMappingsEvent event) {
             event.register(ModKeybinds.TOGGLE_MODE);
             event.register(ModKeybinds.RECALL);
+            event.register(ModKeybinds.GUARD);
         }
 
         @SubscribeEvent
@@ -66,11 +68,14 @@ public class HeirloomSwordModClient {
         private static float lastYaw = 0;
         private static float lastPitch = 0;
 
+        private static boolean isBlocking = false;
+
         @SubscribeEvent
         public static void onClientTick(ClientTickEvent.Post event) {
             Minecraft mc = Minecraft.getInstance();
             if (mc.player == null || mc.screen != null) {
                 if (isCharging) resetChargeState();
+                if (isBlocking) resetBlockState();
                 return;
             }
 
@@ -79,6 +84,7 @@ public class HeirloomSwordModClient {
             if (!(held.getItem() instanceof HeirloomSwordItem)) {
                 if (isCharging) resetChargeState();
                 if (isSweeping) resetSweepState();
+                if (isBlocking) resetBlockState();
                 return;
             }
 
@@ -88,11 +94,13 @@ public class HeirloomSwordModClient {
                     SwordFamiliarEntity familiar = findClientFamiliar(player);
                     if (familiar != null
                             && familiar.getState() != FamiliarState.HOVERING
-                            && familiar.getState() != FamiliarState.SWEEPING_HOLD) {
+                            && familiar.getState() != FamiliarState.SWEEPING_HOLD
+                            && familiar.getState() != FamiliarState.BLOCKING) {
                         continue; // F is locked during other active states
                     }
                 }
                 if (isSweeping) resetSweepState();
+                if (isBlocking) resetBlockState();
                 PacketDistributor.sendToServer(new SwordModePacket());
                 SwordMode current = HeirloomSwordItem.getMode(held);
                 SwordMode next = current == SwordMode.NORMAL ? SwordMode.FLYING : SwordMode.NORMAL;
@@ -123,6 +131,26 @@ public class HeirloomSwordModClient {
                     resetChargeState();
                 } else {
                     clientChargeTimer++;
+                }
+            }
+
+            // Track guard hold state (G key)
+            if (!isBlocking) {
+                if (ModKeybinds.GUARD.isDown() && HeirloomSwordItem.isFlying(held)) {
+                    SwordFamiliarEntity familiar = findClientFamiliar(player);
+                    if (familiar != null
+                            && familiar.getState() == FamiliarState.HOVERING
+                            && familiar.getGuardCooldown() == 0) {
+                        PacketDistributor.sendToServer(new SwordGuardPacket(true));
+                        isBlocking = true;
+                    }
+                }
+            } else {
+                if (!HeirloomSwordItem.isFlying(held)) {
+                    resetBlockState();
+                } else if (!ModKeybinds.GUARD.isDown()) {
+                    PacketDistributor.sendToServer(new SwordGuardPacket(false));
+                    resetBlockState();
                 }
             }
 
@@ -223,6 +251,10 @@ public class HeirloomSwordModClient {
             isSweeping = false;
             lastYaw = 0;
             lastPitch = 0;
+        }
+
+        private static void resetBlockState() {
+            isBlocking = false;
         }
 
         @SubscribeEvent

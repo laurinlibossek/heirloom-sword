@@ -23,4 +23,12 @@ public class ModKeybinds {
             GLFW.GLFW_KEY_R,
             CATEGORY
     );
+
+    public static final KeyMapping GUARD = new KeyMapping(
+            "key.heirloomswordmod.guard",
+            KeyConflictContext.IN_GAME,
+            InputConstants.Type.KEYSYM,
+            GLFW.GLFW_KEY_G,
+            CATEGORY
+    );
 }

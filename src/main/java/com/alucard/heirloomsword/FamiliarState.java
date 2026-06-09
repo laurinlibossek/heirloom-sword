@@ -7,7 +7,8 @@ public enum FamiliarState {
     RETURNING(3),
     CHARGING(4),
     SWEEPING_HOLD(5),
-    SWEEPING_RELEASE(6);
+    SWEEPING_RELEASE(6),
+    BLOCKING(7);
 
     private final int id;
 
@@ -27,6 +28,7 @@ public enum FamiliarState {
             case 4 -> CHARGING;
             case 5 -> SWEEPING_HOLD;
             case 6 -> SWEEPING_RELEASE;
+            case 7 -> BLOCKING;
             default -> HOVERING;
         };
     }
