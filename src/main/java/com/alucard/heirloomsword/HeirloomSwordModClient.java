@@ -4,7 +4,9 @@ import com.alucard.heirloomsword.client.SwordFamiliarRenderer;
 import com.alucard.heirloomsword.network.SwordChargePacket;
 import com.alucard.heirloomsword.network.SwordLaunchPacket;
 import com.alucard.heirloomsword.network.SwordModePacket;
+import com.alucard.heirloomsword.network.SwordMomentumPacket;
 import com.alucard.heirloomsword.network.SwordRecallPacket;
+import com.alucard.heirloomsword.network.SwordSweepPacket;
 import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -60,6 +62,10 @@ public class HeirloomSwordModClient {
         private static boolean isCharging = false;
         private static int clientChargeTimer = 0;
 
+        private static boolean isSweeping = false;
+        private static float lastYaw = 0;
+        private static float lastPitch = 0;
+
         @SubscribeEvent
         public static void onClientTick(ClientTickEvent.Post event) {
             Minecraft mc = Minecraft.getInstance();
@@ -72,27 +78,33 @@ public class HeirloomSwordModClient {
             ItemStack held = player.getMainHandItem();
             if (!(held.getItem() instanceof HeirloomSwordItem)) {
                 if (isCharging) resetChargeState();
+                if (isSweeping) resetSweepState();
                 return;
             }
 
             // Handle F key (toggle mode)
             while (ModKeybinds.TOGGLE_MODE.consumeClick()) {
                 if (HeirloomSwordItem.isFlying(held)) {
-                    // Only allow exit from HOVERING state (Phase 3 lock)
                     SwordFamiliarEntity familiar = findClientFamiliar(player);
-                    if (familiar != null && familiar.getState() != FamiliarState.HOVERING) {
-                        continue; // F is locked during active states
+                    if (familiar != null
+                            && familiar.getState() != FamiliarState.HOVERING
+                            && familiar.getState() != FamiliarState.SWEEPING_HOLD) {
+                        continue; // F is locked during other active states
                     }
                 }
+                if (isSweeping) resetSweepState();
                 PacketDistributor.sendToServer(new SwordModePacket());
                 SwordMode current = HeirloomSwordItem.getMode(held);
                 SwordMode next = current == SwordMode.NORMAL ? SwordMode.FLYING : SwordMode.NORMAL;
                 HeirloomSwordItem.setMode(held, next);
             }
 
-            // Handle R key (recall)
+            // Handle R key (recall) — ignored during sweep states
             while (ModKeybinds.RECALL.consumeClick()) {
                 if (!HeirloomSwordItem.isFlying(held)) continue;
+                SwordFamiliarEntity familiar = findClientFamiliar(player);
+                if (familiar != null && (familiar.getState() == FamiliarState.SWEEPING_HOLD
+                        || familiar.getState() == FamiliarState.SWEEPING_RELEASE)) continue;
                 PacketDistributor.sendToServer(new SwordRecallPacket());
             }
 
@@ -105,13 +117,44 @@ public class HeirloomSwordModClient {
 
                 boolean attackHeld = mc.options.keyAttack.isDown();
                 if (!attackHeld) {
-                    // Released — fire the launch with current look direction
                     Vec3 lookDir = player.getLookAngle();
-                    boolean charged = clientChargeTimer >= 60; // 3 seconds
+                    boolean charged = clientChargeTimer >= 60;
                     PacketDistributor.sendToServer(new SwordLaunchPacket(lookDir, charged));
                     resetChargeState();
                 } else {
                     clientChargeTimer++;
+                }
+            }
+
+            // Track sweep hold state (right-click)
+            if (isSweeping) {
+                if (!HeirloomSwordItem.isFlying(held)) {
+                    resetSweepState();
+                    return;
+                }
+
+                boolean useHeld = mc.options.keyUse.isDown();
+                if (!useHeld) {
+                    // Right-click released — trigger SWEEPING_RELEASE on server
+                    SwordFamiliarEntity familiar = findClientFamiliar(player);
+                    if (familiar != null && familiar.getState() == FamiliarState.SWEEPING_HOLD) {
+                        familiar.releaseSweep();
+                    }
+                    PacketDistributor.sendToServer(new SwordLaunchPacket(Vec3.ZERO, false));
+                    resetSweepState();
+                } else {
+                    // Send per-tick momentum delta
+                    float currentYaw = player.getYRot();
+                    float currentPitch = player.getXRot();
+                    float yawDelta = currentYaw - lastYaw;
+                    float pitchDelta = currentPitch - lastPitch;
+
+                    if (Math.abs(yawDelta) > 0.1f || Math.abs(pitchDelta) > 0.1f) {
+                        PacketDistributor.sendToServer(new SwordMomentumPacket(yawDelta, pitchDelta));
+                    }
+
+                    lastYaw = currentYaw;
+                    lastPitch = currentPitch;
                 }
             }
         }
@@ -128,7 +171,7 @@ public class HeirloomSwordModClient {
 
             // Left click (attack) — begin charging or suppress during active states
             if (event.isAttack()) {
-                if (isCharging) {
+                if (isCharging || isSweeping) {
                     event.setCanceled(true);
                     event.setSwingHand(false);
                     return;
@@ -145,12 +188,41 @@ public class HeirloomSwordModClient {
                     event.setCanceled(true);
                     event.setSwingHand(false);
                 }
+                return;
+            }
+
+            // Right click (use) — begin sweeping or suppress during active states
+            if (event.isUseItem()) {
+                if (isSweeping || isCharging) {
+                    event.setCanceled(true);
+                    event.setSwingHand(false);
+                    return;
+                }
+
+                SwordFamiliarEntity familiar = findClientFamiliar(player);
+                if (familiar != null && familiar.getState() == FamiliarState.HOVERING) {
+                    PacketDistributor.sendToServer(new SwordSweepPacket());
+                    isSweeping = true;
+                    lastYaw = player.getYRot();
+                    lastPitch = player.getXRot();
+                    event.setCanceled(true);
+                    event.setSwingHand(false);
+                } else {
+                    event.setCanceled(true);
+                    event.setSwingHand(false);
+                }
             }
         }
 
         private static void resetChargeState() {
             isCharging = false;
             clientChargeTimer = 0;
+        }
+
+        private static void resetSweepState() {
+            isSweeping = false;
+            lastYaw = 0;
+            lastPitch = 0;
         }
 
         @SubscribeEvent

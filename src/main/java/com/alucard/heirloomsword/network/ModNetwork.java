@@ -26,5 +26,15 @@ public class ModNetwork {
                 SwordChargePacket.STREAM_CODEC,
                 SwordChargePacket::handle
         );
+        registrar.playToServer(
+                SwordSweepPacket.TYPE,
+                SwordSweepPacket.STREAM_CODEC,
+                SwordSweepPacket::handle
+        );
+        registrar.playToServer(
+                SwordMomentumPacket.TYPE,
+                SwordMomentumPacket.STREAM_CODEC,
+                SwordMomentumPacket::handle
+        );
     }
 }

@@ -1,4 +1,4 @@
-# Heirloom Sword — Mod Design Document
+# Alucard's Sword — Mod Design Document
 **Platform:** NeoForge 1.21.1
 **Status:** Pre-implementation reference. All decisions final unless marked [TUNE].
 
@@ -22,8 +22,14 @@ vanilla sword behavior as a fallback.
 ## 2. The Item
 
 ### Identity
-A single legendary magical sword. One item, one mod. No crafting recipe is defined here;
-that is left to the implementer or a datapack.
+A single legendary magical sword. One item, one mod. No crafting recipe exists.
+
+### Acquisition
+The sword spawns exclusively in **Ancient City** loot chests with a **5% chance per chest**.
+This is implemented as a loot table injection into
+`minecraft:chests/ancient_city` via NeoForge's `LootTableLoadEvent` or a datapack-style
+loot table modifier. The sword does not spawn anywhere else — no mob drops, no crafting, no
+trading, no other structure loot. Finding it requires venturing into the Deep Dark.
 
 ### Durability & Enchantments
 The sword has no durability bar. It cannot be damaged, repaired, or enchanted. It does not
@@ -31,14 +37,14 @@ accept any enchantment at an enchanting table or anvil. It is a magical artifact
 as one.
 
 ### Hotbar Behavior
-The item always remains in the player's hotbar, including while in flying mode. The hotbar 
-slot displays a faint purplish glow on the item icon at all times while flying mode is 
-active. No glow in normal mode. No other HUD indicators are added.
+The item always remains in the player's hotbar, including while the familiar is in flying
+mode. The hotbar slot displays a faint purplish glow on the item icon at all times while
+flying mode is active. No glow in normal mode. No other HUD indicators are added.
 
 ### Drop Prevention
 The item cannot be dropped via the Q key while in flying mode. Attempting to do so produces
 a hotbar message: *"The sword refuses to leave your side."* No item is dropped and no
-state is changed.
+familiar state is changed.
 
 ---
 
@@ -50,20 +56,20 @@ state is changed.
 ### Lock Condition
 Mode switching via F is available in the following states:
 
-- **HOVERING:** Normal toggle. Exits flying mode, despawns the sword entity.
+- **HOVERING:** Normal toggle. Exits flying mode, despawns familiar.
 - **SWEEPING_HOLD:** Emergency exit. Instant despawn, sword returns to inventory.
 - **BLOCKING:** Emergency exit. Instant despawn, sword returns to inventory.
 
-In all other active states (LAUNCHING, SWEEPING_RELEASE, CHARGING, STUCK, RETURNING),
-the F keybind is locked and does nothing. The sword is committed and must complete its
-current action before mode switching becomes available again.
+In all other active states (LAUNCHING, SWEEPING_RELEASE, CHARGING, STUCK, TETHERING,
+RETURNING), the F keybind is locked and does nothing. The sword is committed and must
+complete its current action before mode switching becomes available again.
 
 ### Normal → Flying Transition
-The Heirloom Sword entity is spawned at the player's side. The item remains in the hotbar. The
+The familiar entity is spawned at the player's side. The item remains in the hotbar. The
 player's hand rendering switches to the gesture system.
 
 ### Flying → Normal Transition
-The sword entity despawns instantly — fast enough that no despawn animation is needed. The
+The familiar despawns instantly — fast enough that no despawn animation is needed. The
 player's hand rendering returns to holding the sword normally.
 
 ---
@@ -104,8 +110,10 @@ point toward the sword's world position. Gestures are state-driven:
 |---|---|
 | HOVERING (no mobs nearby) | Relaxed, open, loosely extended |
 | HOVERING (mob in range) | Fingers curl slightly inward |
+| HOVERING (idle personality) | Same as no-mobs-nearby — relaxed, ambient |
 | CHARGING | Fingers tighten, arm slightly raised |
 | LAUNCHING (on launch frame) | Brief directional flick toward aim direction |
+| TETHERING | Clenched fist, arm pulls back toward body — reeling-in gesture |
 | SWEEPING_HOLD | Slow arc tracing the view direction |
 | BLOCKING | Raised, palm forward |
 | RETURNING | Relaxed, slight curl as if receiving |
@@ -114,7 +122,7 @@ Third-person presentation of hand gestures will be validated during playtesting.
 
 ---
 
-## 6. The Heirloom Sword Entity
+## 6. The Familiar Entity
 
 ### Class Design
 A custom non-living `Entity` subclass (not `Mob`, not `LivingEntity`). It has no health
@@ -125,8 +133,8 @@ chunk NBT on unload and resumes on reload.
 ### Ownership
 The entity stores the owning player's UUID in its NBT data (`ownerUUID`). This is private
 entity data — not visible on the item, not visible to other players. The item itself carries
-no owner data. When any player picks up the item and activates flying mode, a new sword 
-entity spawns with that player's UUID as owner. Previous entities are not affected.
+no owner data. When any player picks up the item and activates flying mode, a new familiar
+spawns with that player's UUID as owner. Previous familiars are not affected.
 
 ### Model
 Rendered via GeckoLib. Model is authored in Blockbench as a `.geo.json` with accompanying
@@ -146,10 +154,15 @@ The following named clips must be defined in the animation JSON:
 | Clip Name | Description |
 |---|---|
 | `idle` | Gentle upright float with slow vertical bob |
+| `idle_curious` | Slight drift and inquisitive tilt toward a nearby block |
+| `idle_figure_eight` | Slow lazy figure-eight trace at hover position |
+| `idle_recoil` | Quick backward flinch from fire/lava/TNT |
+| `idle_perk` | Brief upward tilt and alert pause (rain start) |
 | `alert` | Tilting toward mob target — transitions from idle |
 | `charge_spin` | Corkscrew drill spin on own axis, no orbiting |
 | `launch` | Blade-forward dart, minimal visual |
 | `stuck` | Embedded in block, slight vibration |
+| `tether_pull` | Embedded vibration intensifies, blade glows as player is pulled toward it |
 | `sweep_hold` | Sword held in front, hilt toward player |
 | `block_stance` | Diagonal X-across-chest orientation |
 | `block_slash` | Wide horizontal slash from guard position on G release |
@@ -168,7 +181,9 @@ intentionally simple and which need authored work.
 |---|---|
 | Flying mode entered (spawn) | Sword materializes at the player's side with a brief fade-in and particle burst matching the telekinetic shimmer color. No flight-from-hand animation. |
 | HOVERING → CHARGING | Sword glides smoothly from its current hover position to the left/right charge position. `charge_spin` ramps up from zero rotational speed over ~0.25 seconds rather than snapping to full spin instantly. |
+| STUCK → TETHERING | Sword's `stuck` vibration intensifies and blade takes on a brighter glow. No positional change — the sword stays embedded. Visual cue is on the sword, not the player. |
 | STUCK → RETURNING | Brief pull-out pause (~2–3 frames) before the sword wrenches free and begins return travel. Blends from `stuck` vibration into `return` clip. |
+| TETHERING → RETURNING (arrival/timeout) | Sword wrenches free from embedded position with a brief pull-out pause. Particle burst on release. Transitions into `return` clip for tip-forward travel back to the player. |
 | RETURNING → HOVERING | Sword decelerates using spring physics on arrival (overshoot, oscillate, settle). GeckoLib blends from `return` into `idle`. No dedicated clip needed. |
 | CHARGING → BLOCKING | `charge_spin` winds down rapidly (~0.15 seconds) as the sword repositions from the side to X-across-chest in front. Blends into `block_stance`. |
 | SWEEPING_HOLD → BLOCKING | Sword arrests its sweep momentum and slides into the guard position in front of the player. Blends from `sweep_hold` into `block_stance`. Brief visual only — no dedicated clip needed. |
@@ -219,7 +234,7 @@ as "ready to lunge" rather than randomly oriented.
 
 ### Fallback — No Valid Position
 If all five candidate positions are obstructed (e.g., the player is fully enclosed in a
-1×1×1 space): flying mode exits immediately and the sword returns to the player's hand. There
+1×1×1 space): flying mode exits immediately and the sword snaps to the player's hand. There
 is **no automatic re-engagement**. The player must press F manually.
 
 ---
@@ -227,7 +242,7 @@ is **no automatic re-engagement**. The player must press F manually.
 ## 8. Lazy Follow & Spring Physics
 
 ### Follow Behavior
-The sword does not rigidly track the player. It follows with spring physics:
+The familiar does not rigidly track the player. It follows with spring physics:
 
 - It lags behind the player's movement
 - It overshoots its target position slightly on arrival
@@ -259,7 +274,7 @@ what happens when a conflict arises. Dimension travel is covered separately in S
 ## 9. Mob Awareness
 
 ### Scan
-Every tick, the sword scans for **hostile mobs only** within a **16-block radius**.
+Every tick, the familiar scans for **hostile mobs only** within a **16-block radius**.
 Passive animals are ignored. Other players are tracked for awareness but never auto-targeted
 and the sword never auto-attacks them.
 
@@ -294,6 +309,7 @@ FLYING (parent)
 ├── CHARGING
 ├── LAUNCHING
 ├── STUCK
+├── TETHERING
 ├── SWEEPING_HOLD
 ├── SWEEPING_RELEASE
 ├── BLOCKING
@@ -311,7 +327,7 @@ transitions.
 state without exception.
 
 **Entity validation:** Every server tick while flying mode is active, the server confirms
-the sword entity exists and is loaded. If the entity cannot be found for any reason
+the familiar entity exists and is loaded. If the entity cannot be found for any reason
 (chunk unloaded, removed by another mod, any unexpected absence), flying mode exits
 immediately. See Section 18 for details.
 
@@ -343,6 +359,36 @@ are nearby. The hand pose is relaxed.
 | F pressed | Exit flying mode |
 | Player dies | → death logic |
 
+### Idle Personality Behaviors
+
+When the player is in HOVERING with **no hostile mobs within awareness range** and **no
+inputs for an extended period** [TUNE — suggested: 5+ seconds of idle], the familiar begins
+exhibiting contextual idle behaviors. These are purely cosmetic — no new states, no
+gameplay effect, no damage, no interaction. They run as branching logic within HOVERING's
+idle animation system.
+
+**Behaviors:**
+
+- **Curious drift:** If a notable block is within 4 blocks (chest, crafting table, brewing
+  stand, enchanting table, bookshelf), the sword slowly drifts 1–2 blocks toward it and
+  tilts inquisitively, as if inspecting it. Holds for 2–3 seconds, then drifts back to its
+  hover position. Only one curiosity drift per idle period — the sword does not ping-pong
+  between multiple blocks.
+
+- **Lazy figure-eight:** After 10+ seconds of complete idle (player standing still, no
+  mobs, no block interactions), the sword traces a slow, lazy figure-eight in the air at
+  its hover position. Gentle, meditative movement. Interrupts immediately on any player
+  input or mob entering range.
+
+- **Environmental reactions:** The sword recoils slightly (quick backward flinch, ~0.5
+  blocks) from nearby fire, lava, or active TNT within 3 blocks. It perks up alertly (brief
+  upward tilt and pause) when rain starts. These trigger once per stimulus, not continuously.
+
+- **Resumption:** Any player input, any mob entering awareness range, or the player
+  beginning to move cancels idle behaviors instantly. The sword snaps back to its standard
+  hover position with no transition delay. Combat readiness is never compromised by
+  personality.
+
 ---
 
 ### State: CHARGING
@@ -364,7 +410,7 @@ drains approximately the same stamina as 3 seconds of active Epic Fight blocking
 charge. This is intentional — the charge is a commitment the player protects by positioning
 or by canceling into BLOCKING via G.
 
-**If stamina depletes before 3 seconds:** Charge stops. Sword transitions to HOVERING state.
+**If stamina depletes before 3 seconds:** Charge stops. Sword transitions to HOVERING.
 No launch occurs.
 
 **Charge tiers:**
@@ -412,9 +458,9 @@ aimed.
   Every entity in the line takes full damage.
 - Each entity is hit **at most once** on the outbound path (per-direction hit set).
 
-**Block contact:** The sword embeds in the first solid block face it contacts → STUCK state.
+**Block contact:** The sword embeds in the first solid block face it contacts → STUCK.
 
-**At max range (no block hit):** The sword immediately transitions to RETURNING state with no
+**At max range (no block hit):** The sword immediately transitions to RETURNING with no
 pause. It flips to tip-forward and travels at **constant high speed** back to the player.
 
 **Entry:** Left click released from CHARGING (or tapped from HOVERING for uncharged).
@@ -438,11 +484,11 @@ pause. It flips to tip-forward and travels at **constant high speed** back to th
 The sword is embedded in a block face, tip-first. It vibrates slightly (animation clip:
 `stuck`). It stays at its world position. The player can move freely.
 
-**Auto-return timer:** 3 seconds. After 3 seconds with no input, transitions to RETURNING state.
+**Auto-return timer:** 3 seconds. After 3 seconds with no input, transitions to RETURNING.
 
 **Return from STUCK:** Tip-forward, 8 damage per entity on return arc (per-direction hit
 set — each entity hit at most once on the return). Sword phases through blocks during
-return (see Section 10, RETURNING state).
+RETURNING (see Section 10, RETURNING state).
 
 **Entry:** Sword contacts solid block during LAUNCHING.
 
@@ -450,12 +496,71 @@ return (see Section 10, RETURNING state).
 | Input | Transition |
 |---|---|
 | R pressed | → RETURNING (after 1-tick delay, cancels 3s timer) |
+| Shift pressed (fresh) | → TETHERING (cancels 3s timer) |
 | 3 seconds elapsed | → RETURNING |
 | Left click | Ignored |
 | Right click | Ignored |
 | G pressed | Ignored |
 | F pressed | Ignored |
 | Player dies | → death logic (immediate despawn, no animation) |
+
+---
+
+### State: TETHERING
+
+Shift pressed (fresh) while in STUCK. The player is yanked toward the **midpoint** between
+their current position and the sword's embedded position — a half-distance grapple. The
+sword stays embedded during the pull; on arrival, it transitions to RETURNING. This gives
+the sword a traversal identity and rewards aggressive positioning: launch the sword into a
+wall across a gap, then pull yourself halfway and let the sword fly back to meet you.
+
+**Fresh press requirement:** Shift must be **pressed during STUCK**, not already held when
+STUCK is entered. If the player was sneaking (holding Shift) when the sword embedded, they
+must release Shift and press it again to trigger the tether. This prevents accidental
+activation when the player was sneaking near an edge and launched.
+
+**Midpoint calculation:** Player is at position A, sword is embedded at position B. The
+tether destination is the midpoint M between A and B. The player is pulled toward M, not
+toward the sword itself.
+
+**Player movement:** A strong velocity vector is applied toward the midpoint each tick. The
+player **collides with blocks normally** — they do not phase through terrain. The player can
+still take damage during the pull. No player input controls steering; the pull direction is
+always toward the midpoint.
+
+**On arrival at midpoint:** When the player reaches within **2 blocks** of the midpoint,
+the pull stops. The sword transitions to RETURNING — pulls out of the block, tip-forward,
+8 damage per entity on the return path from the sword's position to the player's new
+position, phases through blocks as normal RETURNING behavior. Arrives at the player →
+HOVERING.
+
+**On timeout:** If the player has not arrived within **2 seconds** [TUNE], the pull stops.
+The sword transitions to RETURNING.
+
+**On geometry block:** If the player's velocity toward the midpoint drops to effectively
+zero (stuck against a wall or ceiling) for more than **10 ticks** [TUNE], the pull stops.
+The sword transitions to RETURNING. The player is not left hanging.
+
+**Pull speed:** Fast enough to feel dramatic, slow enough to read visually. Starting point:
+roughly **1.5× sprint speed** [TUNE]. The pull accelerates slightly as the player gets
+closer to sell the "reeling in" feel.
+
+**Stamina cost:** None. The tether is a reward for landing a STUCK, not an additional drain.
+
+**Entry:** Shift pressed (fresh) during STUCK.
+
+**Input Handling:**
+| Input | Transition |
+|---|---|
+| Arrives at midpoint (~2 blocks) | Pull stops → sword enters RETURNING |
+| 2 seconds elapsed | Pull stops → sword enters RETURNING |
+| Geometry blocked (10+ ticks) | Pull stops → sword enters RETURNING |
+| Left click | Ignored |
+| Right click | Ignored |
+| G pressed | Ignored |
+| R pressed | Ignored |
+| F pressed | Ignored |
+| Player dies | → death logic |
 
 ---
 
@@ -489,7 +594,7 @@ Cannot be sustained indefinitely.
 **Charging is blocked** while in SWEEPING_HOLD. Left-click-hold during this state does
 nothing.
 
-**Entry:** Right click held from HOVERING state.
+**Entry:** Right click held from HOVERING.
 
 **Input Handling:**
 | Input | Transition |
@@ -526,12 +631,12 @@ non-damaging.
 return, identical to the RETURNING state's block phasing behavior. It always reaches the
 player.
 
-**Entry:** Right click released from SWEEPING_HOLD state.
+**Entry:** Right click released from SWEEPING_HOLD.
 
 **Input Handling:**
 | Input | Transition |
 |---|---|
-| Sword returns to player | → HOVERING state |
+| Sword returns to player | → HOVERING |
 | Left click | Ignored |
 | Right click | Ignored |
 | G pressed | Ignored |
@@ -557,7 +662,7 @@ Does not block explosions. Does not block magic or area-of-effect damage.
 Epic Fight stamina bar.
 
 **If stamina depletes during BLOCKING:** The guard breaks. The `guard_break` animation
-plays (brief stagger/wobble). The sword transitions to HOVERING state. **No horizontal slash
+plays (brief stagger/wobble). The sword transitions to HOVERING. **No horizontal slash
 fires.** The G keybind enters a **3-second cooldown** before BLOCKING can be entered again.
 
 **Projectile interception:** Physical projectiles (arrows, thrown tridents, fireballs)
@@ -572,16 +677,16 @@ projectiles, explosions, and area effects are not intercepted.
 slash** in front of the player (one side to the other), using the `block_slash` animation
 clip. This slash is always the same regardless of how long G was held. The slash uses a
 fixed damage value [TUNE — suggested: 12–14 damage]. After the slash completes, the sword
-returns to HOVERING state.
+returns to HOVERING.
 
-**Entry:** G held from HOVERING state, or G pressed during CHARGING state (cancels charge) or
-SWEEPING_HOLD state (cancels sweep).
+**Entry:** G held from HOVERING, or G pressed during CHARGING (cancels charge) or
+SWEEPING_HOLD (cancels sweep).
 
 **Input Handling:**
 | Input | Transition |
 |---|---|
-| G released (stamina remaining) | → `block_slash` animation → HOVERING state |
-| Stamina depleted | → `guard_break` animation → HOVERING state (no slash, G on 3s cooldown) |
+| G released (stamina remaining) | → `block_slash` animation → HOVERING |
+| Stamina depleted | → `guard_break` animation → HOVERING (no slash, G on 3s cooldown) |
 | F pressed | Instant exit flying mode (despawn entity, sword to inventory) |
 | Left click | Ignored |
 | Right click | Ignored |
@@ -607,14 +712,14 @@ During the RETURNING state, the familiar **phases through all solid blocks**. It
 collide with terrain on the return journey. It always reaches the player. This is identical
 to a Loyalty trident's return behavior.
 
-**Arrival:** When the sword reaches within **vanilla item pickup range (~1.5 blocks)**
-of the player, it transitions to HOVERING state and resumes normal floating behavior. The sword
+**Arrival:** When the familiar reaches within **vanilla item pickup range (~1.5 blocks)**
+of the player, it transitions to HOVERING and resumes normal floating behavior. The sword
 decelerates using spring physics (overshoot, oscillate, settle into hover position).
 
 **Input Handling:**
 | Input | Transition |
 |---|---|
-| Arrives at player | → HOVERING state |
+| Arrives at player | → HOVERING |
 | Left click | Ignored |
 | Right click | Ignored |
 | G pressed | Ignored |
@@ -629,8 +734,8 @@ decelerates using spring physics (overshoot, oscillate, settle into hover positi
 **Available from:** LAUNCHING, STUCK.
 **Not available from:** HOVERING (nothing to recall), CHARGING (charge must be released or
 canceled), SWEEPING_HOLD (must release right click), SWEEPING_RELEASE (full commitment),
-BLOCKING (sword is in guard position, not away from the player), RETURNING (already
-returning).
+BLOCKING (sword is in guard position, not away from the player), TETHERING (player is being
+pulled to sword), RETURNING (already returning).
 
 **Behavior:** A 1-tick delay occurs after R is pressed (the sword "hears" the command),
 then the sword immediately transitions to RETURNING using tip-forward mode. The hit set
@@ -668,9 +773,9 @@ circumstances. The item always travels with the inventory.
 Wading through shallow water without entering the swimming pose has no effect on flying mode.
 
 **What happens:**
-- If the sword is in any state other than RETURNING: it immediately transitions to
-  RETURNING state, phases through any blocks in the way, and reaches the player.
-- If the sword is already in RETURNING: it continues its return normally.
+- If the familiar is in any state other than RETURNING: it immediately transitions to
+  RETURNING, phases through any blocks in the way, and reaches the player.
+- If the familiar is already in RETURNING: it continues its return normally.
 - On arrival at the player in either case: flying mode exits automatically.
 
 **Re-engagement:** Flying mode **never re-engages automatically**. When the player exits
@@ -685,7 +790,7 @@ Flying mode cannot be **entered** while the player is riding any entity.
 
 If flying mode is **already active** and the player attempts to mount or ride anything
 (horse, boat, minecart, pig, strider, or any other `is_passenger` situation), the
-**mount action is blocked**. The player receives a hotbar message: *"The sword must return 
+**mount action is blocked**. The player receives a hotbar message: *"Sheathe your sword
 first."* The player must exit flying mode manually before mounting.
 
 Flying mode **never exits automatically** due to mounting because the mount action is
@@ -700,9 +805,9 @@ Flying mode cannot be **entered** while the player is in elytra flight.
 If flying mode is **already active** and the player attempts to enter elytra flight, the
 elytra behavior follows the same pattern as water/swimming:
 
-- If the sword is in any state other than RETURNING: it immediately transitions to
-  RETURNING state, phases through any blocks in the way, and reaches the player.
-- If the sword is already in RETURNING: it continues its return normally.
+- If the familiar is in any state other than RETURNING: it immediately transitions to
+  RETURNING, phases through any blocks in the way, and reaches the player.
+- If the familiar is already in RETURNING: it continues its return normally.
 - On arrival at the player: flying mode exits automatically.
 
 **Re-engagement:** Flying mode **never re-engages automatically**. When elytra flight ends,
@@ -716,12 +821,12 @@ If the player enters a dimension transition (nether portal, end portal, any inte
 travel) while flying mode is active, the behavior follows the same pattern as
 water/swimming:
 
-- If the sword is in any state other than RETURNING: it immediately transitions to
-  RETURNING state, phases through any blocks in the way, and reaches the player.
-- If the sword is already in RETURNING: it continues its return normally.
+- If the familiar is in any state other than RETURNING: it immediately transitions to
+  RETURNING, phases through any blocks in the way, and reaches the player.
+- If the familiar is already in RETURNING: it continues its return normally.
 - On arrival at the player: flying mode exits automatically.
 
-The sword does **not** travel across dimensions. It returns to the player and despawns
+The familiar does **not** travel across dimensions. It returns to the player and despawns
 in the origin dimension before the player completes the transition.
 
 **Re-engagement:** Flying mode **never re-engages automatically** after dimension travel.
@@ -734,7 +839,7 @@ The player must press F manually in the new dimension.
 When the server detects the player disconnecting (voluntary logout or crash) while flying
 mode is active:
 
-1. The sword entity is **immediately despawned**. No animation, no return travel.
+1. The familiar entity is **immediately despawned**. No animation, no return travel.
 2. The sword's mode is set to **normal mode**.
 3. No state is persisted for restoration.
 
@@ -742,13 +847,13 @@ On reconnect, the player loads in with the sword in their hotbar in normal mode.
 to re-enter flying mode. This is a clean reset — no orphaned entities, no stale state.
 
 This mirrors how Minecraft handles player-bound transient entities (e.g., fishing bobbers)
-and avoids the fragile edge cases of trying to restore sword state across a reconnect.
+and avoids the fragile edge cases of trying to restore familiar state across a reconnect.
 
 ---
 
 ## 18. Entity Validation
 
-Every server tick while flying mode is active, the server confirms that the sword entity
+Every server tick while flying mode is active, the server confirms that the familiar entity
 exists and is loaded. If the entity cannot be found for **any reason** — chunk unloaded,
 removed by another mod, any unexpected absence — the following occurs:
 
@@ -766,18 +871,18 @@ entity is already gone and there is nothing to animate.
 
 ## 19. Multiplayer
 
-- Each sword entity is independently owned by the player whose UUID spawned it.
-- Sword entities do not interact with each other.
+- Each familiar entity is independently owned by the player whose UUID spawned it.
+- Familiar entities do not interact with each other.
 - A sword owned by Player A cannot be picked up by Player B while in any active state. The
   item stays in Player A's hotbar.
 - If Player A dies, the item drops normally and Player B may pick it up. When Player B
-  activates flying mode with that item, a new sword entity spawns with Player B as the new owner.
-  Previous entity data is irrelevant.
+  activates flying mode with that item, a new familiar spawns with Player B as the new owner.
+  Previous familiar data is irrelevant.
 - The sword's mob awareness tracking **excludes** other players — the sword never tilts
   toward players, never auto-attacks players, and never treats players as targets under any
   condition.
-- Sword entities are saved as persistent entities in chunk NBT. If the chunk containing
-  a sword unloads (edge case requiring deliberate player effort), the entity validation
+- Familiar entities are saved as persistent entities in chunk NBT. If the chunk containing
+  a familiar unloads (edge case requiring deliberate player effort), the entity validation
   system (Section 18) handles recovery.
 
 ---
@@ -786,7 +891,7 @@ entity is already gone and there is nothing to animate.
 
 | Element | Renderer | Notes |
 |---|---|---|
-| Sword entity | GeckoLib `GeoEntityRenderer` | Full animated model, all clips |
+| Familiar entity | GeckoLib `GeoEntityRenderer` | Full animated model, all clips |
 | In-hand (normal mode) | Standard item renderer | Default hold position |
 | In-hand (flying mode) | Custom suppressed renderer | Empty hand, shimmer effect |
 | Hotbar icon | Standard 2D + shader overlay | Purple glow while flying |
@@ -794,7 +899,10 @@ entity is already gone and there is nothing to animate.
 | Death animation | GeckoLib clip `death_fall` | Visual only, entity despawns after |
 | Block slash | GeckoLib clip `block_slash` | On G release with stamina remaining |
 | Guard break | GeckoLib clip `guard_break` | On stamina depletion during BLOCKING |
-| Sword spawn | Fade-in + particle burst | On flying mode entry |
+| Tether pull | GeckoLib clip `tether_pull` | Intensified vibration + glow while player pulled |
+| Tether arrival | Particle burst on sword release | When pull ends and sword wrenches free into RETURNING |
+| Idle personality | GeckoLib clips `idle_curious`, `idle_figure_eight`, `idle_recoil`, `idle_perk` | Cosmetic only, within HOVERING |
+| Familiar spawn | Fade-in + particle burst | On flying mode entry |
 
 ---
 
@@ -819,6 +927,9 @@ development. Placeholder mappings:
 | Projectile deflect | `minecraft:item.trident.riptide_1` |
 | Blocking slash release | `minecraft:entity.player.attack.sweep` |
 | Guard break | `minecraft:item.shield.break` |
+| Tether pull start | `minecraft:block.chain.break` |
+| Tether pull loop | `minecraft:entity.fishing_bobber.retrieve` (looped, pitched up) |
+| Tether arrival | `minecraft:entity.enderman.teleport` (pitched up, quieter) |
 | Charge building | `minecraft:block.amethyst_block.resonate` (looped) |
 | Death fall animation | `minecraft:item.trident.hit_ground` |
 
@@ -834,6 +945,7 @@ The following custom packets are required. All use NeoForge's `CustomPacketPaylo
 | `SwordLaunchPacket` | Client → Server | Launch vector and charge level on release |
 | `SwordRecallPacket` | Client → Server | Player pressed R |
 | `SwordGuardPacket` | Client → Server | G key pressed or released (from any valid source state: HOVERING, CHARGING, or SWEEPING_HOLD) |
+| `SwordTetherPacket` | Client → Server | Player pressed Shift (fresh press) during STUCK (tether pull request) |
 | `SwordMomentumPacket` | Client → Server | Per-tick sweep velocity delta (during SWEEPING_HOLD) |
 | `FamiliarStatePacket` | Server → Client | Authoritative state sync for rendering |
 
@@ -867,6 +979,15 @@ All values below are starting points subject to adjustment. They are not final.
 | Sweep invulnerability frames | 10 ticks (0.5 seconds) | [TUNE] Per-entity after hit |
 | Mob awareness radius | 16 blocks | Hostile mobs only |
 | STUCK auto-return timer | 3 seconds | |
+| Tether pull speed | ~1.5× sprint speed | [TUNE] Slight acceleration on approach |
+| Tether arrival range | 2 blocks | From calculated midpoint |
+| Tether timeout | 2 seconds | Pull stops, sword returns |
+| Tether geometry-block threshold | 10 ticks | Zero velocity toward sword |
+| Idle personality trigger | 5 seconds | No inputs, no mobs in range |
+| Idle curiosity range | 4 blocks | Notable blocks only |
+| Idle curiosity hold time | 2–3 seconds | Before drifting back |
+| Idle figure-eight trigger | 10 seconds | Extended idle, player standing still |
+| Idle recoil range | 3 blocks | Fire, lava, active TNT |
 | Blocking slash damage | 12–14 | [TUNE] |
 | Guard break cooldown | 3 seconds | Cooldown on G after stamina depletion |
 | Normal mode base damage | 10 | Epic Fight value |
@@ -885,10 +1006,11 @@ Recommended development sequence. Do not skip phases.
 
 **Phase 1 — Foundation**
 NeoForge 1.21.1 MDK setup. Item registration. F keybind. Hotbar glow indicator. Mode flag
-stored as `DataComponentType<SwordMode>`. Q-key drop prevention. Placeholder item texture.
+stored as `DataComponentType<SwordMode>`. Q-key drop prevention. Ancient City loot table
+injection (5% per chest). Placeholder item texture.
 
-**Phase 2 — Sword Entity (HOVERING only)**
-`SwordEntity` registration. Ownership UUID. Spawn on mode enter (with fade-in and
+**Phase 2 — Familiar Entity (HOVERING only)**
+`SwordFamiliarEntity` registration. Ownership UUID. Spawn on mode enter (with fade-in and
 particle burst). Despawn on mode exit. Candidate position system with obstacle avoidance.
 Spring physics follow. Mob awareness scan and visual tilt. Entity validation tick. Use a
 debug cube hitbox — no GeckoLib yet. Validate physics feel before any other state is built.
@@ -932,10 +1054,29 @@ fade-in effect.
 CHARGING, SWEEPING_HOLD, and BLOCKING states. Guard break cooldown enforcement.
 
 **Phase 10 — Audio and Polish**
-Custom sound event registration with Minecraft placeholders (including `guard_break` sound).
-Particle effects on impact, deflection, embed, and spawn. Network sync polish and client
-prediction. Third-person review of all states and transitions.
+Custom sound event registration with Minecraft placeholders (including `guard_break` and
+`tether_pull` sounds). Particle effects on impact, deflection, embed, spawn, and tether
+arrival. Network sync polish and client prediction. Third-person review of all states and
+transitions.
+
+**Phase 11 — Tether Pull**
+TETHERING state implementation. Shift input during STUCK (fresh press only — Shift already
+held is ignored). Player velocity application toward midpoint between player and sword with
+per-tick direction updates. Normal block collision (no phasing). Arrival detection at
+midpoint → sword transitions to RETURNING. Timeout and geometry-block fallbacks →
+RETURNING. `SwordTetherPacket` network packet. `tether_pull` animation clip with
+intensified vibration and glow. Tether arrival particle burst. Sound events for start, loop,
+and arrival.
+
+**Phase 12 — Idle Personality**
+Idle behavior branching within HOVERING state. Idle timer tracking (5s trigger for
+curiosity, 10s for figure-eight). Notable block scanning within 4-block radius. Curious
+drift movement with inquisitive tilt. Figure-eight trace path at hover position.
+Environmental stimulus detection (fire, lava, TNT within 3 blocks; rain start event).
+Recoil and perk reactions (one-shot per stimulus). Instant cancellation on any player input,
+mob entering range, or player movement. Four idle animation clips: `idle_curious`,
+`idle_figure_eight`, `idle_recoil`, `idle_perk`.
 
 ---
 
-*Document version: 2.0 — All decisions confirmed. Ready for implementation.*
+*Document version: 3.0 — Adds Tether Pull, Idle Personality, and Ancient City spawn. Parry considered and cut (Minecraft TPS too imprecise for timing windows).*

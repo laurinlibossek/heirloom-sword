@@ -33,17 +33,21 @@ public record SwordModePacket() implements CustomPacketPayload {
             ServerLevel level = player.serverLevel();
 
             if (current == SwordMode.FLYING) {
-                // Validate: only allow exit from HOVERING
+                // Validate: allow exit from HOVERING or SWEEPING_HOLD (emergency exit)
                 SwordFamiliarEntity familiar = SwordFamiliarEntity.findForOwner(level, player.getUUID());
-                if (familiar != null && familiar.getState() != FamiliarState.HOVERING) {
-                    return; // F is locked during active states
+                if (familiar != null
+                        && familiar.getState() != FamiliarState.HOVERING
+                        && familiar.getState() != FamiliarState.SWEEPING_HOLD) {
+                    return; // F is locked during other active states
                 }
                 HeirloomSwordItem.setMode(held, SwordMode.NORMAL);
+                held.remove(ModDataComponents.FAMILIAR_UUID.get());
                 SwordFamiliarEntity.despawnForOwner(level, player.getUUID());
             } else {
                 HeirloomSwordItem.setMode(held, SwordMode.FLYING);
                 SwordFamiliarEntity familiar = new SwordFamiliarEntity(level, player);
                 level.addFreshEntity(familiar);
+                held.set(ModDataComponents.FAMILIAR_UUID.get(), familiar.getUUID());
             }
         });
     }

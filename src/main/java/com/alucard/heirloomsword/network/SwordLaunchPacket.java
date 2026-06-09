@@ -60,6 +60,8 @@ public record SwordLaunchPacket(Vec3 direction, boolean charged) implements Cust
             } else if (state == FamiliarState.HOVERING) {
                 Vec3 dir = packet.direction.normalize();
                 familiar.launch(dir, false);
+            } else if (state == FamiliarState.SWEEPING_HOLD) {
+                familiar.releaseSweep();
             }
         });
     }

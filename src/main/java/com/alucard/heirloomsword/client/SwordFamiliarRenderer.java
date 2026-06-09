@@ -33,10 +33,12 @@ public class SwordFamiliarRenderer extends EntityRenderer<SwordFamiliarEntity> {
         FamiliarState state = entity.getState();
         float r, g, b, a = 1.0f;
         switch (state) {
-            case LAUNCHING -> { r = 1.0f; g = 0.5f; b = 0.0f; } // Orange
-            case STUCK -> { r = 1.0f; g = 1.0f; b = 0.0f; }     // Yellow
-            case RETURNING -> { r = 0.0f; g = 1.0f; b = 0.5f; }  // Cyan-green
-            default -> { r = 0.6f; g = 0.2f; b = 0.9f; }         // Purple (hovering)
+            case LAUNCHING -> { r = 1.0f; g = 0.5f; b = 0.0f; }       // Orange
+            case STUCK -> { r = 1.0f; g = 1.0f; b = 0.0f; }           // Yellow
+            case RETURNING -> { r = 0.0f; g = 1.0f; b = 0.5f; }       // Cyan-green
+            case SWEEPING_HOLD -> { r = 1.0f; g = 0.0f; b = 0.5f; }   // Hot pink
+            case SWEEPING_RELEASE -> { r = 0.5f; g = 0.0f; b = 1.0f; } // Violet
+            default -> { r = 0.6f; g = 0.2f; b = 0.9f; }              // Purple (hovering)
         }
 
         LevelRenderer.renderLineBox(poseStack, consumer, box, r, g, b, a);

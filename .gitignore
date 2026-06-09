@@ -38,3 +38,9 @@ run/
 **/src/generated/**/.cache/
 repo/
 !**/src/**/repo/
+
+### Claude Code ###
+.claude/
+.mcp.json
+CLAUDE.md
+docs/alucard_sword_design_*.md
