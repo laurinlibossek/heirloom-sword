@@ -1,6 +1,7 @@
 package com.alucard.heirloomsword;
 
 import com.alucard.heirloomsword.client.SwordFamiliarRenderer;
+import com.alucard.heirloomsword.network.SwordChargePacket;
 import com.alucard.heirloomsword.network.SwordLaunchPacket;
 import com.alucard.heirloomsword.network.SwordModePacket;
 import com.alucard.heirloomsword.network.SwordRecallPacket;
@@ -56,14 +57,23 @@ public class HeirloomSwordModClient {
 
     @EventBusSubscriber(modid = HeirloomSwordMod.MODID, value = Dist.CLIENT, bus = EventBusSubscriber.Bus.GAME)
     public static class ClientEvents {
+        private static boolean isCharging = false;
+        private static int clientChargeTimer = 0;
+
         @SubscribeEvent
         public static void onClientTick(ClientTickEvent.Post event) {
             Minecraft mc = Minecraft.getInstance();
-            if (mc.player == null || mc.screen != null) return;
+            if (mc.player == null || mc.screen != null) {
+                if (isCharging) resetChargeState();
+                return;
+            }
 
             LocalPlayer player = mc.player;
             ItemStack held = player.getMainHandItem();
-            if (!(held.getItem() instanceof HeirloomSwordItem)) return;
+            if (!(held.getItem() instanceof HeirloomSwordItem)) {
+                if (isCharging) resetChargeState();
+                return;
+            }
 
             // Handle F key (toggle mode)
             while (ModKeybinds.TOGGLE_MODE.consumeClick()) {
@@ -85,6 +95,25 @@ public class HeirloomSwordModClient {
                 if (!HeirloomSwordItem.isFlying(held)) continue;
                 PacketDistributor.sendToServer(new SwordRecallPacket());
             }
+
+            // Track charge hold state
+            if (isCharging) {
+                if (!HeirloomSwordItem.isFlying(held)) {
+                    resetChargeState();
+                    return;
+                }
+
+                boolean attackHeld = mc.options.keyAttack.isDown();
+                if (!attackHeld) {
+                    // Released — fire the launch with current look direction
+                    Vec3 lookDir = player.getLookAngle();
+                    boolean charged = clientChargeTimer >= 60; // 3 seconds
+                    PacketDistributor.sendToServer(new SwordLaunchPacket(lookDir, charged));
+                    resetChargeState();
+                } else {
+                    clientChargeTimer++;
+                }
+            }
         }
 
         @SubscribeEvent
@@ -97,20 +126,31 @@ public class HeirloomSwordModClient {
             if (!(held.getItem() instanceof HeirloomSwordItem)) return;
             if (!HeirloomSwordItem.isFlying(held)) return;
 
-            // Left click (attack) — launch sword
+            // Left click (attack) — begin charging or suppress during active states
             if (event.isAttack()) {
+                if (isCharging) {
+                    event.setCanceled(true);
+                    event.setSwingHand(false);
+                    return;
+                }
+
                 SwordFamiliarEntity familiar = findClientFamiliar(player);
                 if (familiar != null && familiar.getState() == FamiliarState.HOVERING) {
-                    Vec3 lookDir = player.getLookAngle();
-                    PacketDistributor.sendToServer(new SwordLaunchPacket(lookDir, false));
+                    PacketDistributor.sendToServer(new SwordChargePacket());
+                    isCharging = true;
+                    clientChargeTimer = 0;
                     event.setCanceled(true);
                     event.setSwingHand(false);
                 } else {
-                    // During active states, suppress the click
                     event.setCanceled(true);
                     event.setSwingHand(false);
                 }
             }
+        }
+
+        private static void resetChargeState() {
+            isCharging = false;
+            clientChargeTimer = 0;
         }
 
         @SubscribeEvent
@@ -134,6 +174,29 @@ public class HeirloomSwordModClient {
             int hotbarY = screenHeight - 22;
 
             renderPurpleGlow(guiGraphics, hotbarX, hotbarY);
+
+            // Render charge bar when charging (only after 1 second hold)
+            if (isCharging && clientChargeTimer >= 20) {
+                renderChargeBar(guiGraphics, screenWidth, screenHeight);
+            }
+        }
+
+        private static void renderChargeBar(GuiGraphics guiGraphics, int screenWidth, int screenHeight) {
+            int barWidth = 40;
+            int barHeight = 3;
+            int barX = screenWidth / 2 - barWidth / 2;
+            int barY = screenHeight / 2 + 14;
+
+            // Progress maps ticks 20-60 to 0.0-1.0
+            float progress = Math.min(1.0f, (clientChargeTimer - 20) / 40.0f);
+            int fillWidth = (int) (barWidth * progress);
+
+            // Background
+            guiGraphics.fill(barX - 1, barY - 1, barX + barWidth + 1, barY + barHeight + 1, 0xAA000000);
+
+            // Fill — purple when charging, gold when fully charged
+            int fillColor = progress >= 1.0f ? 0xFFFFD700 : 0xFF9933FF;
+            guiGraphics.fill(barX, barY, barX + fillWidth, barY + barHeight, fillColor);
         }
 
         private static void renderPurpleGlow(GuiGraphics guiGraphics, int x, int y) {

@@ -4,9 +4,13 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.network.syncher.EntityDataSerializers;
 import net.minecraft.network.syncher.SynchedEntityData;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.ai.attributes.AttributeInstance;
+import net.minecraft.world.entity.ai.attributes.AttributeModifier;
+import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.monster.Monster;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.server.level.ServerLevel;
@@ -45,6 +49,9 @@ public class SwordFamiliarEntity extends Entity {
     private static final double MAX_LAUNCH_RANGE = 48.0;
     private static final double PICKUP_RANGE = 1.5;
     private static final int STUCK_TIMEOUT_TICKS = 60; // 3 seconds
+    private static final int CHARGE_THRESHOLD_TICKS = 60; // 3 seconds for charged tier
+    private static final ResourceLocation CHARGE_SLOW_ID =
+            ResourceLocation.fromNamespaceAndPath(HeirloomSwordMod.MODID, "charge_slowdown");
 
     private static final float LAUNCH_DAMAGE_NORMAL = 16.0f;
     private static final float LAUNCH_DAMAGE_CHARGED = 32.0f;
@@ -60,6 +67,9 @@ public class SwordFamiliarEntity extends Entity {
     private Vec3 launchOrigin = Vec3.ZERO;
     private boolean chargedLaunch = false;
     private final Set<Integer> outboundHitSet = new HashSet<>();
+
+    // CHARGING state fields
+    private int chargeTimer = 0;
 
     // STUCK state fields
     private int stuckTimer = 0;
@@ -140,12 +150,14 @@ public class SwordFamiliarEntity extends Entity {
     private void serverTick() {
         Player owner = getOwner();
         if (owner == null || owner.isRemoved() || !owner.isAlive()) {
+            removeChargeSlowdown();
             this.discard();
             return;
         }
 
         switch (getState()) {
             case HOVERING -> tickHovering(owner);
+            case CHARGING -> tickCharging(owner);
             case LAUNCHING -> tickLaunching(owner);
             case STUCK -> tickStuck(owner);
             case RETURNING -> tickReturning(owner);
@@ -158,6 +170,7 @@ public class SwordFamiliarEntity extends Entity {
 
         switch (getState()) {
             case HOVERING -> tickHovering(owner);
+            case CHARGING -> tickChargingClient(owner);
             case LAUNCHING -> tickLaunchingClient();
             case STUCK -> {} // No client tick needed for stuck
             case RETURNING -> tickReturningClient(owner);
@@ -172,14 +185,70 @@ public class SwordFamiliarEntity extends Entity {
         updateMobAwareness(owner);
     }
 
+    // === CHARGING ===
+
+    public void startCharging() {
+        this.chargeTimer = 0;
+        setState(FamiliarState.CHARGING);
+    }
+
+    public boolean isChargeReady() {
+        return chargeTimer >= CHARGE_THRESHOLD_TICKS;
+    }
+
+    public int getChargeTimer() {
+        return chargeTimer;
+    }
+
+    private void tickCharging(Player owner) {
+        chargeTimer++;
+
+        // Apply movement slowdown via attribute modifier (like bow draw)
+        AttributeInstance speedAttr = owner.getAttribute(Attributes.MOVEMENT_SPEED);
+        if (speedAttr != null && speedAttr.getModifier(CHARGE_SLOW_ID) == null) {
+            speedAttr.addTransientModifier(new AttributeModifier(
+                    CHARGE_SLOW_ID, -0.6, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL));
+        }
+
+        // Keep sword at the side position (reuse candidate system — prefer right/left)
+        updateChargingPosition(owner);
+        applySpringPhysics();
+    }
+
+    private void tickChargingClient(Player owner) {
+        updateChargingPosition(owner);
+        applySpringPhysics();
+    }
+
+    private void updateChargingPosition(Player owner) {
+        // Prefer right side (candidate 0), fall back to left (candidate 1)
+        Vec3 rightSide = computeCandidatePosition(owner, 0);
+        if (!isPositionObstructed(rightSide)) {
+            targetPosition = rightSide;
+        } else {
+            Vec3 leftSide = computeCandidatePosition(owner, 1);
+            targetPosition = leftSide;
+        }
+    }
+
     // === LAUNCHING ===
 
     public void launch(Vec3 direction, boolean charged) {
+        removeChargeSlowdown();
         this.launchDirection = direction.normalize();
         this.launchOrigin = this.position();
         this.chargedLaunch = charged;
         this.outboundHitSet.clear();
         setState(FamiliarState.LAUNCHING);
+    }
+
+    private void removeChargeSlowdown() {
+        Player owner = getOwner();
+        if (owner == null) return;
+        AttributeInstance speedAttr = owner.getAttribute(Attributes.MOVEMENT_SPEED);
+        if (speedAttr != null) {
+            speedAttr.removeModifier(CHARGE_SLOW_ID);
+        }
     }
 
     private void tickLaunching(Player owner) {

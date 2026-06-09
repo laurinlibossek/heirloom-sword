@@ -52,11 +52,15 @@ public record SwordLaunchPacket(Vec3 direction, boolean charged) implements Cust
             SwordFamiliarEntity familiar = SwordFamiliarEntity.findForOwner(level, player.getUUID());
             if (familiar == null) return;
 
-            // Only launch from HOVERING state
-            if (familiar.getState() != FamiliarState.HOVERING) return;
-
-            Vec3 dir = packet.direction.normalize();
-            familiar.launch(dir, packet.charged);
+            FamiliarState state = familiar.getState();
+            if (state == FamiliarState.CHARGING) {
+                Vec3 dir = packet.direction.normalize();
+                boolean charged = familiar.isChargeReady();
+                familiar.launch(dir, charged);
+            } else if (state == FamiliarState.HOVERING) {
+                Vec3 dir = packet.direction.normalize();
+                familiar.launch(dir, false);
+            }
         });
     }
 }
