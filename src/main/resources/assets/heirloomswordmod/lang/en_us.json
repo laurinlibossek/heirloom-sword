@@ -1,0 +1,13 @@
+{
+  "itemGroup.heirloomswordmod": "Example Mod Tab",
+  "block.heirloomswordmod.example_block": "Example Block",
+  "item.heirloomswordmod.example_item": "Example Item",
+
+  "heirloomswordmod.configuration.title": "Heirloom Sword Mod Configs",
+  "heirloomswordmod.configuration.section.heirloomswordmod.common.toml": "Heirloom Sword Mod Configs",
+  "heirloomswordmod.configuration.section.heirloomswordmod.common.toml.title": "Heirloom Sword Mod Configs",
+  "heirloomswordmod.configuration.items": "Item List",
+  "heirloomswordmod.configuration.logDirtBlock": "Log Dirt Block",
+  "heirloomswordmod.configuration.magicNumberIntroduction": "Magic Number Text",
+  "heirloomswordmod.configuration.magicNumber": "Magic Number"
+}
