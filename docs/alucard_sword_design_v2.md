@@ -1,4 +1,4 @@
-# Alucard's Sword — Mod Design Document
+# Heirloom Sword — Mod Design Document
 **Platform:** NeoForge 1.21.1
 **Status:** Pre-implementation reference. All decisions final unless marked [TUNE].
 
@@ -31,14 +31,14 @@ accept any enchantment at an enchanting table or anvil. It is a magical artifact
 as one.
 
 ### Hotbar Behavior
-The item always remains in the player's hotbar, including while the familiar is in flying
-mode. The hotbar slot displays a faint purplish glow on the item icon at all times while
-flying mode is active. No glow in normal mode. No other HUD indicators are added.
+The item always remains in the player's hotbar, including while in flying mode. The hotbar 
+slot displays a faint purplish glow on the item icon at all times while flying mode is 
+active. No glow in normal mode. No other HUD indicators are added.
 
 ### Drop Prevention
 The item cannot be dropped via the Q key while in flying mode. Attempting to do so produces
 a hotbar message: *"The sword refuses to leave your side."* No item is dropped and no
-familiar state is changed.
+state is changed.
 
 ---
 
@@ -50,7 +50,7 @@ familiar state is changed.
 ### Lock Condition
 Mode switching via F is available in the following states:
 
-- **HOVERING:** Normal toggle. Exits flying mode, despawns familiar.
+- **HOVERING:** Normal toggle. Exits flying mode, despawns the sword entity.
 - **SWEEPING_HOLD:** Emergency exit. Instant despawn, sword returns to inventory.
 - **BLOCKING:** Emergency exit. Instant despawn, sword returns to inventory.
 
@@ -59,11 +59,11 @@ the F keybind is locked and does nothing. The sword is committed and must comple
 current action before mode switching becomes available again.
 
 ### Normal → Flying Transition
-The familiar entity is spawned at the player's side. The item remains in the hotbar. The
+The Heirloom Sword entity is spawned at the player's side. The item remains in the hotbar. The
 player's hand rendering switches to the gesture system.
 
 ### Flying → Normal Transition
-The familiar despawns instantly — fast enough that no despawn animation is needed. The
+The sword entity despawns instantly — fast enough that no despawn animation is needed. The
 player's hand rendering returns to holding the sword normally.
 
 ---
@@ -114,7 +114,7 @@ Third-person presentation of hand gestures will be validated during playtesting.
 
 ---
 
-## 6. The Familiar Entity
+## 6. The Heirloom Sword Entity
 
 ### Class Design
 A custom non-living `Entity` subclass (not `Mob`, not `LivingEntity`). It has no health
@@ -125,8 +125,8 @@ chunk NBT on unload and resumes on reload.
 ### Ownership
 The entity stores the owning player's UUID in its NBT data (`ownerUUID`). This is private
 entity data — not visible on the item, not visible to other players. The item itself carries
-no owner data. When any player picks up the item and activates flying mode, a new familiar
-spawns with that player's UUID as owner. Previous familiars are not affected.
+no owner data. When any player picks up the item and activates flying mode, a new sword 
+entity spawns with that player's UUID as owner. Previous entities are not affected.
 
 ### Model
 Rendered via GeckoLib. Model is authored in Blockbench as a `.geo.json` with accompanying
@@ -219,7 +219,7 @@ as "ready to lunge" rather than randomly oriented.
 
 ### Fallback — No Valid Position
 If all five candidate positions are obstructed (e.g., the player is fully enclosed in a
-1×1×1 space): flying mode exits immediately and the sword snaps to the player's hand. There
+1×1×1 space): flying mode exits immediately and the sword returns to the player's hand. There
 is **no automatic re-engagement**. The player must press F manually.
 
 ---
@@ -227,7 +227,7 @@ is **no automatic re-engagement**. The player must press F manually.
 ## 8. Lazy Follow & Spring Physics
 
 ### Follow Behavior
-The familiar does not rigidly track the player. It follows with spring physics:
+The sword does not rigidly track the player. It follows with spring physics:
 
 - It lags behind the player's movement
 - It overshoots its target position slightly on arrival
@@ -259,7 +259,7 @@ what happens when a conflict arises. Dimension travel is covered separately in S
 ## 9. Mob Awareness
 
 ### Scan
-Every tick, the familiar scans for **hostile mobs only** within a **16-block radius**.
+Every tick, the sword scans for **hostile mobs only** within a **16-block radius**.
 Passive animals are ignored. Other players are tracked for awareness but never auto-targeted
 and the sword never auto-attacks them.
 
@@ -311,7 +311,7 @@ transitions.
 state without exception.
 
 **Entity validation:** Every server tick while flying mode is active, the server confirms
-the familiar entity exists and is loaded. If the entity cannot be found for any reason
+the sword entity exists and is loaded. If the entity cannot be found for any reason
 (chunk unloaded, removed by another mod, any unexpected absence), flying mode exits
 immediately. See Section 18 for details.
 
@@ -364,7 +364,7 @@ drains approximately the same stamina as 3 seconds of active Epic Fight blocking
 charge. This is intentional — the charge is a commitment the player protects by positioning
 or by canceling into BLOCKING via G.
 
-**If stamina depletes before 3 seconds:** Charge stops. Sword transitions to HOVERING.
+**If stamina depletes before 3 seconds:** Charge stops. Sword transitions to HOVERING state.
 No launch occurs.
 
 **Charge tiers:**
@@ -412,9 +412,9 @@ aimed.
   Every entity in the line takes full damage.
 - Each entity is hit **at most once** on the outbound path (per-direction hit set).
 
-**Block contact:** The sword embeds in the first solid block face it contacts → STUCK.
+**Block contact:** The sword embeds in the first solid block face it contacts → STUCK state.
 
-**At max range (no block hit):** The sword immediately transitions to RETURNING with no
+**At max range (no block hit):** The sword immediately transitions to RETURNING state with no
 pause. It flips to tip-forward and travels at **constant high speed** back to the player.
 
 **Entry:** Left click released from CHARGING (or tapped from HOVERING for uncharged).
@@ -438,11 +438,11 @@ pause. It flips to tip-forward and travels at **constant high speed** back to th
 The sword is embedded in a block face, tip-first. It vibrates slightly (animation clip:
 `stuck`). It stays at its world position. The player can move freely.
 
-**Auto-return timer:** 3 seconds. After 3 seconds with no input, transitions to RETURNING.
+**Auto-return timer:** 3 seconds. After 3 seconds with no input, transitions to RETURNING state.
 
 **Return from STUCK:** Tip-forward, 8 damage per entity on return arc (per-direction hit
 set — each entity hit at most once on the return). Sword phases through blocks during
-RETURNING (see Section 10, RETURNING state).
+return (see Section 10, RETURNING state).
 
 **Entry:** Sword contacts solid block during LAUNCHING.
 
@@ -489,7 +489,7 @@ Cannot be sustained indefinitely.
 **Charging is blocked** while in SWEEPING_HOLD. Left-click-hold during this state does
 nothing.
 
-**Entry:** Right click held from HOVERING.
+**Entry:** Right click held from HOVERING state.
 
 **Input Handling:**
 | Input | Transition |
@@ -526,12 +526,12 @@ non-damaging.
 return, identical to the RETURNING state's block phasing behavior. It always reaches the
 player.
 
-**Entry:** Right click released from SWEEPING_HOLD.
+**Entry:** Right click released from SWEEPING_HOLD state.
 
 **Input Handling:**
 | Input | Transition |
 |---|---|
-| Sword returns to player | → HOVERING |
+| Sword returns to player | → HOVERING state |
 | Left click | Ignored |
 | Right click | Ignored |
 | G pressed | Ignored |
@@ -557,7 +557,7 @@ Does not block explosions. Does not block magic or area-of-effect damage.
 Epic Fight stamina bar.
 
 **If stamina depletes during BLOCKING:** The guard breaks. The `guard_break` animation
-plays (brief stagger/wobble). The sword transitions to HOVERING. **No horizontal slash
+plays (brief stagger/wobble). The sword transitions to HOVERING state. **No horizontal slash
 fires.** The G keybind enters a **3-second cooldown** before BLOCKING can be entered again.
 
 **Projectile interception:** Physical projectiles (arrows, thrown tridents, fireballs)
@@ -572,16 +572,16 @@ projectiles, explosions, and area effects are not intercepted.
 slash** in front of the player (one side to the other), using the `block_slash` animation
 clip. This slash is always the same regardless of how long G was held. The slash uses a
 fixed damage value [TUNE — suggested: 12–14 damage]. After the slash completes, the sword
-returns to HOVERING.
+returns to HOVERING state.
 
-**Entry:** G held from HOVERING, or G pressed during CHARGING (cancels charge) or
-SWEEPING_HOLD (cancels sweep).
+**Entry:** G held from HOVERING state, or G pressed during CHARGING state (cancels charge) or
+SWEEPING_HOLD state (cancels sweep).
 
 **Input Handling:**
 | Input | Transition |
 |---|---|
-| G released (stamina remaining) | → `block_slash` animation → HOVERING |
-| Stamina depleted | → `guard_break` animation → HOVERING (no slash, G on 3s cooldown) |
+| G released (stamina remaining) | → `block_slash` animation → HOVERING state |
+| Stamina depleted | → `guard_break` animation → HOVERING state (no slash, G on 3s cooldown) |
 | F pressed | Instant exit flying mode (despawn entity, sword to inventory) |
 | Left click | Ignored |
 | Right click | Ignored |
@@ -607,14 +607,14 @@ During the RETURNING state, the familiar **phases through all solid blocks**. It
 collide with terrain on the return journey. It always reaches the player. This is identical
 to a Loyalty trident's return behavior.
 
-**Arrival:** When the familiar reaches within **vanilla item pickup range (~1.5 blocks)**
-of the player, it transitions to HOVERING and resumes normal floating behavior. The sword
+**Arrival:** When the sword reaches within **vanilla item pickup range (~1.5 blocks)**
+of the player, it transitions to HOVERING state and resumes normal floating behavior. The sword
 decelerates using spring physics (overshoot, oscillate, settle into hover position).
 
 **Input Handling:**
 | Input | Transition |
 |---|---|
-| Arrives at player | → HOVERING |
+| Arrives at player | → HOVERING state |
 | Left click | Ignored |
 | Right click | Ignored |
 | G pressed | Ignored |
@@ -668,9 +668,9 @@ circumstances. The item always travels with the inventory.
 Wading through shallow water without entering the swimming pose has no effect on flying mode.
 
 **What happens:**
-- If the familiar is in any state other than RETURNING: it immediately transitions to
-  RETURNING, phases through any blocks in the way, and reaches the player.
-- If the familiar is already in RETURNING: it continues its return normally.
+- If the sword is in any state other than RETURNING: it immediately transitions to
+  RETURNING state, phases through any blocks in the way, and reaches the player.
+- If the sword is already in RETURNING: it continues its return normally.
 - On arrival at the player in either case: flying mode exits automatically.
 
 **Re-engagement:** Flying mode **never re-engages automatically**. When the player exits
@@ -685,7 +685,7 @@ Flying mode cannot be **entered** while the player is riding any entity.
 
 If flying mode is **already active** and the player attempts to mount or ride anything
 (horse, boat, minecart, pig, strider, or any other `is_passenger` situation), the
-**mount action is blocked**. The player receives a hotbar message: *"Sheathe your sword
+**mount action is blocked**. The player receives a hotbar message: *"The sword must return 
 first."* The player must exit flying mode manually before mounting.
 
 Flying mode **never exits automatically** due to mounting because the mount action is
@@ -700,9 +700,9 @@ Flying mode cannot be **entered** while the player is in elytra flight.
 If flying mode is **already active** and the player attempts to enter elytra flight, the
 elytra behavior follows the same pattern as water/swimming:
 
-- If the familiar is in any state other than RETURNING: it immediately transitions to
-  RETURNING, phases through any blocks in the way, and reaches the player.
-- If the familiar is already in RETURNING: it continues its return normally.
+- If the sword is in any state other than RETURNING: it immediately transitions to
+  RETURNING state, phases through any blocks in the way, and reaches the player.
+- If the sword is already in RETURNING: it continues its return normally.
 - On arrival at the player: flying mode exits automatically.
 
 **Re-engagement:** Flying mode **never re-engages automatically**. When elytra flight ends,
@@ -716,12 +716,12 @@ If the player enters a dimension transition (nether portal, end portal, any inte
 travel) while flying mode is active, the behavior follows the same pattern as
 water/swimming:
 
-- If the familiar is in any state other than RETURNING: it immediately transitions to
-  RETURNING, phases through any blocks in the way, and reaches the player.
-- If the familiar is already in RETURNING: it continues its return normally.
+- If the sword is in any state other than RETURNING: it immediately transitions to
+  RETURNING state, phases through any blocks in the way, and reaches the player.
+- If the sword is already in RETURNING: it continues its return normally.
 - On arrival at the player: flying mode exits automatically.
 
-The familiar does **not** travel across dimensions. It returns to the player and despawns
+The sword does **not** travel across dimensions. It returns to the player and despawns
 in the origin dimension before the player completes the transition.
 
 **Re-engagement:** Flying mode **never re-engages automatically** after dimension travel.
@@ -734,7 +734,7 @@ The player must press F manually in the new dimension.
 When the server detects the player disconnecting (voluntary logout or crash) while flying
 mode is active:
 
-1. The familiar entity is **immediately despawned**. No animation, no return travel.
+1. The sword entity is **immediately despawned**. No animation, no return travel.
 2. The sword's mode is set to **normal mode**.
 3. No state is persisted for restoration.
 
@@ -742,13 +742,13 @@ On reconnect, the player loads in with the sword in their hotbar in normal mode.
 to re-enter flying mode. This is a clean reset — no orphaned entities, no stale state.
 
 This mirrors how Minecraft handles player-bound transient entities (e.g., fishing bobbers)
-and avoids the fragile edge cases of trying to restore familiar state across a reconnect.
+and avoids the fragile edge cases of trying to restore sword state across a reconnect.
 
 ---
 
 ## 18. Entity Validation
 
-Every server tick while flying mode is active, the server confirms that the familiar entity
+Every server tick while flying mode is active, the server confirms that the sword entity
 exists and is loaded. If the entity cannot be found for **any reason** — chunk unloaded,
 removed by another mod, any unexpected absence — the following occurs:
 
@@ -766,18 +766,18 @@ entity is already gone and there is nothing to animate.
 
 ## 19. Multiplayer
 
-- Each familiar entity is independently owned by the player whose UUID spawned it.
-- Familiar entities do not interact with each other.
+- Each sword entity is independently owned by the player whose UUID spawned it.
+- Sword entities do not interact with each other.
 - A sword owned by Player A cannot be picked up by Player B while in any active state. The
   item stays in Player A's hotbar.
 - If Player A dies, the item drops normally and Player B may pick it up. When Player B
-  activates flying mode with that item, a new familiar spawns with Player B as the new owner.
-  Previous familiar data is irrelevant.
+  activates flying mode with that item, a new sword entity spawns with Player B as the new owner.
+  Previous entity data is irrelevant.
 - The sword's mob awareness tracking **excludes** other players — the sword never tilts
   toward players, never auto-attacks players, and never treats players as targets under any
   condition.
-- Familiar entities are saved as persistent entities in chunk NBT. If the chunk containing
-  a familiar unloads (edge case requiring deliberate player effort), the entity validation
+- Sword entities are saved as persistent entities in chunk NBT. If the chunk containing
+  a sword unloads (edge case requiring deliberate player effort), the entity validation
   system (Section 18) handles recovery.
 
 ---
@@ -786,7 +786,7 @@ entity is already gone and there is nothing to animate.
 
 | Element | Renderer | Notes |
 |---|---|---|
-| Familiar entity | GeckoLib `GeoEntityRenderer` | Full animated model, all clips |
+| Sword entity | GeckoLib `GeoEntityRenderer` | Full animated model, all clips |
 | In-hand (normal mode) | Standard item renderer | Default hold position |
 | In-hand (flying mode) | Custom suppressed renderer | Empty hand, shimmer effect |
 | Hotbar icon | Standard 2D + shader overlay | Purple glow while flying |
@@ -794,7 +794,7 @@ entity is already gone and there is nothing to animate.
 | Death animation | GeckoLib clip `death_fall` | Visual only, entity despawns after |
 | Block slash | GeckoLib clip `block_slash` | On G release with stamina remaining |
 | Guard break | GeckoLib clip `guard_break` | On stamina depletion during BLOCKING |
-| Familiar spawn | Fade-in + particle burst | On flying mode entry |
+| Sword spawn | Fade-in + particle burst | On flying mode entry |
 
 ---
 
@@ -887,8 +887,8 @@ Recommended development sequence. Do not skip phases.
 NeoForge 1.21.1 MDK setup. Item registration. F keybind. Hotbar glow indicator. Mode flag
 stored as `DataComponentType<SwordMode>`. Q-key drop prevention. Placeholder item texture.
 
-**Phase 2 — Familiar Entity (HOVERING only)**
-`SwordFamiliarEntity` registration. Ownership UUID. Spawn on mode enter (with fade-in and
+**Phase 2 — Sword Entity (HOVERING only)**
+`SwordEntity` registration. Ownership UUID. Spawn on mode enter (with fade-in and
 particle burst). Despawn on mode exit. Candidate position system with obstacle avoidance.
 Spring physics follow. Mob awareness scan and visual tilt. Entity validation tick. Use a
 debug cube hitbox — no GeckoLib yet. Validate physics feel before any other state is built.

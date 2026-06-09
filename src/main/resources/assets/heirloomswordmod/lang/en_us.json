@@ -1,13 +1,10 @@
 {
-  "itemGroup.heirloomswordmod": "Example Mod Tab",
-  "block.heirloomswordmod.example_block": "Example Block",
-  "item.heirloomswordmod.example_item": "Example Item",
-
+  "itemGroup.heirloomswordmod": "Heirloom Sword",
+  "item.heirloomswordmod.heirloom_sword": "Alucard's Sword",
+  "key.categories.heirloomswordmod": "Heirloom Sword",
+  "key.heirloomswordmod.toggle_mode": "Toggle Sword Mode",
+  "msg.heirloomswordmod.no_drop": "The sword refuses to leave your side.",
   "heirloomswordmod.configuration.title": "Heirloom Sword Mod Configs",
   "heirloomswordmod.configuration.section.heirloomswordmod.common.toml": "Heirloom Sword Mod Configs",
-  "heirloomswordmod.configuration.section.heirloomswordmod.common.toml.title": "Heirloom Sword Mod Configs",
-  "heirloomswordmod.configuration.items": "Item List",
-  "heirloomswordmod.configuration.logDirtBlock": "Log Dirt Block",
-  "heirloomswordmod.configuration.magicNumberIntroduction": "Magic Number Text",
-  "heirloomswordmod.configuration.magicNumber": "Magic Number"
+  "heirloomswordmod.configuration.section.heirloomswordmod.common.toml.title": "Heirloom Sword Mod Configs"
 }
