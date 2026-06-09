@@ -75,7 +75,9 @@ public class HeirloomSwordModClient {
             Minecraft mc = Minecraft.getInstance();
             if (mc.player == null || mc.screen != null) {
                 if (isCharging) resetChargeState();
-                if (isBlocking) resetBlockState();
+                if (isBlocking) {
+                    if (mc.player != null) cancelBlocking(); else resetBlockState();
+                }
                 return;
             }
 
@@ -84,7 +86,7 @@ public class HeirloomSwordModClient {
             if (!(held.getItem() instanceof HeirloomSwordItem)) {
                 if (isCharging) resetChargeState();
                 if (isSweeping) resetSweepState();
-                if (isBlocking) resetBlockState();
+                if (isBlocking) cancelBlocking();
                 return;
             }
 
@@ -146,11 +148,8 @@ public class HeirloomSwordModClient {
                     }
                 }
             } else {
-                if (!HeirloomSwordItem.isFlying(held)) {
-                    resetBlockState();
-                } else if (!ModKeybinds.GUARD.isDown()) {
-                    PacketDistributor.sendToServer(new SwordGuardPacket(false));
-                    resetBlockState();
+                if (!HeirloomSwordItem.isFlying(held) || !ModKeybinds.GUARD.isDown()) {
+                    cancelBlocking();
                 }
             }
 
@@ -254,6 +253,11 @@ public class HeirloomSwordModClient {
         }
 
         private static void resetBlockState() {
+            isBlocking = false;
+        }
+
+        private static void cancelBlocking() {
+            PacketDistributor.sendToServer(new SwordGuardPacket(false));
             isBlocking = false;
         }
 
