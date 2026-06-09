@@ -50,6 +50,7 @@ public class HeirloomSwordMod {
         ITEMS.register(modEventBus);
         CREATIVE_MODE_TABS.register(modEventBus);
         ModDataComponents.DATA_COMPONENTS.register(modEventBus);
+        ModEntities.ENTITY_TYPES.register(modEventBus);
 
         NeoForge.EVENT_BUS.register(new SwordEventHandler());
 

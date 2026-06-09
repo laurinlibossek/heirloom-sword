@@ -2,11 +2,13 @@ package com.alucard.heirloomsword.network;
 
 import com.alucard.heirloomsword.HeirloomSwordItem;
 import com.alucard.heirloomsword.HeirloomSwordMod;
+import com.alucard.heirloomsword.SwordFamiliarEntity;
 import com.alucard.heirloomsword.SwordMode;
 import io.netty.buffer.ByteBuf;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
@@ -33,6 +35,14 @@ public record SwordModePacket() implements CustomPacketPayload {
             SwordMode current = HeirloomSwordItem.getMode(held);
             SwordMode next = current == SwordMode.NORMAL ? SwordMode.FLYING : SwordMode.NORMAL;
             HeirloomSwordItem.setMode(held, next);
+
+            ServerLevel level = player.serverLevel();
+            if (next == SwordMode.FLYING) {
+                SwordFamiliarEntity familiar = new SwordFamiliarEntity(level, player);
+                level.addFreshEntity(familiar);
+            } else {
+                SwordFamiliarEntity.despawnForOwner(level, player.getUUID());
+            }
         });
     }
 }

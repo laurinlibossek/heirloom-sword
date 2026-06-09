@@ -4,6 +4,8 @@
   "key.categories.heirloomswordmod": "Heirloom Sword",
   "key.heirloomswordmod.toggle_mode": "Toggle Sword Mode",
   "msg.heirloomswordmod.no_drop": "The sword refuses to leave your side.",
+  "msg.heirloomswordmod.sword_returns": "The sword returns to your side.",
+  "entity.heirloomswordmod.sword_familiar": "Heirloom Sword",
   "heirloomswordmod.configuration.title": "Heirloom Sword Mod Configs",
   "heirloomswordmod.configuration.section.heirloomswordmod.common.toml": "Heirloom Sword Mod Configs",
   "heirloomswordmod.configuration.section.heirloomswordmod.common.toml.title": "Heirloom Sword Mod Configs"

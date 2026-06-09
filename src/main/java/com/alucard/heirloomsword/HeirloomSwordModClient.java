@@ -1,8 +1,8 @@
 package com.alucard.heirloomsword;
 
+import com.alucard.heirloomsword.client.SwordFamiliarRenderer;
 import com.alucard.heirloomsword.network.SwordModePacket;
 import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.vertex.*;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.player.LocalPlayer;
@@ -14,13 +14,13 @@ import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
+import net.neoforged.neoforge.client.event.EntityRenderersEvent;
 import net.neoforged.neoforge.client.event.RegisterKeyMappingsEvent;
 import net.neoforged.neoforge.client.event.RenderGuiLayerEvent;
 import net.neoforged.neoforge.client.gui.ConfigurationScreen;
 import net.neoforged.neoforge.client.gui.IConfigScreenFactory;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.network.PacketDistributor;
-import org.joml.Matrix4f;
 
 @Mod(value = HeirloomSwordMod.MODID, dist = Dist.CLIENT)
 public class HeirloomSwordModClient {
@@ -34,6 +34,11 @@ public class HeirloomSwordModClient {
         @SubscribeEvent
         public static void onRegisterKeyMappings(RegisterKeyMappingsEvent event) {
             event.register(ModKeybinds.TOGGLE_MODE);
+        }
+
+        @SubscribeEvent
+        public static void onRegisterRenderers(EntityRenderersEvent.RegisterRenderers event) {
+            event.registerEntityRenderer(ModEntities.SWORD_FAMILIAR.get(), SwordFamiliarRenderer::new);
         }
 
         @SubscribeEvent
