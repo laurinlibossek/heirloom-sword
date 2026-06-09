@@ -1,9 +1,6 @@
 package com.alucard.heirloomsword.network;
 
-import com.alucard.heirloomsword.HeirloomSwordItem;
-import com.alucard.heirloomsword.HeirloomSwordMod;
-import com.alucard.heirloomsword.SwordFamiliarEntity;
-import com.alucard.heirloomsword.SwordMode;
+import com.alucard.heirloomsword.*;
 import io.netty.buffer.ByteBuf;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
@@ -33,15 +30,20 @@ public record SwordModePacket() implements CustomPacketPayload {
             if (!(held.getItem() instanceof HeirloomSwordItem)) return;
 
             SwordMode current = HeirloomSwordItem.getMode(held);
-            SwordMode next = current == SwordMode.NORMAL ? SwordMode.FLYING : SwordMode.NORMAL;
-            HeirloomSwordItem.setMode(held, next);
-
             ServerLevel level = player.serverLevel();
-            if (next == SwordMode.FLYING) {
+
+            if (current == SwordMode.FLYING) {
+                // Validate: only allow exit from HOVERING
+                SwordFamiliarEntity familiar = SwordFamiliarEntity.findForOwner(level, player.getUUID());
+                if (familiar != null && familiar.getState() != FamiliarState.HOVERING) {
+                    return; // F is locked during active states
+                }
+                HeirloomSwordItem.setMode(held, SwordMode.NORMAL);
+                SwordFamiliarEntity.despawnForOwner(level, player.getUUID());
+            } else {
+                HeirloomSwordItem.setMode(held, SwordMode.FLYING);
                 SwordFamiliarEntity familiar = new SwordFamiliarEntity(level, player);
                 level.addFreshEntity(familiar);
-            } else {
-                SwordFamiliarEntity.despawnForOwner(level, player.getUUID());
             }
         });
     }

@@ -3,6 +3,7 @@
   "item.heirloomswordmod.heirloom_sword": "Alucard's Sword",
   "key.categories.heirloomswordmod": "Heirloom Sword",
   "key.heirloomswordmod.toggle_mode": "Toggle Sword Mode",
+  "key.heirloomswordmod.recall": "Recall Sword",
   "msg.heirloomswordmod.no_drop": "The sword refuses to leave your side.",
   "msg.heirloomswordmod.sword_returns": "The sword returns to your side.",
   "entity.heirloomswordmod.sword_familiar": "Heirloom Sword",

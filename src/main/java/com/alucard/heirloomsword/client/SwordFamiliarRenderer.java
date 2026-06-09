@@ -1,5 +1,6 @@
 package com.alucard.heirloomsword.client;
 
+import com.alucard.heirloomsword.FamiliarState;
 import com.alucard.heirloomsword.SwordFamiliarEntity;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
@@ -28,11 +29,15 @@ public class SwordFamiliarRenderer extends EntityRenderer<SwordFamiliarEntity> {
         VertexConsumer consumer = bufferSource.getBuffer(RenderType.lines());
         AABB box = entity.getBoundingBox().move(-entity.getX(), -entity.getY(), -entity.getZ());
 
-        // Purple color for the debug cube (matches telekinetic theme)
-        float r = 0.6f;
-        float g = 0.2f;
-        float b = 0.9f;
-        float a = 1.0f;
+        // Color varies by state for debug visibility
+        FamiliarState state = entity.getState();
+        float r, g, b, a = 1.0f;
+        switch (state) {
+            case LAUNCHING -> { r = 1.0f; g = 0.5f; b = 0.0f; } // Orange
+            case STUCK -> { r = 1.0f; g = 1.0f; b = 0.0f; }     // Yellow
+            case RETURNING -> { r = 0.0f; g = 1.0f; b = 0.5f; }  // Cyan-green
+            default -> { r = 0.6f; g = 0.2f; b = 0.9f; }         // Purple (hovering)
+        }
 
         LevelRenderer.renderLineBox(poseStack, consumer, box, r, g, b, a);
 

@@ -15,4 +15,12 @@ public class ModKeybinds {
             GLFW.GLFW_KEY_F,
             CATEGORY
     );
+
+    public static final KeyMapping RECALL = new KeyMapping(
+            "key.heirloomswordmod.recall",
+            KeyConflictContext.IN_GAME,
+            InputConstants.Type.KEYSYM,
+            GLFW.GLFW_KEY_R,
+            CATEGORY
+    );
 }
