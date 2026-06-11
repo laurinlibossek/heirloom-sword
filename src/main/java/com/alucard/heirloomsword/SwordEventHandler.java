@@ -4,15 +4,21 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
+import net.minecraft.tags.DamageTypeTags;
+import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.storage.loot.LootPool;
 import net.minecraft.world.level.storage.loot.entries.LootItem;
 import net.minecraft.world.level.storage.loot.predicates.LootItemRandomChanceCondition;
+import net.minecraft.world.phys.Vec3;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.neoforge.event.LootTableLoadEvent;
 import net.neoforged.neoforge.event.entity.item.ItemTossEvent;
+import net.neoforged.neoforge.event.entity.living.LivingIncomingDamageEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import net.neoforged.neoforge.event.tick.PlayerTickEvent;
 
@@ -28,6 +34,36 @@ public class SwordEventHandler {
                 .add(LootItem.lootTableItem(HeirloomSwordMod.HEIRLOOM_SWORD.get())
                         .when(LootItemRandomChanceCondition.randomChance(0.05f)))
                 .build());
+    }
+
+    @SubscribeEvent
+    public void onIncomingDamage(LivingIncomingDamageEvent event) {
+        if (!(event.getEntity() instanceof ServerPlayer player)) return;
+
+        SwordFamiliarEntity familiar = SwordFamiliarEntity.findForOwner(player.serverLevel(), player.getUUID());
+        if (familiar == null || familiar.getState() != FamiliarState.BLOCKING) return;
+
+        DamageSource source = event.getSource();
+        // Shield-equivalent: frontal physical damage only — no explosions, magic, or AoE.
+        if (source.is(DamageTypeTags.BYPASSES_SHIELD)
+                || source.is(DamageTypeTags.IS_EXPLOSION)
+                || source.is(DamageTypeTags.BYPASSES_ARMOR)) {
+            return;
+        }
+
+        Vec3 sourcePos = source.getSourcePosition();
+        if (sourcePos == null) return;
+
+        // Frontal cone test, mirroring vanilla Player#isDamageSourceBlocked
+        Vec3 toPlayer = sourcePos.vectorTo(player.position());
+        toPlayer = new Vec3(toPlayer.x, 0.0, toPlayer.z).normalize();
+        Vec3 look = player.getViewVector(1.0f);
+        look = new Vec3(look.x, 0.0, look.z).normalize();
+        if (toPlayer.dot(look) >= 0.0) return; // attack came from the side/behind
+
+        event.setCanceled(true);
+        player.level().playSound(null, player.blockPosition(),
+                SoundEvents.SHIELD_BLOCK, SoundSource.PLAYERS, 1.0f, 0.9f);
     }
 
     @SubscribeEvent
