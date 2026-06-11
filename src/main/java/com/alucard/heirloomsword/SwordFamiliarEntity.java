@@ -37,6 +37,7 @@ import software.bernie.geckolib.animation.PlayState;
 import software.bernie.geckolib.util.GeckoLibUtil;
 
 import net.minecraft.util.Mth;
+import org.joml.Vector3f;
 
 import javax.annotation.Nullable;
 import java.util.*;
@@ -51,6 +52,8 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
             SynchedEntityData.defineId(SwordFamiliarEntity.class, EntityDataSerializers.INT);
     private static final EntityDataAccessor<Integer> DATA_GUARD_COOLDOWN =
             SynchedEntityData.defineId(SwordFamiliarEntity.class, EntityDataSerializers.INT);
+    private static final EntityDataAccessor<Vector3f> DATA_LAUNCH_DIR =
+            SynchedEntityData.defineId(SwordFamiliarEntity.class, EntityDataSerializers.VECTOR3);
 
     private static final double HOVER_RADIUS = 1.8; // [TUNE] was 1.5 — sword felt too close
     private static final double COLLISION_SPHERE_RADIUS = 0.4;
@@ -152,6 +155,7 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
         builder.define(DATA_OWNER_UUID, Optional.empty());
         builder.define(DATA_STATE, FamiliarState.HOVERING.getId());
         builder.define(DATA_GUARD_COOLDOWN, 0);
+        builder.define(DATA_LAUNCH_DIR, new Vector3f());
     }
 
     @Override
@@ -366,10 +370,20 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
     public void launch(Vec3 direction, boolean charged) {
         removeChargeSlowdown();
         this.launchDirection = direction.normalize();
+        this.entityData.set(DATA_LAUNCH_DIR, this.launchDirection.toVector3f());
         this.launchOrigin = this.position();
         this.chargedLaunch = charged;
         this.outboundHitSet.clear();
+        // Snap orientation now so the first rotation the client receives already matches
+        this.setYRot((float) Math.toDegrees(Math.atan2(-launchDirection.x, launchDirection.z)));
+        double horizDist = Math.sqrt(launchDirection.x * launchDirection.x + launchDirection.z * launchDirection.z);
+        this.setXRot((float) -Math.toDegrees(Math.atan2(launchDirection.y, horizDist)));
         setState(FamiliarState.LAUNCHING);
+    }
+
+    public Vec3 getLaunchDirection() {
+        Vector3f v = this.entityData.get(DATA_LAUNCH_DIR);
+        return new Vec3(v.x(), v.y(), v.z());
     }
 
     private void removeChargeSlowdown() {
@@ -420,9 +434,10 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
     }
 
     private void tickLaunchingClient() {
+        Vec3 dir = getLaunchDirection();
+        if (dir.lengthSqr() < 1.0e-4) return; // data not synced yet this tick
         double speed = chargedLaunch ? LAUNCH_SPEED_CHARGED : LAUNCH_SPEED_NORMAL;
-        Vec3 movement = launchDirection.scale(speed);
-        this.setPos(this.position().add(movement));
+        this.setPos(this.position().add(dir.scale(speed)));
     }
 
     // === STUCK ===
@@ -1006,9 +1021,12 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
             double horizDist = Math.sqrt(toTarget.x * toTarget.x + toTarget.z * toTarget.z);
             targetPitch = (float) -Math.toDegrees(Math.atan2(toTarget.y, horizDist));
         } else if (getState() == FamiliarState.LAUNCHING) {
-            targetYaw = (float) Math.toDegrees(Math.atan2(-launchDirection.x, launchDirection.z));
-            double horizDist = Math.sqrt(launchDirection.x * launchDirection.x + launchDirection.z * launchDirection.z);
-            targetPitch = (float) -Math.toDegrees(Math.atan2(launchDirection.y, horizDist));
+            Vec3 dir = getLaunchDirection();
+            if (dir.lengthSqr() > 1.0e-4) {
+                targetYaw = (float) Math.toDegrees(Math.atan2(-dir.x, dir.z));
+                double horizDist = Math.sqrt(dir.x * dir.x + dir.z * dir.z);
+                targetPitch = (float) -Math.toDegrees(Math.atan2(dir.y, horizDist));
+            }
                 } else if (getState() == FamiliarState.RETURNING) {
             Player owner = getOwner();
             if (owner != null) {
