@@ -3,9 +3,12 @@ package com.alucard.heirloomsword;
 import com.alucard.heirloomsword.client.HeirloomSwordItemRenderer;
 import net.minecraft.client.renderer.BlockEntityWithoutLevelRenderer;
 import net.minecraft.core.Holder;
-import net.minecraft.world.item.Item;
+import net.minecraft.core.component.DataComponents;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Rarity;
+import net.minecraft.world.item.SwordItem;
+import net.minecraft.world.item.Tiers;
+import net.minecraft.world.item.component.Unbreakable;
 import net.minecraft.world.item.enchantment.Enchantment;
 import software.bernie.geckolib.animatable.GeoItem;
 import software.bernie.geckolib.animatable.client.GeoRenderProvider;
@@ -15,14 +18,20 @@ import software.bernie.geckolib.util.GeckoLibUtil;
 
 import java.util.function.Consumer;
 
-public class HeirloomSwordItem extends Item implements GeoItem {
+public class HeirloomSwordItem extends SwordItem implements GeoItem {
     private final AnimatableInstanceCache geoCache = GeckoLibUtil.createInstanceCache(this);
 
     public HeirloomSwordItem() {
-        super(new Properties()
+        super(Tiers.NETHERITE, new Properties()
                 .stacksTo(1)
                 .rarity(Rarity.EPIC)
                 .fireResistant()
+                // 7 + netherite bonus 4 + player base 1 = 12 attack damage.
+                // -2.4f attack speed = 1.6 final, identical cooldown to a netherite sword.
+                .attributes(SwordItem.createAttributes(Tiers.NETHERITE, 7, -2.4f))
+                // TieredItem force-applies netherite durability; UNBREAKABLE suppresses it
+                // entirely (no damage taken, no bar). false = no "Unbreakable" tooltip line.
+                .component(DataComponents.UNBREAKABLE, new Unbreakable(false))
                 .component(ModDataComponents.SWORD_MODE.get(), SwordMode.NORMAL));
     }
 
