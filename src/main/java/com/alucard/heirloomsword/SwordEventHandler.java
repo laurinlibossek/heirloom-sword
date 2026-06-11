@@ -10,13 +10,18 @@ import net.minecraft.tags.DamageTypeTags;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.entity.projectile.AbstractArrow;
+import net.minecraft.world.entity.projectile.Fireball;
+import net.minecraft.world.entity.projectile.Projectile;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.storage.loot.LootPool;
 import net.minecraft.world.level.storage.loot.entries.LootItem;
 import net.minecraft.world.level.storage.loot.predicates.LootItemRandomChanceCondition;
+import net.minecraft.world.phys.EntityHitResult;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.neoforge.event.LootTableLoadEvent;
+import net.neoforged.neoforge.event.entity.ProjectileImpactEvent;
 import net.neoforged.neoforge.event.entity.item.ItemTossEvent;
 import net.neoforged.neoforge.event.entity.living.LivingIncomingDamageEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
@@ -64,6 +69,47 @@ public class SwordEventHandler {
         event.setCanceled(true);
         player.level().playSound(null, player.blockPosition(),
                 SoundEvents.SHIELD_BLOCK, SoundSource.PLAYERS, 1.0f, 0.9f);
+    }
+
+    @SubscribeEvent
+    public void onProjectileImpact(ProjectileImpactEvent event) {
+        if (!(event.getRayTraceResult() instanceof EntityHitResult hit)) return;
+        if (!(hit.getEntity() instanceof ServerPlayer player)) return;
+
+        Projectile projectile = event.getProjectile();
+        // Physical projectiles only (spec): arrows + tridents (AbstractArrow), fireballs.
+        // Magic projectiles, explosions, and area effects are not intercepted.
+        boolean physical = projectile instanceof AbstractArrow || projectile instanceof Fireball;
+        if (!physical) return;
+
+        SwordFamiliarEntity familiar = SwordFamiliarEntity.findForOwner(player.serverLevel(), player.getUUID());
+        if (familiar == null || familiar.getState() != FamiliarState.BLOCKING) return;
+
+        // Same frontal cone as melee blocking
+        Vec3 toPlayer = projectile.position().vectorTo(player.position());
+        toPlayer = new Vec3(toPlayer.x, 0.0, toPlayer.z).normalize();
+        Vec3 look = player.getViewVector(1.0f);
+        look = new Vec3(look.x, 0.0, look.z).normalize();
+        if (toPlayer.dot(look) >= 0.0) return;
+
+        // Geometric deflection off the blade plane (normal = player look) at reduced speed.
+        Vec3 velocity = projectile.getDeltaMovement();
+        Vec3 normal = player.getLookAngle();
+        Vec3 reflected = velocity.subtract(normal.scale(2.0 * velocity.dot(normal))).scale(0.4); // [TUNE] speed factor
+
+        event.setCanceled(true);
+        projectile.setDeltaMovement(reflected);
+        projectile.hurtMarked = true; // force velocity sync to clients
+        if (reflected.lengthSqr() > 1.0e-4) {
+            // Nudge out of the player's hitbox so it can't re-collide next tick
+            projectile.setPos(projectile.position().add(reflected.normalize().scale(0.5)));
+        }
+        if (projectile instanceof AbstractArrow arrow) {
+            arrow.setOwner(player); // a deflected arrow belongs to the blocker now
+        }
+
+        player.level().playSound(null, player.blockPosition(),
+                SoundEvents.SHIELD_BLOCK, SoundSource.PLAYERS, 1.0f, 1.3f);
     }
 
     @SubscribeEvent
