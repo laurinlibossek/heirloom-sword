@@ -123,6 +123,15 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
     private final Set<Integer> sweepReleaseHitSet = new HashSet<>();
     private final Set<Integer> sweepReturnHitSet = new HashSet<>();
 
+    // Sawblade spin while SWEEPING_HOLD — client-side visual only
+    private float spinAngle = 0.0f;
+    private float spinAngleO = 0.0f;
+    private static final float SWEEP_SPIN_DEG_PER_TICK = 40.0f; // [TUNE] ~2.2 rev/s
+
+    public float getSpinAngle(float partialTick) {
+        return spinAngleO + (spinAngle - spinAngleO) * partialTick;
+    }
+
     @Nullable
     private Entity awarenessTarget = null;
     private boolean horizontal = false;
@@ -577,6 +586,13 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
     }
 
     private void tickSweepingHoldClient(Player owner) {
+        spinAngleO = spinAngle;
+        spinAngle += SWEEP_SPIN_DEG_PER_TICK;
+        if (spinAngleO >= 360.0f) { // wrap both together so the partialTick lerp never jumps
+            spinAngle -= 360.0f;
+            spinAngleO -= 360.0f;
+        }
+
         Vec3 lookDir = owner.getLookAngle();
         Vec3 eyePos = owner.getEyePosition();
         Vec3 holdTarget = eyePos.add(lookDir.scale(SWEEP_HOLD_DISTANCE));
@@ -597,8 +613,8 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
 
     private void sweepDamageEntities(Vec3 from, Vec3 to, Player owner) {
         AABB sweepBox = new AABB(
-                Math.min(from.x, to.x) - 0.5, Math.min(from.y, to.y) - 0.5, Math.min(from.z, to.z) - 0.5,
-                Math.max(from.x, to.x) + 0.5, Math.max(from.y, to.y) + 0.5, Math.max(from.z, to.z) + 0.5
+                Math.min(from.x, to.x) - SWORD_HALF_LENGTH, Math.min(from.y, to.y) - 0.5, Math.min(from.z, to.z) - SWORD_HALF_LENGTH,
+                Math.max(from.x, to.x) + SWORD_HALF_LENGTH, Math.max(from.y, to.y) + 0.5, Math.max(from.z, to.z) + SWORD_HALF_LENGTH
         );
 
         List<LivingEntity> entities = this.level().getEntitiesOfClass(LivingEntity.class, sweepBox,
@@ -978,6 +994,13 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
             );
         }
 
+        if (getState() == FamiliarState.SWEEPING_HOLD) {
+            // Spinning sawblade: flat disc covering the blade's spin circle.
+            return new AABB(
+                    pos.x - SWORD_HALF_LENGTH, pos.y - SWORD_HALF_THICKNESS, pos.z - SWORD_HALF_LENGTH,
+                    pos.x + SWORD_HALF_LENGTH, pos.y + SWORD_HALF_THICKNESS, pos.z + SWORD_HALF_LENGTH);
+        }
+
         // Tight AABB around the rotated blade: 3 long, 0.4 thick, oriented along getYRot().
         double halfX = sinYaw * SWORD_HALF_LENGTH + cosYaw * SWORD_HALF_THICKNESS;
         double halfZ = cosYaw * SWORD_HALF_LENGTH + sinYaw * SWORD_HALF_THICKNESS;
@@ -1044,7 +1067,12 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
                 double horizDist = Math.sqrt(toOwner.x * toOwner.x + toOwner.z * toOwner.z);
                 targetPitch = (float) -Math.toDegrees(Math.atan2(toOwner.y, horizDist));
             }
-                } else if (getState() == FamiliarState.SWEEPING_HOLD || getState() == FamiliarState.SWEEPING_RELEASE) {
+                } else if (getState() == FamiliarState.SWEEPING_HOLD) {
+            // Sawblade spin (renderer-side) is the visual; keep synced rotation stable.
+            Player owner = getOwner();
+            if (owner != null) targetYaw = owner.getYRot();
+            targetPitch = 0;
+        } else if (getState() == FamiliarState.SWEEPING_RELEASE) {
             Vec3 dir = this.sweepVelocity.lengthSqr() > 0.05 ? this.sweepVelocity : null;
             if (dir == null) {
                 Player owner = getOwner();

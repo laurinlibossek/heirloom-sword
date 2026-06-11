@@ -32,10 +32,18 @@ public class SwordFamiliarGeoRenderer extends GeoEntityRenderer<SwordFamiliarEnt
             poseStack.scale(scale, scale, scale);
         }
 
+        float hProgress = animatable.getHorizontalProgress(partialTick);
+
+        if (animatable.getState() == FamiliarState.SWEEPING_HOLD) {
+            // Sawblade: continuous yaw spin, blade flattened into the horizontal plane.
+            poseStack.mulPose(Axis.YP.rotationDegrees(animatable.getSpinAngle(partialTick)));
+            poseStack.mulPose(Axis.XP.rotationDegrees(hProgress * 90.0f));
+            poseStack.translate(0, -MODEL_CENTER_Y * hProgress, 0);
+            return;
+        }
+
         float yaw = Mth.rotLerp(partialTick, animatable.yRotO, animatable.getYRot());
         poseStack.mulPose(Axis.YP.rotationDegrees(180.0f - yaw));
-
-        float hProgress = animatable.getHorizontalProgress(partialTick);
 
         if (hProgress > 0.0f) {
             if (animatable.getState() != FamiliarState.BLOCKING) {
