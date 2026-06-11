@@ -294,6 +294,18 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
         setState(FamiliarState.BLOCKING);
     }
 
+    public void cancelChargeIntoBlock() {
+        removeChargeSlowdown();
+        chargeTimer = 0;
+        setState(FamiliarState.BLOCKING);
+    }
+
+    public void cancelSweepIntoBlock() {
+        this.sweepVelocity = Vec3.ZERO;
+        this.sweepIFrames.clear();
+        setState(FamiliarState.BLOCKING);
+    }
+
     public void stopBlocking() {
         triggerAnim("action", ANIM_PREFIX + "block_slash");
         doBlockSlashDamage();

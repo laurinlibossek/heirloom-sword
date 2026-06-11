@@ -147,11 +147,16 @@ public class HeirloomSwordModClient {
             if (!isBlocking) {
                 if (ModKeybinds.GUARD.isDown() && HeirloomSwordItem.isFlying(held)) {
                     SwordFamiliarEntity familiar = findClientFamiliar(player);
-                    if (familiar != null
-                            && familiar.getState() == FamiliarState.HOVERING
-                            && familiar.getGuardCooldown() == 0) {
-                        PacketDistributor.sendToServer(new SwordGuardPacket(true));
-                        isBlocking = true;
+                    if (familiar != null && familiar.getGuardCooldown() == 0) {
+                        FamiliarState s = familiar.getState();
+                        if (s == FamiliarState.HOVERING
+                                || s == FamiliarState.CHARGING
+                                || s == FamiliarState.SWEEPING_HOLD) {
+                            if (isCharging) resetChargeState();   // G cancels the charge — no launch packet
+                            if (isSweeping) resetSweepState();    // G arrests the sweep — no release packet
+                            PacketDistributor.sendToServer(new SwordGuardPacket(true));
+                            isBlocking = true;
+                        }
                     }
                 }
             } else {

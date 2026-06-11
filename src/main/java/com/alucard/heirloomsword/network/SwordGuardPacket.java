@@ -39,9 +39,13 @@ public record SwordGuardPacket(boolean held) implements CustomPacketPayload {
             if (familiar == null) return;
 
             if (packet.held()) {
-                if (familiar.getState() != FamiliarState.HOVERING) return;
                 if (familiar.getGuardCooldown() > 0) return;
-                familiar.startBlocking();
+                switch (familiar.getState()) {
+                    case HOVERING -> familiar.startBlocking();
+                    case CHARGING -> familiar.cancelChargeIntoBlock();      // cancels charge, no launch
+                    case SWEEPING_HOLD -> familiar.cancelSweepIntoBlock();  // arrests sweep momentum
+                    default -> { } // invalid source state — silently discard (design doc §22)
+                }
             } else {
                 if (familiar.getState() != FamiliarState.BLOCKING) return;
                 familiar.stopBlocking();
