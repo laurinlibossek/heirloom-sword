@@ -94,6 +94,8 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
     private Vec3 targetPosition = Vec3.ZERO;
     private double smoothedAnchorY = Double.NaN;
     private int currentCandidateIndex = 0;
+    private int preferredFreeTicks = 0;
+    private static final int PREFERRED_RETURN_DELAY_TICKS = 10; // [TUNE]
 
     // LAUNCHING state fields
     private Vec3 launchDirection = Vec3.ZERO;
@@ -725,6 +727,27 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
     // === HOVERING MECHANICS (existing) ===
 
     private void updateTargetPosition(Player owner) {
+        // Recurring check: drift back to the most-preferred free candidate once it has
+        // stayed unobstructed for a short while (hysteresis avoids flip-flopping).
+        if (currentCandidateIndex != 0) {
+            int best = -1;
+            for (int i = 0; i < currentCandidateIndex; i++) {
+                if (!isPositionObstructed(computeCandidatePosition(owner, i))) {
+                    best = i;
+                    break;
+                }
+            }
+            if (best >= 0) {
+                preferredFreeTicks++;
+                if (preferredFreeTicks >= PREFERRED_RETURN_DELAY_TICKS) {
+                    currentCandidateIndex = best;
+                    preferredFreeTicks = 0;
+                }
+            } else {
+                preferredFreeTicks = 0;
+            }
+        }
+
         for (int i = 0; i < 5; i++) {
             int candidateIdx = (currentCandidateIndex + i) % 5;
             Vec3 candidate = computeCandidatePosition(owner, candidateIdx);
