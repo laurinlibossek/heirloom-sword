@@ -1010,6 +1010,14 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
         float targetProgress = horizontal ? 1.0f : 0.0f;
         horizontalProgress = Mth.approach(horizontalProgress, targetProgress, 0.2f);
 
+        if (currentState == FamiliarState.STUCK) {
+            // Embedded in a block — keep exactly the orientation it had on impact.
+            if (horizontal) {
+                this.setBoundingBox(makeBoundingBox());
+            }
+            return;
+        }
+
         float targetYaw = this.getYRot();
         float targetPitch = this.getXRot();
 
