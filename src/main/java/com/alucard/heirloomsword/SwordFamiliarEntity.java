@@ -5,6 +5,7 @@ import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.network.syncher.EntityDataSerializers;
 import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.tags.EntityTypeTags;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityDimensions;
 import net.minecraft.world.entity.EntityType;
@@ -55,7 +56,7 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
     private static final EntityDataAccessor<Vector3f> DATA_LAUNCH_DIR =
             SynchedEntityData.defineId(SwordFamiliarEntity.class, EntityDataSerializers.VECTOR3);
 
-    private static final double HOVER_RADIUS = 1.8; // [TUNE] was 1.5 — sword felt too close
+    private static final double HOVER_RADIUS = 1.65; // [TUNE] 1.5 felt too close, 1.8 too far
     private static final double COLLISION_SPHERE_RADIUS = 0.4;
     private static final double MAX_LAG_DISTANCE = 3.0;
     private static final double MOB_AWARENESS_RADIUS = 16.0;
@@ -73,6 +74,8 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
     private static final int CHARGE_THRESHOLD_TICKS = 60; // 3 seconds for charged tier
     private static final ResourceLocation CHARGE_SLOW_ID =
             ResourceLocation.fromNamespaceAndPath(HeirloomSwordMod.MODID, "charge_slowdown");
+
+    private static final float UNDEAD_BURN_SECONDS = 4.0f; // [TUNE] holy blade ignites undead
 
     private static final float LAUNCH_DAMAGE_NORMAL = 16.0f;
     private static final float LAUNCH_DAMAGE_CHARGED = 32.0f;
@@ -247,6 +250,7 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
             case BLOCKING -> tickBlocking(owner);
             case DYING -> tickDying(owner);
         }
+        burnUndeadOnContact(owner);
         updateOrientation();
     }
 
@@ -327,6 +331,7 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
             Vec3 toEntityFlat = new Vec3(toEntity.x, 0, toEntity.z).normalize();
             if (toEntityFlat.dot(lookFlat) <= 0.1) continue; // frontal ~180° arc only
             entity.hurt(source, BLOCK_SLASH_DAMAGE);
+            igniteIfUndead(entity);
             entity.knockback(0.4, owner.getX() - entity.getX(), owner.getZ() - entity.getZ());
         }
 
@@ -665,6 +670,7 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
 
         for (LivingEntity entity : entities) {
             entity.hurt(source, SWEEP_CONTACT_DAMAGE);
+            igniteIfUndead(entity);
             // Directional knockback in sword travel direction
             entity.setDeltaMovement(entity.getDeltaMovement().add(
                     travelDir.x * SWEEP_KNOCKBACK_STRENGTH,
@@ -777,6 +783,22 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
 
     // === COMBAT ===
 
+    /** The blade is anathema to the undead — any contact sets them alight. */
+    public static void igniteIfUndead(LivingEntity entity) {
+        if (entity.getType().is(EntityTypeTags.UNDEAD)) {
+            entity.igniteForSeconds(UNDEAD_BURN_SECONDS);
+        }
+    }
+
+    private void burnUndeadOnContact(Player owner) {
+        if (this.tickCount % 5 != 0) return;
+        for (LivingEntity entity : this.level().getEntitiesOfClass(LivingEntity.class,
+                this.getBoundingBox().inflate(0.2),
+                e -> e.isAlive() && e != owner && e.getType().is(EntityTypeTags.UNDEAD))) {
+            entity.igniteForSeconds(UNDEAD_BURN_SECONDS);
+        }
+    }
+
     private void damageEntitiesInPath(Vec3 from, Vec3 to, Set<Integer> hitSet, float damage, Player owner) {
         AABB sweepBox = new AABB(
                 Math.min(from.x, to.x) - 0.5, Math.min(from.y, to.y) - 0.5, Math.min(from.z, to.z) - 0.5,
@@ -790,6 +812,7 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
         for (LivingEntity entity : entities) {
             hitSet.add(entity.getId());
             entity.hurt(source, damage);
+            igniteIfUndead(entity);
         }
     }
 
@@ -855,7 +878,7 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
     }
 
     private Vec3 getAnchorPoint(Player owner) {
-        double torsoY = owner.getY() + owner.getBbHeight() * 0.55;
+        double torsoY = owner.getY() + owner.getBbHeight() * 0.45; // [TUNE] was 0.55 — hover slightly lower
 
         if (Double.isNaN(smoothedAnchorY)) {
             smoothedAnchorY = torsoY;
