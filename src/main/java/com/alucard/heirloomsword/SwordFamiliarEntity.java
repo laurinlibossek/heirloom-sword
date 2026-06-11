@@ -77,6 +77,8 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
     private static final float LAUNCH_DAMAGE_NORMAL = 16.0f;
     private static final float LAUNCH_DAMAGE_CHARGED = 32.0f;
     private static final float RETURN_DAMAGE = 8.0f;
+    private static final float BLOCK_SLASH_DAMAGE = 13.0f;  // [TUNE 12-14 per design doc]
+    private static final double BLOCK_SLASH_RANGE = 3.0;    // [TUNE]
 
     // SWEEPING constants
     private static final double SWEEP_HOLD_DISTANCE = 1.8;
@@ -294,7 +296,31 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
 
     public void stopBlocking() {
         triggerAnim("action", ANIM_PREFIX + "block_slash");
+        doBlockSlashDamage();
         setState(FamiliarState.HOVERING);
+    }
+
+    private void doBlockSlashDamage() {
+        Player owner = getOwner();
+        if (owner == null || this.level().isClientSide()) return;
+
+        Vec3 center = owner.getEyePosition().add(owner.getLookAngle().scale(1.5));
+        AABB arc = new AABB(center, center).inflate(BLOCK_SLASH_RANGE, 1.2, BLOCK_SLASH_RANGE);
+        Vec3 lookFlat = new Vec3(owner.getLookAngle().x, 0, owner.getLookAngle().z).normalize();
+
+        DamageSource source = this.level().damageSources().playerAttack(owner);
+        for (LivingEntity entity : this.level().getEntitiesOfClass(LivingEntity.class, arc,
+                e -> e.isAlive() && e != owner)) {
+            Vec3 toEntity = entity.position().subtract(owner.position());
+            Vec3 toEntityFlat = new Vec3(toEntity.x, 0, toEntity.z).normalize();
+            if (toEntityFlat.dot(lookFlat) <= 0.1) continue; // frontal ~180° arc only
+            entity.hurt(source, BLOCK_SLASH_DAMAGE);
+            entity.knockback(0.4, owner.getX() - entity.getX(), owner.getZ() - entity.getZ());
+        }
+
+        this.level().playSound(null, owner.blockPosition(),
+                net.minecraft.sounds.SoundEvents.PLAYER_ATTACK_SWEEP,
+                net.minecraft.sounds.SoundSource.PLAYERS, 1.0f, 1.0f);
     }
 
     public void guardBreak() {
