@@ -52,7 +52,7 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
     private static final EntityDataAccessor<Integer> DATA_GUARD_COOLDOWN =
             SynchedEntityData.defineId(SwordFamiliarEntity.class, EntityDataSerializers.INT);
 
-    private static final double HOVER_RADIUS = 1.5;
+    private static final double HOVER_RADIUS = 1.8; // [TUNE] was 1.5 — sword felt too close
     private static final double COLLISION_SPHERE_RADIUS = 0.4;
     private static final double MAX_LAG_DISTANCE = 3.0;
     private static final double MOB_AWARENESS_RADIUS = 16.0;
