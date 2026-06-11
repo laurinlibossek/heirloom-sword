@@ -43,8 +43,8 @@ public class HeirloomSwordMod {
                         output.accept(HEIRLOOM_SWORD.get());
                     }).build());
 
-    public HeirloomSwordMod(IEventBus modEventBus, ModContainer modContainer) {
-        modEventBus.addListener(this::commonSetup);
+        public HeirloomSwordMod(IEventBus modEventBus, ModContainer modContainer) {
+            modEventBus.addListener(this::commonSetup);
         modEventBus.addListener(ModNetwork::register);
 
         ITEMS.register(modEventBus);

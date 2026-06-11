@@ -2,11 +2,13 @@ package com.alucard.heirloomsword.network;
 
 import com.alucard.heirloomsword.*;
 import io.netty.buffer.ByteBuf;
+import net.minecraft.network.chat.Component;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.Pose;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 
@@ -45,6 +47,21 @@ public record SwordModePacket() implements CustomPacketPayload {
                 held.remove(ModDataComponents.FAMILIAR_UUID.get());
                 SwordFamiliarEntity.despawnForOwner(level, player.getUUID());
             } else {
+                if (player.isPassenger()) {
+                    player.displayClientMessage(
+                            Component.translatable("msg.heirloomswordmod.no_mount"), true);
+                    return;
+                }
+                if (player.isFallFlying()) {
+                    player.displayClientMessage(
+                            Component.translatable("msg.heirloomswordmod.no_enter_elytra"), true);
+                    return;
+                }
+                if (player.getPose() == Pose.SWIMMING) {
+                    player.displayClientMessage(
+                            Component.translatable("msg.heirloomswordmod.no_enter_swimming"), true);
+                    return;
+                }
                 HeirloomSwordItem.setMode(held, SwordMode.FLYING);
                 SwordFamiliarEntity familiar = new SwordFamiliarEntity(level, player);
                 level.addFreshEntity(familiar);

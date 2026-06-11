@@ -25,11 +25,25 @@ import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.phys.shapes.VoxelShape;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.particles.ParticleTypes;
+
+import software.bernie.geckolib.animatable.GeoEntity;
+import software.bernie.geckolib.animatable.instance.AnimatableInstanceCache;
+import software.bernie.geckolib.animation.AnimatableManager;
+import software.bernie.geckolib.animation.AnimationController;
+import software.bernie.geckolib.animation.AnimationState;
+import software.bernie.geckolib.animation.RawAnimation;
+import software.bernie.geckolib.animation.PlayState;
+import software.bernie.geckolib.util.GeckoLibUtil;
+
+import net.minecraft.util.Mth;
 
 import javax.annotation.Nullable;
 import java.util.*;
 
-public class SwordFamiliarEntity extends Entity {
+public class SwordFamiliarEntity extends Entity implements GeoEntity {
+
+    private final AnimatableInstanceCache cache = GeckoLibUtil.createInstanceCache(this);
 
     private static final EntityDataAccessor<Optional<UUID>> DATA_OWNER_UUID =
             SynchedEntityData.defineId(SwordFamiliarEntity.class, EntityDataSerializers.OPTIONAL_UUID);
@@ -71,8 +85,10 @@ public class SwordFamiliarEntity extends Entity {
     private static final double SWEEP_SPRING_STRENGTH = 0.35;
     private static final double SWEEP_MAX_SPEED = 1.2;
     private static final double SWEEP_RELEASE_MAX_RADIUS = 12.0;
-    private static final double SWEEP_RETURN_SPEED = 1.5;
+        private static final double SWEEP_RETURN_SPEED = 1.5;
     private static final float SWEEP_KNOCKBACK_STRENGTH = 0.6f;
+    private int dyingTimer = 0;
+    private static final int DYING_ANIMATION_TICKS = 10;
 
     private Vec3 velocity = Vec3.ZERO;
     private Vec3 targetPosition = Vec3.ZERO;
@@ -105,6 +121,8 @@ public class SwordFamiliarEntity extends Entity {
     @Nullable
     private Entity awarenessTarget = null;
     private boolean horizontal = false;
+    private float horizontalProgress = 0.0f;
+    private float horizontalProgressO = 0.0f;
 
     private static final EntityDimensions DIMENSIONS_VERTICAL = EntityDimensions.fixed(0.4f, 3.0f);
     // Horizontal: width/height passed to EntityDimensions are overridden by makeBoundingBox()
@@ -201,7 +219,7 @@ public class SwordFamiliarEntity extends Entity {
             return;
         }
 
-        switch (getState()) {
+                switch (getState()) {
             case HOVERING -> tickHovering(owner);
             case CHARGING -> tickCharging(owner);
             case LAUNCHING -> tickLaunching(owner);
@@ -210,15 +228,27 @@ public class SwordFamiliarEntity extends Entity {
             case SWEEPING_HOLD -> tickSweepingHold(owner);
             case SWEEPING_RELEASE -> tickSweepingRelease(owner);
             case BLOCKING -> tickBlocking(owner);
+            case DYING -> tickDying(owner);
         }
         updateOrientation();
     }
 
     private void clientTick() {
+        if (this.tickCount == 1) {
+            for (int i = 0; i < 15; i++) {
+                double dx = (this.random.nextDouble() - 0.5) * 1.5;
+                double dy = (this.random.nextDouble() - 0.5) * 1.5;
+                double dz = (this.random.nextDouble() - 0.5) * 1.5;
+                this.level().addParticle(ParticleTypes.WITCH, 
+                        this.getX() + dx, this.getY() + this.getBbHeight() / 2.0 + dy, this.getZ() + dz, 
+                        0, 0, 0);
+            }
+        }
+
         Player owner = getOwner();
         if (owner == null) return;
 
-        switch (getState()) {
+                switch (getState()) {
             case HOVERING -> tickHovering(owner);
             case CHARGING -> tickChargingClient(owner);
             case LAUNCHING -> tickLaunchingClient();
@@ -227,6 +257,7 @@ public class SwordFamiliarEntity extends Entity {
             case SWEEPING_HOLD -> tickSweepingHoldClient(owner);
             case SWEEPING_RELEASE -> tickSweepingReleaseClient(owner);
             case BLOCKING -> tickBlockingClient(owner);
+            case DYING -> {}
         }
         updateOrientation();
     }
@@ -242,17 +273,17 @@ public class SwordFamiliarEntity extends Entity {
 
     // === BLOCKING ===
 
-    public void startBlocking() {
+        public void startBlocking() {
         setState(FamiliarState.BLOCKING);
     }
 
     public void stopBlocking() {
-        // block_slash animation fires here in Phase 8
+        triggerAnim("action", ANIM_PREFIX + "block_slash");
         setState(FamiliarState.HOVERING);
     }
 
     public void guardBreak() {
-        // guard_break animation fires here in Phase 8; called from Phase 9 stamina hook
+        triggerAnim("action", ANIM_PREFIX + "guard_break");
         setState(FamiliarState.HOVERING);
         setGuardCooldown(60);
     }
@@ -310,20 +341,23 @@ public class SwordFamiliarEntity extends Entity {
     }
 
     private void tickChargingClient(Player owner) {
+        chargeTimer++;
         updateChargingPosition(owner);
         applySpringPhysics();
     }
 
-    private void updateChargingPosition(Player owner) {
-        // Prefer right side (candidate 0), fall back to left (candidate 1)
-        Vec3 rightSide = computeCandidatePosition(owner, 0);
-        if (!isPositionObstructed(rightSide)) {
-            targetPosition = rightSide;
-        } else {
-            Vec3 leftSide = computeCandidatePosition(owner, 1);
-            targetPosition = leftSide;
+        private void updateChargingPosition(Player owner) {
+            // Prefer right side (candidate 0), fall back to left (candidate 1).
+            // +1.0 raises the charge pose to roughly head height; the renderer now puts the
+            // model exactly on the hitbox, so this offset is the real visual height.
+            Vec3 rightSide = computeCandidatePosition(owner, 0).add(0, 1.0, 0);
+            if (!isPositionObstructed(rightSide)) {
+                targetPosition = rightSide;
+            } else {
+                Vec3 leftSide = computeCandidatePosition(owner, 1).add(0, 1.0, 0);
+                targetPosition = leftSide;
+            }
         }
-    }
 
     // === LAUNCHING ===
 
@@ -820,19 +854,30 @@ public class SwordFamiliarEntity extends Entity {
         return awarenessTarget;
     }
 
-    private void exitFlyingMode(Player owner) {
-        for (int i = 0; i < owner.getInventory().getContainerSize(); i++) {
-            var stack = owner.getInventory().getItem(i);
-            if (stack.getItem() instanceof HeirloomSwordItem && HeirloomSwordItem.isFlying(stack)) {
-                HeirloomSwordItem.setMode(stack, SwordMode.NORMAL);
-                stack.remove(ModDataComponents.FAMILIAR_UUID.get());
-                break;
+        private void exitFlyingMode(Player owner) {
+            if (getState() == FamiliarState.DYING) return;
+        
+            for (int i = 0; i < owner.getInventory().getContainerSize(); i++) {
+                var stack = owner.getInventory().getItem(i);
+                if (stack.getItem() instanceof HeirloomSwordItem && HeirloomSwordItem.isFlying(stack)) {
+                    HeirloomSwordItem.setMode(stack, SwordMode.NORMAL);
+                    stack.remove(ModDataComponents.FAMILIAR_UUID.get());
+                    break;
+                }
+            }
+            owner.displayClientMessage(
+                    net.minecraft.network.chat.Component.translatable("msg.heirloomswordmod.sword_returns"), true);
+            triggerAnim("action", ANIM_PREFIX + "death_fall");
+            setState(FamiliarState.DYING);
+            dyingTimer = 0;
+        }
+
+        private void tickDying(Player owner) {
+            dyingTimer++;
+            if (dyingTimer >= DYING_ANIMATION_TICKS) {
+                this.discard();
             }
         }
-        owner.displayClientMessage(
-                net.minecraft.network.chat.Component.translatable("msg.heirloomswordmod.sword_returns"), true);
-        this.discard();
-    }
 
     public static void despawnForOwner(ServerLevel level, UUID ownerUUID) {
         for (Entity entity : level.getAllEntities()) {
@@ -854,9 +899,9 @@ public class SwordFamiliarEntity extends Entity {
         return null;
     }
 
-    @Override
+        @Override
     public boolean isPickable() {
-        return false;
+        return true; // Re-enabled for testing
     }
 
     @Override
@@ -878,18 +923,28 @@ public class SwordFamiliarEntity extends Entity {
     protected AABB makeBoundingBox() {
         if (!horizontal) return super.makeBoundingBox();
 
-        // Build a tight AABB around the rotated sword blade.
-        // The sword is 3 blocks long and 0.4 wide/tall, oriented along getYRot().
         double yawRad = Math.toRadians(this.getYRot());
         double sinYaw = Math.abs(Math.sin(yawRad));
         double cosYaw = Math.abs(Math.cos(yawRad));
+        Vec3 pos = this.position();
 
+        if (getState() == FamiliarState.BLOCKING) {
+            // Blade is held upright and rolled 45 deg across the view (block_stance):
+            // wide across the look direction and tall, thin along the look axis.
+            double halfAcross = 1.1;
+            double halfX = cosYaw * halfAcross + sinYaw * SWORD_HALF_THICKNESS;
+            double halfZ = sinYaw * halfAcross + cosYaw * SWORD_HALF_THICKNESS;
+            return new AABB(
+                    pos.x - halfX, pos.y - halfAcross, pos.z - halfZ,
+                    pos.x + halfX, pos.y + halfAcross, pos.z + halfZ
+            );
+        }
+
+        // Tight AABB around the rotated blade: 3 long, 0.4 thick, oriented along getYRot().
         double halfX = sinYaw * SWORD_HALF_LENGTH + cosYaw * SWORD_HALF_THICKNESS;
         double halfZ = cosYaw * SWORD_HALF_LENGTH + sinYaw * SWORD_HALF_THICKNESS;
-
-        Vec3 pos = this.position();
         return new AABB(
-                pos.x - halfX, pos.y - SWORD_HALF_THICKNESS,  pos.z - halfZ,
+                pos.x - halfX, pos.y - SWORD_HALF_THICKNESS, pos.z - halfZ,
                 pos.x + halfX, pos.y + SWORD_HALF_THICKNESS, pos.z + halfZ
         );
     }
@@ -898,43 +953,133 @@ public class SwordFamiliarEntity extends Entity {
         return horizontal;
     }
 
+    public float getHorizontalProgress(float partialTick) {
+        return Mth.lerp(partialTick, horizontalProgressO, horizontalProgress);
+    }
+
     private void updateOrientation() {
-        boolean shouldBeHorizontal = getState() != FamiliarState.HOVERING || awarenessTarget != null;
+        FamiliarState currentState = getState();
+        boolean shouldBeHorizontal = switch (currentState) {
+            case HOVERING -> awarenessTarget != null;
+            case DYING -> false;
+            default -> true;
+        };
         if (shouldBeHorizontal != horizontal) {
             horizontal = shouldBeHorizontal;
             refreshDimensions();
         }
+        horizontalProgressO = horizontalProgress;
+        float targetProgress = horizontal ? 1.0f : 0.0f;
+        horizontalProgress = Mth.approach(horizontalProgress, targetProgress, 0.2f);
+
+        float targetYaw = this.getYRot();
+        float targetPitch = this.getXRot();
+
+        if (getState() == FamiliarState.HOVERING && awarenessTarget != null) {
+            Vec3 toTarget = awarenessTarget.position()
+                    .add(0, awarenessTarget.getBbHeight() * 0.5, 0)
+                    .subtract(this.position());
+            targetYaw = (float) Math.toDegrees(Math.atan2(-toTarget.x, toTarget.z));
+            double horizDist = Math.sqrt(toTarget.x * toTarget.x + toTarget.z * toTarget.z);
+            targetPitch = (float) -Math.toDegrees(Math.atan2(toTarget.y, horizDist));
+        } else if (getState() == FamiliarState.LAUNCHING) {
+            targetYaw = (float) Math.toDegrees(Math.atan2(-launchDirection.x, launchDirection.z));
+            double horizDist = Math.sqrt(launchDirection.x * launchDirection.x + launchDirection.z * launchDirection.z);
+            targetPitch = (float) -Math.toDegrees(Math.atan2(launchDirection.y, horizDist));
+                } else if (getState() == FamiliarState.RETURNING) {
+            Player owner = getOwner();
+            if (owner != null) {
+                // Invert direction so hilt points at player
+                Vec3 toOwner = this.position().subtract(owner.position().add(0, owner.getBbHeight() * 0.5, 0));
+                targetYaw = (float) Math.toDegrees(Math.atan2(-toOwner.x, toOwner.z));
+                double horizDist = Math.sqrt(toOwner.x * toOwner.x + toOwner.z * toOwner.z);
+                targetPitch = (float) -Math.toDegrees(Math.atan2(toOwner.y, horizDist));
+            }
+                } else if (getState() == FamiliarState.SWEEPING_HOLD || getState() == FamiliarState.SWEEPING_RELEASE) {
+            Vec3 dir = this.sweepVelocity.lengthSqr() > 0.05 ? this.sweepVelocity : null;
+            if (dir == null) {
+                Player owner = getOwner();
+                if (owner != null) dir = owner.getLookAngle();
+            }
+            if (dir != null) {
+                // Tip points along the travel direction. During the release return phase
+                // sweepVelocity is stored reversed, so the hilt leads automatically.
+                targetYaw = (float) Math.toDegrees(Math.atan2(-dir.x, dir.z));
+                double horizDist = Math.sqrt(dir.x * dir.x + dir.z * dir.z);
+                targetPitch = (float) -Math.toDegrees(Math.atan2(dir.y, horizDist));
+            }
+        } else if (getState() == FamiliarState.BLOCKING) {
+            Player owner = getOwner();
+            if (owner != null) {
+                Vec3 look = owner.getLookAngle();
+                targetYaw = (float) Math.toDegrees(Math.atan2(-look.x, look.z));
+                targetPitch = 0;
+            }
+        } else if (currentState == FamiliarState.CHARGING) {
+            Player owner = getOwner();
+            if (owner != null) {
+                targetYaw = owner.getYRot();
+                targetPitch = owner.getXRot();
+            }
+        } else {
+            Player owner = getOwner();
+            if (owner != null) {
+                targetYaw = owner.getYRot();
+            }
+            targetPitch = 0;
+        }
+
+        float lerpFactor = (currentState == FamiliarState.LAUNCHING || currentState == FamiliarState.STUCK) ? 1.0f : 0.25f;
+        float smoothedYaw = Mth.rotLerp(lerpFactor, this.getYRot(), targetYaw);
+        float smoothedPitch = Mth.rotLerp(lerpFactor, this.getXRot(), targetPitch);
+        this.setYRot(smoothedYaw);
+        this.setXRot(smoothedPitch);
 
         if (horizontal) {
-            float yaw;
-
-            if (getState() == FamiliarState.HOVERING && awarenessTarget != null) {
-                // Point tip directly at the awareness target
-                Vec3 toTarget = awarenessTarget.position()
-                        .add(0, awarenessTarget.getBbHeight() * 0.5, 0)
-                        .subtract(this.position());
-                yaw = (float) Math.toDegrees(Math.atan2(-toTarget.x, toTarget.z));
-            } else {
-                // Point along travel direction, or owner's look if stationary
-                Vec3 travelDir = this.velocity.lengthSqr() > 0.001 ? this.velocity : null;
-                if (travelDir == null && (getState() == FamiliarState.SWEEPING_HOLD || getState() == FamiliarState.SWEEPING_RELEASE)) {
-                    travelDir = this.sweepVelocity.lengthSqr() > 0.001 ? this.sweepVelocity : null;
-                }
-                if (travelDir == null && getState() == FamiliarState.BLOCKING) {
-                    Player owner = getOwner();
-                    if (owner != null) travelDir = owner.getLookAngle();
-                }
-
-                if (travelDir != null) {
-                    yaw = (float) Math.toDegrees(Math.atan2(-travelDir.x, travelDir.z));
-                } else {
-                    Player owner = getOwner();
-                    yaw = owner != null ? owner.getYRot() : this.getYRot();
-                }
-            }
-
-            this.setYRot(yaw);
             this.setBoundingBox(makeBoundingBox());
         }
+    }
+
+    private static final String ANIM_PREFIX = "animation.alucard_sword.";
+
+    @Override
+    public void registerControllers(AnimatableManager.ControllerRegistrar controllers) {
+        controllers.add(new AnimationController<>(this, "main", 5, this::animationPredicate)
+                .setAnimationSpeedHandler(state -> {
+                    if (getState() == FamiliarState.CHARGING) {
+                        float t = Math.min(chargeTimer / 15.0f, 1.0f);
+                        return (double) t;
+                    }
+                    return 1.0;
+                }));
+        controllers.add(new AnimationController<>(this, "action", 0, state -> PlayState.STOP)
+                .triggerableAnim(ANIM_PREFIX + "block_slash", RawAnimation.begin().thenPlay(ANIM_PREFIX + "block_slash"))
+                .triggerableAnim(ANIM_PREFIX + "guard_break", RawAnimation.begin().thenPlay(ANIM_PREFIX + "guard_break"))
+                .triggerableAnim(ANIM_PREFIX + "death_fall", RawAnimation.begin().thenPlay(ANIM_PREFIX + "death_fall")));
+    }
+
+    private PlayState animationPredicate(AnimationState<SwordFamiliarEntity> state) {
+        FamiliarState familiarState = getState();
+        String anim = "idle";
+
+        switch (familiarState) {
+            case HOVERING -> anim = awarenessTarget != null ? "alert" : "idle";
+            case CHARGING -> anim = "charge_spin";
+            case LAUNCHING -> anim = "launch";
+            case STUCK -> anim = "stuck";
+            case RETURNING -> anim = "return";
+            case SWEEPING_HOLD -> anim = "sweep_hold";
+            case SWEEPING_RELEASE -> anim = sweepReturning ? "return_hilt" : "launch";
+            case BLOCKING -> anim = "block_stance";
+            case DYING -> anim = "idle";
+        }
+
+        state.getController().setAnimation(RawAnimation.begin().thenLoop(ANIM_PREFIX + anim));
+        return PlayState.CONTINUE;
+    }
+
+    @Override
+    public AnimatableInstanceCache getAnimatableInstanceCache() {
+        return this.cache;
     }
 }

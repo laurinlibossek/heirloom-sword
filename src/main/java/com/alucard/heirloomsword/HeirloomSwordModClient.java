@@ -1,6 +1,6 @@
 package com.alucard.heirloomsword;
 
-import com.alucard.heirloomsword.client.SwordFamiliarRenderer;
+import com.alucard.heirloomsword.client.SwordFamiliarGeoRenderer;
 import com.alucard.heirloomsword.network.SwordChargePacket;
 import com.alucard.heirloomsword.network.SwordGuardPacket;
 import com.alucard.heirloomsword.network.SwordLaunchPacket;
@@ -8,10 +8,10 @@ import com.alucard.heirloomsword.network.SwordModePacket;
 import com.alucard.heirloomsword.network.SwordMomentumPacket;
 import com.alucard.heirloomsword.network.SwordRecallPacket;
 import com.alucard.heirloomsword.network.SwordSweepPacket;
-import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.api.distmarker.Dist;
@@ -25,6 +25,7 @@ import net.neoforged.neoforge.client.event.EntityRenderersEvent;
 import net.neoforged.neoforge.client.event.InputEvent;
 import net.neoforged.neoforge.client.event.RegisterKeyMappingsEvent;
 import net.neoforged.neoforge.client.event.RenderGuiLayerEvent;
+import net.neoforged.neoforge.client.event.RenderHandEvent;
 import net.neoforged.neoforge.client.gui.ConfigurationScreen;
 import net.neoforged.neoforge.client.gui.IConfigScreenFactory;
 import net.neoforged.neoforge.common.NeoForge;
@@ -48,9 +49,9 @@ public class HeirloomSwordModClient {
             event.register(ModKeybinds.GUARD);
         }
 
-        @SubscribeEvent
+                @SubscribeEvent
         public static void onRegisterRenderers(EntityRenderersEvent.RegisterRenderers event) {
-            event.registerEntityRenderer(ModEntities.SWORD_FAMILIAR.get(), SwordFamiliarRenderer::new);
+            event.registerEntityRenderer(ModEntities.SWORD_FAMILIAR.get(), SwordFamiliarGeoRenderer::new);
         }
 
         @SubscribeEvent
@@ -90,24 +91,30 @@ public class HeirloomSwordModClient {
                 return;
             }
 
-            // Handle F key (toggle mode)
-            while (ModKeybinds.TOGGLE_MODE.consumeClick()) {
-                if (HeirloomSwordItem.isFlying(held)) {
-                    SwordFamiliarEntity familiar = findClientFamiliar(player);
-                    if (familiar != null
-                            && familiar.getState() != FamiliarState.HOVERING
-                            && familiar.getState() != FamiliarState.SWEEPING_HOLD
-                            && familiar.getState() != FamiliarState.BLOCKING) {
-                        continue; // F is locked during other active states
-                    }
-                }
-                if (isSweeping) resetSweepState();
-                if (isBlocking) resetBlockState();
-                PacketDistributor.sendToServer(new SwordModePacket());
-                SwordMode current = HeirloomSwordItem.getMode(held);
-                SwordMode next = current == SwordMode.NORMAL ? SwordMode.FLYING : SwordMode.NORMAL;
-                HeirloomSwordItem.setMode(held, next);
-            }
+                        // Handle F key (toggle mode)
+                        while (ModKeybinds.TOGGLE_MODE.consumeClick()) {
+                            SwordMode toggledCurrent = HeirloomSwordItem.getMode(held);
+                            if (toggledCurrent == SwordMode.NORMAL) {
+                                if (player.isSwimming() || player.isFallFlying() || player.isPassenger()) {
+                                    continue;
+                                }
+                            }
+                
+                            if (HeirloomSwordItem.isFlying(held)) {
+                                SwordFamiliarEntity familiar = findClientFamiliar(player);
+                                if (familiar != null
+                                        && familiar.getState() != FamiliarState.HOVERING
+                                        && familiar.getState() != FamiliarState.SWEEPING_HOLD
+                                        && familiar.getState() != FamiliarState.BLOCKING) {
+                                    continue; // F is locked during other active states
+                                }
+                            }
+                            if (isSweeping) resetSweepState();
+                            if (isBlocking) resetBlockState();
+                            PacketDistributor.sendToServer(new SwordModePacket());
+                            SwordMode next = toggledCurrent == SwordMode.NORMAL ? SwordMode.FLYING : SwordMode.NORMAL;
+                            HeirloomSwordItem.setMode(held, next);
+                        }
 
             // Handle R key (recall) — ignored during sweep states
             while (ModKeybinds.RECALL.consumeClick()) {
@@ -153,7 +160,7 @@ public class HeirloomSwordModClient {
                 }
             }
 
-            // Track sweep hold state (right-click)
+                        // Handle sweep hold state
             if (isSweeping) {
                 if (!HeirloomSwordItem.isFlying(held)) {
                     resetSweepState();
@@ -183,6 +190,27 @@ public class HeirloomSwordModClient {
                     lastYaw = currentYaw;
                     lastPitch = currentPitch;
                 }
+            }
+            
+                        // Telekinetic shimmer at the hand while flying mode is active
+            if (HeirloomSwordItem.isFlying(held) && mc.level != null
+                    && player.getRandom().nextFloat() < 0.15f) {
+                double dx = (player.getRandom().nextDouble() - 0.5) * 0.2;
+                double dy = (player.getRandom().nextDouble() - 0.5) * 0.2;
+                double dz = (player.getRandom().nextDouble() - 0.5) * 0.2;
+
+                Vec3 handPos;
+                if (mc.options.getCameraType().isFirstPerson()) {
+                    handPos = player.getEyePosition().add(player.getLookAngle().scale(0.5)).add(0, -0.3, 0);
+                } else {
+                    float yRot = player.yBodyRot * ((float) Math.PI / 180F);
+                    double handOffsetZ = Math.cos(yRot) * 0.4;
+                    double handOffsetX = Math.sin(yRot) * 0.4;
+                    handPos = new Vec3(player.getX() - handOffsetX,
+                            player.getY() + player.getBbHeight() * 0.5, player.getZ() + handOffsetZ);
+                }
+
+                mc.level.addParticle(ParticleTypes.WITCH, handPos.x + dx, handPos.y + dy, handPos.z + dz, 0, 0, 0);
             }
         }
 
@@ -261,6 +289,18 @@ public class HeirloomSwordModClient {
             isBlocking = false;
         }
 
+                @SubscribeEvent
+        public static void onRenderHand(RenderHandEvent event) {
+            if (event.getHand() != net.minecraft.world.InteractionHand.MAIN_HAND) return;
+            
+            Minecraft mc = Minecraft.getInstance();
+            if (mc.player == null) return;
+            ItemStack stack = mc.player.getMainHandItem();
+            if (stack.getItem() instanceof HeirloomSwordItem && HeirloomSwordItem.isFlying(stack)) {
+                event.setCanceled(true);
+            }
+        }
+
         @SubscribeEvent
         public static void onRenderGuiPost(RenderGuiLayerEvent.Post event) {
             Minecraft mc = Minecraft.getInstance();
@@ -308,14 +348,8 @@ public class HeirloomSwordModClient {
         }
 
         private static void renderPurpleGlow(GuiGraphics guiGraphics, int x, int y) {
-            RenderSystem.enableBlend();
-            RenderSystem.defaultBlendFunc();
-            RenderSystem.setShaderColor(0.6f, 0.2f, 0.9f, 0.3f);
-
-            guiGraphics.fill(x, y, x + 22, y + 22, 0x4D9933FF);
-
-            RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, 1.0f);
-            RenderSystem.disableBlend();
+            // Subtle 1px purple outline around the slot's item area
+            guiGraphics.renderOutline(x + 2, y + 2, 18, 18, 0x669933FF);
         }
 
         @Nullable
