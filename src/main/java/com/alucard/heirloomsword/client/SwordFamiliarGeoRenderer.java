@@ -27,7 +27,7 @@ public class SwordFamiliarGeoRenderer extends GeoEntityRenderer<SwordFamiliarEnt
         super.preRender(poseStack, animatable, model, bufferSource, vertexConsumer, isReRender,
                 partialTick, packedLight, packedOverlay, color);
 
-        if (animatable.tickCount < 10) {
+        if (animatable.tickCount < 10 && !animatable.isSkyDropSpawn()) {
             float scale = (animatable.tickCount + partialTick) / 10.0f;
             poseStack.scale(scale, scale, scale);
         }

@@ -100,6 +100,16 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
     private int dyingTimer = 0;
     private static final int DYING_ANIMATION_TICKS = 10;
 
+    // ARRIVING state (sky-drop spawn)
+    private static final double SKY_DROP_HEIGHT = 16.0;  // [TUNE] how high above the slot
+    private static final double MIN_SKY_CLEARANCE = 6.0; // below this, fall back to materialize
+    private static final double ARRIVE_SPEED = 2.5;      // [TUNE] blocks/tick descent
+    private boolean skyDropSpawn = false;
+
+    public boolean isSkyDropSpawn() {
+        return skyDropSpawn;
+    }
+
     private Vec3 velocity = Vec3.ZERO;
     private Vec3 targetPosition = Vec3.ZERO;
     private double smoothedAnchorY = Double.NaN;
@@ -186,9 +196,22 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
     public SwordFamiliarEntity(Level level, Player owner) {
         this(ModEntities.SWORD_FAMILIAR.get(), level);
         this.entityData.set(DATA_OWNER_UUID, Optional.of(owner.getUUID()));
-        Vec3 spawnPos = computeCandidatePosition(owner, 0);
-        this.setPos(spawnPos);
-        this.targetPosition = spawnPos;
+        Vec3 hoverPos = computeCandidatePosition(owner, 0);
+        this.targetPosition = hoverPos;
+
+        // Sky-drop entrance when there's vertical clearance; materialize otherwise
+        BlockHitResult skyHit = level.clip(new ClipContext(
+                hoverPos, hoverPos.add(0, SKY_DROP_HEIGHT, 0),
+                ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, this));
+        double clearance = skyHit.getType() == HitResult.Type.BLOCK
+                ? skyHit.getLocation().y - hoverPos.y
+                : SKY_DROP_HEIGHT;
+        if (clearance >= MIN_SKY_CLEARANCE) {
+            this.setPos(hoverPos.add(0, clearance - 1.0, 0));
+            setState(FamiliarState.ARRIVING);
+        } else {
+            this.setPos(hoverPos);
+        }
     }
 
     @Override
@@ -277,6 +300,7 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
             case SWEEPING_RELEASE -> tickSweepingRelease(owner);
             case BLOCKING -> tickBlocking(owner);
             case DYING -> tickDying(owner);
+            case ARRIVING -> tickArriving(owner);
         }
         burnUndeadOnContact(owner);
         updateOrientation();
@@ -291,12 +315,15 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
         if (slashVisualTicks > 0) slashVisualTicks--;
 
         if (this.tickCount == 1) {
+            skyDropSpawn = getState() == FamiliarState.ARRIVING;
+        }
+        if (this.tickCount == 1 && getState() != FamiliarState.ARRIVING) {
             for (int i = 0; i < 15; i++) {
                 double dx = (this.random.nextDouble() - 0.5) * 1.5;
                 double dy = (this.random.nextDouble() - 0.5) * 1.5;
                 double dz = (this.random.nextDouble() - 0.5) * 1.5;
-                this.level().addParticle(ParticleTypes.WITCH, 
-                        this.getX() + dx, this.getY() + this.getBbHeight() / 2.0 + dy, this.getZ() + dz, 
+                this.level().addParticle(ParticleTypes.WITCH,
+                        this.getX() + dx, this.getY() + this.getBbHeight() / 2.0 + dy, this.getZ() + dz,
                         0, 0, 0);
             }
         }
@@ -314,6 +341,7 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
             case SWEEPING_RELEASE -> tickSweepingReleaseClient(owner);
             case BLOCKING -> tickBlockingClient(owner);
             case DYING -> {}
+            case ARRIVING -> tickArrivingClient();
         }
         updateOrientation();
     }
@@ -327,6 +355,14 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
         }
         if (to == FamiliarState.SWEEPING_HOLD) {
             spinRampTicks = 0; // rev the sawblade up from rest
+        }
+        if (from == FamiliarState.ARRIVING && to == FamiliarState.HOVERING) {
+            for (int i = 0; i < 24; i++) {
+                double angle = (Math.PI * 2 * i) / 24;
+                this.level().addParticle(ParticleTypes.WITCH,
+                        getX() + Math.cos(angle) * 0.8, getY(), getZ() + Math.sin(angle) * 0.8,
+                        Math.cos(angle) * 0.15, 0.05, Math.sin(angle) * 0.15);
+            }
         }
     }
 
@@ -1092,6 +1128,36 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
             }
         }
 
+    // === ARRIVING (sky-drop spawn) ===
+
+    private void tickArriving(Player owner) {
+        Vec3 hoverPos = computeCandidatePosition(owner, 0);
+        Vec3 toTarget = hoverPos.subtract(this.position());
+        if (toTarget.length() <= ARRIVE_SPEED) {
+            this.setPos(hoverPos);
+            this.targetPosition = hoverPos;
+            this.velocity = Vec3.ZERO;
+            this.smoothedAnchorY = Double.NaN;
+            setState(FamiliarState.HOVERING);
+            this.level().playSound(null, this.blockPosition(),
+                    net.minecraft.sounds.SoundEvents.AMETHYST_CLUSTER_BREAK,
+                    net.minecraft.sounds.SoundSource.PLAYERS, 1.0f, 0.7f);
+            return;
+        }
+        this.setPos(this.position().add(toTarget.normalize().scale(ARRIVE_SPEED)));
+    }
+
+    private void tickArrivingClient() {
+        // Falling streak [TUNE density]
+        for (int i = 0; i < 2; i++) {
+            this.level().addParticle(ParticleTypes.END_ROD,
+                    getX() + (this.random.nextDouble() - 0.5) * 0.3,
+                    getY() + this.random.nextDouble() * 2.5,
+                    getZ() + (this.random.nextDouble() - 0.5) * 0.3,
+                    0, 0.1, 0);
+        }
+    }
+
     public static void despawnForOwner(ServerLevel level, UUID ownerUUID) {
         for (Entity entity : level.getAllEntities()) {
             if (entity instanceof SwordFamiliarEntity familiar
@@ -1183,6 +1249,7 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
         boolean shouldBeHorizontal = switch (currentState) {
             case HOVERING -> awarenessTarget != null || slashVisualTicks > 0;
             case DYING -> false;
+            case ARRIVING -> false;
             default -> true;
         };
         if (shouldBeHorizontal != horizontal) {
@@ -1318,6 +1385,7 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
             case SWEEPING_RELEASE -> anim = sweepReturning ? "return_hilt" : "sweep_hold";
             case BLOCKING -> anim = "block_stance";
             case DYING -> anim = "idle";
+            case ARRIVING -> anim = "idle"; // falling sword uses its hover orientation
         }
 
         state.getController().setAnimation(RawAnimation.begin().thenLoop(ANIM_PREFIX + anim));
