@@ -65,8 +65,8 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
     private static final double SPRING_DAMPING = 0.85;
     private static final double VERTICAL_SMOOTHING = 0.05;
 
-    private static final double LAUNCH_SPEED_NORMAL = 1.6;
-    private static final double LAUNCH_SPEED_CHARGED = 3.2;
+    private static final double LAUNCH_SPEED_NORMAL = 2.08;
+    private static final double LAUNCH_SPEED_CHARGED = 4.8;
     private static final double RETURN_SPEED = 1.8;
     private static final double MAX_LAUNCH_RANGE = 48.0;
     private static final double PICKUP_RANGE = 1.5;
@@ -87,14 +87,14 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
     private static final double SWEEP_HOLD_DISTANCE = 1.8;
     private static final float SWEEP_CONTACT_DAMAGE = 4.0f;
     private static final float SWEEP_RELEASE_DAMAGE = 8.0f;
-    private static final int SWEEP_IFRAME_TICKS = 10;
+    private static final int SWEEP_IFRAME_TICKS = 6;
     private static final double SWEEP_MOMENTUM_SCALE = 0.08;
     private static final double SWEEP_DAMPING = 0.72;
     private static final double SWEEP_SPRING_STRENGTH = 0.35;
     private static final double SWEEP_MAX_SPEED = 1.2;
     private static final double SWEEP_RELEASE_MAX_RADIUS = 12.0;
         private static final double SWEEP_RETURN_SPEED = 1.5;
-    private static final float SWEEP_KNOCKBACK_STRENGTH = 0.6f;
+    private static final float SWEEP_KNOCKBACK_STRENGTH = 0.3f;
     private int dyingTimer = 0;
     private static final int DYING_ANIMATION_TICKS = 10;
 
@@ -131,7 +131,7 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
     // Sawblade spin while SWEEPING_HOLD — client-side visual only
     private float spinAngle = 0.0f;
     private float spinAngleO = 0.0f;
-    private static final float SWEEP_SPIN_DEG_PER_TICK = 40.0f; // [TUNE] ~2.2 rev/s
+    private static final float SWEEP_SPIN_DEG_PER_TICK = 60.0f; // [TUNE] ~3.3 rev/s
 
     public float getSpinAngle(float partialTick) {
         return spinAngleO + (spinAngle - spinAngleO) * partialTick;
@@ -1113,7 +1113,7 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
         }
         horizontalProgressO = horizontalProgress;
         float targetProgress = horizontal ? 1.0f : 0.0f;
-        horizontalProgress = Mth.approach(horizontalProgress, targetProgress, 0.2f);
+        horizontalProgress = Mth.approach(horizontalProgress, targetProgress, 0.1f); // [TUNE] was 0.2 — softer lock-on blend
 
         if (currentState == FamiliarState.STUCK) {
             // Embedded in a block — keep exactly the orientation it had on impact.
