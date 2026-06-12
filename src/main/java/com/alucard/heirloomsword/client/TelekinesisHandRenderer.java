@@ -26,14 +26,14 @@ public final class TelekinesisHandRenderer {
         }
     }
 
-    // [TUNE] every value below — these are starting points
-    private static final HandPose RELAXED = new HandPose(0.45f, -0.50f, -0.60f, 10f,  -8f, 0f); // hovering, calm
-    private static final HandPose ALERT   = new HandPose(0.42f, -0.45f, -0.58f, 18f, -10f, 0f); // mob in range
-    private static final HandPose CHARGE  = new HandPose(0.40f, -0.38f, -0.52f, 35f, -18f, 5f); // tightened, raised
-    private static final HandPose THRUST  = new HandPose(0.30f, -0.40f, -0.85f, 65f, -25f, 0f); // launch/quick-fire flick
-    private static final HandPose SWEEP   = new HandPose(0.25f, -0.35f, -0.70f, 55f, -30f, 0f); // tracing the view
-    private static final HandPose GUARD   = new HandPose(0.20f, -0.20f, -0.55f, 75f, -35f, 0f); // raised, palm forward
-    private static final HandPose RECEIVE = new HandPose(0.45f, -0.45f, -0.65f, 25f, -12f, 0f); // returning
+    // [TUNE] every value below — lowered + pulled back from face
+    private static final HandPose RELAXED = new HandPose(0.55f, -0.75f, -0.40f,  5f,  -5f, 0f); // hovering, calm
+    private static final HandPose ALERT   = new HandPose(0.52f, -0.70f, -0.40f, 12f,  -8f, 0f); // mob in range
+    private static final HandPose CHARGE  = new HandPose(0.50f, -0.62f, -0.38f, 25f, -12f, 5f); // tightened, raised
+    private static final HandPose THRUST  = new HandPose(0.40f, -0.65f, -0.55f, 45f, -18f, 0f); // launch/quick-fire flick
+    private static final HandPose SWEEP   = new HandPose(0.38f, -0.60f, -0.45f, 38f, -22f, 0f); // tracing the view
+    private static final HandPose GUARD   = new HandPose(0.35f, -0.50f, -0.38f, 55f, -25f, 0f); // raised, palm forward
+    private static final HandPose RECEIVE = new HandPose(0.55f, -0.70f, -0.42f, 15f,  -8f, 0f); // returning
 
     private static final float BLEND_SPEED = 0.12f; // [TUNE] per-frame pose blend
 
