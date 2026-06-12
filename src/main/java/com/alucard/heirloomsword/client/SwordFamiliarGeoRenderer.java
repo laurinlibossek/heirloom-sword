@@ -36,7 +36,10 @@ public class SwordFamiliarGeoRenderer extends GeoEntityRenderer<SwordFamiliarEnt
         // Smoothstep easing: gentle start and settle on the vertical<->horizontal blend
         hProgress = hProgress * hProgress * (3.0f - 2.0f * hProgress);
 
-        if (animatable.getState() == FamiliarState.SWEEPING_HOLD) {
+        boolean spinning = animatable.getState() == FamiliarState.SWEEPING_HOLD
+                || (animatable.getState() == FamiliarState.SWEEPING_RELEASE && !animatable.isSweepReturning());
+
+        if (spinning) {
             // Sawblade: continuous yaw spin, blade flattened into the horizontal plane.
             poseStack.mulPose(Axis.YP.rotationDegrees(animatable.getSpinAngle(partialTick)));
             poseStack.mulPose(Axis.XP.rotationDegrees(hProgress * 90.0f));
