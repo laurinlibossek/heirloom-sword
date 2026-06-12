@@ -33,6 +33,8 @@ public class SwordFamiliarGeoRenderer extends GeoEntityRenderer<SwordFamiliarEnt
         }
 
         float hProgress = animatable.getHorizontalProgress(partialTick);
+        // Smoothstep easing: gentle start and settle on the vertical<->horizontal blend
+        hProgress = hProgress * hProgress * (3.0f - 2.0f * hProgress);
 
         if (animatable.getState() == FamiliarState.SWEEPING_HOLD) {
             // Sawblade: continuous yaw spin, blade flattened into the horizontal plane.
