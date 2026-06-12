@@ -308,12 +308,14 @@ public class HeirloomSwordModClient {
                 @SubscribeEvent
         public static void onRenderHand(RenderHandEvent event) {
             if (event.getHand() != net.minecraft.world.InteractionHand.MAIN_HAND) return;
-            
+
             Minecraft mc = Minecraft.getInstance();
             if (mc.player == null) return;
             ItemStack stack = mc.player.getMainHandItem();
             if (stack.getItem() instanceof HeirloomSwordItem && HeirloomSwordItem.isFlying(stack)) {
                 event.setCanceled(true);
+                com.alucard.heirloomsword.client.TelekinesisHandRenderer.render(
+                        event, findClientFamiliar(mc.player));
             }
         }
 
