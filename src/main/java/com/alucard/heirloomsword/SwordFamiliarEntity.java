@@ -137,6 +137,15 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
         return spinAngleO + (spinAngle - spinAngleO) * partialTick;
     }
 
+    // Client-side state-transition tracking (visual effects only)
+    private FamiliarState lastClientState = FamiliarState.HOVERING;
+    private int slashVisualTicks = 0;
+    private static final int SLASH_VISUAL_TICKS = 14; // matches block_slash clip (0.7s)
+
+    public boolean isSlashing() {
+        return slashVisualTicks > 0;
+    }
+
     @Nullable
     private Entity awarenessTarget = null;
     private boolean horizontal = false;
@@ -255,6 +264,13 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
     }
 
     private void clientTick() {
+        FamiliarState st = getState();
+        if (st != lastClientState) {
+            onClientStateChange(lastClientState, st);
+            lastClientState = st;
+        }
+        if (slashVisualTicks > 0) slashVisualTicks--;
+
         if (this.tickCount == 1) {
             for (int i = 0; i < 15; i++) {
                 double dx = (this.random.nextDouble() - 0.5) * 1.5;
@@ -281,6 +297,15 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
             case DYING -> {}
         }
         updateOrientation();
+    }
+
+    private void onClientStateChange(FamiliarState from, FamiliarState to) {
+        if (from == FamiliarState.BLOCKING && to == FamiliarState.HOVERING && hasSlashTarget()) {
+            // hasSlashTarget() already exists (smart-slash hotfix): the server only fires
+            // block_slash when a hostile is in reach, so mirror that gate here — otherwise
+            // this window would hold the guard pose on slash-less releases.
+            slashVisualTicks = SLASH_VISUAL_TICKS; // block_slash is playing — hold the guard pose
+        }
     }
 
     // === HOVERING ===
@@ -1103,7 +1128,7 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
     private void updateOrientation() {
         FamiliarState currentState = getState();
         boolean shouldBeHorizontal = switch (currentState) {
-            case HOVERING -> awarenessTarget != null;
+            case HOVERING -> awarenessTarget != null || slashVisualTicks > 0;
             case DYING -> false;
             default -> true;
         };
@@ -1126,7 +1151,15 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
         float targetYaw = this.getYRot();
         float targetPitch = this.getXRot();
 
-        if (getState() == FamiliarState.HOVERING && awarenessTarget != null) {
+        if (currentState == FamiliarState.HOVERING && slashVisualTicks > 0) {
+            // Mid block-slash: keep the guard-style facing so only the clip moves the model
+            Player slashOwner = getOwner();
+            if (slashOwner != null) {
+                Vec3 look = slashOwner.getLookAngle();
+                targetYaw = (float) Math.toDegrees(Math.atan2(-look.x, look.z));
+                targetPitch = 0;
+            }
+        } else if (getState() == FamiliarState.HOVERING && awarenessTarget != null) {
             Vec3 toTarget = awarenessTarget.position()
                     .add(0, awarenessTarget.getBbHeight() * 0.5, 0)
                     .subtract(this.position());

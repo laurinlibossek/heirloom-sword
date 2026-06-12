@@ -48,7 +48,7 @@ public class SwordFamiliarGeoRenderer extends GeoEntityRenderer<SwordFamiliarEnt
         poseStack.mulPose(Axis.YP.rotationDegrees(180.0f - yaw));
 
         if (hProgress > 0.0f) {
-            if (animatable.getState() != FamiliarState.BLOCKING) {
+            if (animatable.getState() != FamiliarState.BLOCKING && !animatable.isSlashing()) {
                 float pitch = Mth.lerp(partialTick, animatable.xRotO, animatable.getXRot());
                 poseStack.mulPose(Axis.XP.rotationDegrees(hProgress * (90.0f - pitch)));
             }
