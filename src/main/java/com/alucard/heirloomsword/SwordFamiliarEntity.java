@@ -55,6 +55,8 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
             SynchedEntityData.defineId(SwordFamiliarEntity.class, EntityDataSerializers.INT);
     private static final EntityDataAccessor<Vector3f> DATA_LAUNCH_DIR =
             SynchedEntityData.defineId(SwordFamiliarEntity.class, EntityDataSerializers.VECTOR3);
+    private static final EntityDataAccessor<Boolean> DATA_CHARGED =
+            SynchedEntityData.defineId(SwordFamiliarEntity.class, EntityDataSerializers.BOOLEAN);
 
     private static final double HOVER_RADIUS = 1.65; // [TUNE] 1.5 felt too close, 1.8 too far
     private static final double COLLISION_SPHERE_RADIUS = 0.4;
@@ -195,6 +197,7 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
         builder.define(DATA_STATE, FamiliarState.HOVERING.getId());
         builder.define(DATA_GUARD_COOLDOWN, 0);
         builder.define(DATA_LAUNCH_DIR, new Vector3f());
+        builder.define(DATA_CHARGED, false);
     }
 
     @Override
@@ -490,6 +493,7 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
         this.entityData.set(DATA_LAUNCH_DIR, this.launchDirection.toVector3f());
         this.launchOrigin = this.position();
         this.chargedLaunch = charged;
+        this.entityData.set(DATA_CHARGED, charged);
         this.outboundHitSet.clear();
         // Snap orientation now so the first rotation the client receives already matches
         this.setYRot((float) Math.toDegrees(Math.atan2(-launchDirection.x, launchDirection.z)));
@@ -501,6 +505,10 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
     public Vec3 getLaunchDirection() {
         Vector3f v = this.entityData.get(DATA_LAUNCH_DIR);
         return new Vec3(v.x(), v.y(), v.z());
+    }
+
+    public boolean isChargedLaunch() {
+        return this.entityData.get(DATA_CHARGED);
     }
 
     private void removeChargeSlowdown() {
@@ -553,7 +561,7 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
     private void tickLaunchingClient() {
         Vec3 dir = getLaunchDirection();
         if (dir.lengthSqr() < 1.0e-4) return; // data not synced yet this tick
-        double speed = chargedLaunch ? LAUNCH_SPEED_CHARGED : LAUNCH_SPEED_NORMAL;
+        double speed = isChargedLaunch() ? LAUNCH_SPEED_CHARGED : LAUNCH_SPEED_NORMAL;
         this.setPos(this.position().add(dir.scale(speed)));
     }
 
