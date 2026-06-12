@@ -597,13 +597,11 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
         double distance = toOwner.length();
 
         if (distance <= PICKUP_RANGE) {
-            // Arrived at player — return to hovering
+            // Arrived — hand over to the hover spring, which glides it into the slot
             setState(FamiliarState.HOVERING);
             this.velocity = Vec3.ZERO;
             this.smoothedAnchorY = Double.NaN;
-            Vec3 hoverPos = computeCandidatePosition(owner, 0);
-            this.setPos(hoverPos);
-            this.targetPosition = hoverPos;
+            this.targetPosition = computeCandidatePosition(owner, 0);
             return;
         }
 
@@ -839,9 +837,7 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
         this.velocity = Vec3.ZERO;
         this.smoothedAnchorY = Double.NaN;
         if (owner != null) {
-            Vec3 hoverPos = computeCandidatePosition(owner, 0);
-            this.setPos(hoverPos);
-            this.targetPosition = hoverPos;
+            this.targetPosition = computeCandidatePosition(owner, 0);
         }
     }
 
