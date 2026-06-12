@@ -470,6 +470,24 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
         chargeTimer++;
         updateChargingPosition(owner);
         applySpringPhysics();
+        // Telekinetic gather — converging glyphs, ramping with charge [TUNE rates]
+        int count = 1 + Math.min(chargeTimer / 15, 3);
+        for (int i = 0; i < count; i++) {
+            double angle = this.random.nextDouble() * Math.PI * 2;
+            double dist = 0.8 + this.random.nextDouble() * 0.6;
+            double px = getX() + Math.cos(angle) * dist;
+            double py = getY() + getBbHeight() * 0.5 + (this.random.nextDouble() - 0.5) * 1.2;
+            double pz = getZ() + Math.sin(angle) * dist;
+            this.level().addParticle(ParticleTypes.ENCHANT, px, py, pz,
+                    (getX() - px) * 0.35,
+                    (getY() + getBbHeight() * 0.5 - py) * 0.35,
+                    (getZ() - pz) * 0.35);
+        }
+        if (isChargeReady() && this.tickCount % 4 == 0) {
+            this.level().addParticle(ParticleTypes.END_ROD,
+                    getX(), getY() + getBbHeight() * 0.5, getZ(),
+                    (this.random.nextDouble() - 0.5) * 0.1, 0.05, (this.random.nextDouble() - 0.5) * 0.1);
+        }
     }
 
         private void updateChargingPosition(Player owner) {
@@ -563,6 +581,14 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
         if (dir.lengthSqr() < 1.0e-4) return; // data not synced yet this tick
         double speed = isChargedLaunch() ? LAUNCH_SPEED_CHARGED : LAUNCH_SPEED_NORMAL;
         this.setPos(this.position().add(dir.scale(speed)));
+        // Very faint flight trail [TUNE density]
+        if (this.random.nextFloat() < (isChargedLaunch() ? 0.9f : 0.6f)) {
+            this.level().addParticle(isChargedLaunch() ? ParticleTypes.DRAGON_BREATH : ParticleTypes.WITCH,
+                    getX() + (this.random.nextDouble() - 0.5) * 0.3,
+                    getY() + getBbHeight() * 0.5 + (this.random.nextDouble() - 0.5) * 0.3,
+                    getZ() + (this.random.nextDouble() - 0.5) * 0.3,
+                    0, 0, 0);
+        }
     }
 
     // === STUCK ===
