@@ -311,9 +311,30 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
     }
 
     public void stopBlocking() {
-        triggerAnim("action", ANIM_PREFIX + "block_slash");
-        doBlockSlashDamage();
+        // "Smart" sword: only swing if a hostile is actually within slash reach —
+        // releasing guard after deflecting a distant arrow shouldn't whiff a slash.
+        if (hasSlashTarget()) {
+            triggerAnim("action", ANIM_PREFIX + "block_slash");
+            doBlockSlashDamage();
+        }
         setState(FamiliarState.HOVERING);
+    }
+
+    /** True when a living hostile is inside the frontal arc the block slash would hit. */
+    public boolean hasSlashTarget() {
+        Player owner = getOwner();
+        if (owner == null) return false;
+
+        Vec3 center = owner.getEyePosition().add(owner.getLookAngle().scale(1.5));
+        AABB arc = new AABB(center, center).inflate(BLOCK_SLASH_RANGE, 1.2, BLOCK_SLASH_RANGE);
+        Vec3 lookFlat = new Vec3(owner.getLookAngle().x, 0, owner.getLookAngle().z).normalize();
+
+        return !this.level().getEntitiesOfClass(Monster.class, arc, e -> {
+            if (!e.isAlive()) return false;
+            Vec3 toEntity = e.position().subtract(owner.position());
+            Vec3 toEntityFlat = new Vec3(toEntity.x, 0, toEntity.z).normalize();
+            return toEntityFlat.dot(lookFlat) > 0.1;
+        }).isEmpty();
     }
 
     private void doBlockSlashDamage() {
