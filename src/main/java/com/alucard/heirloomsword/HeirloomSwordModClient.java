@@ -6,6 +6,7 @@ import com.alucard.heirloomsword.network.SwordGuardPacket;
 import com.alucard.heirloomsword.network.SwordLaunchPacket;
 import com.alucard.heirloomsword.network.SwordModePacket;
 import com.alucard.heirloomsword.network.SwordMomentumPacket;
+import com.alucard.heirloomsword.network.SwordQuickFirePacket;
 import com.alucard.heirloomsword.network.SwordRecallPacket;
 import com.alucard.heirloomsword.network.SwordSweepPacket;
 import net.minecraft.client.Minecraft;
@@ -47,6 +48,7 @@ public class HeirloomSwordModClient {
             event.register(ModKeybinds.TOGGLE_MODE);
             event.register(ModKeybinds.RECALL);
             event.register(ModKeybinds.GUARD);
+            event.register(ModKeybinds.QUICK_FIRE);
         }
 
                 @SubscribeEvent
@@ -123,6 +125,15 @@ public class HeirloomSwordModClient {
                 if (familiar != null && (familiar.getState() == FamiliarState.SWEEPING_HOLD
                         || familiar.getState() == FamiliarState.SWEEPING_RELEASE)) continue;
                 PacketDistributor.sendToServer(new SwordRecallPacket());
+            }
+
+            // Handle V key (quick fire at the locked-on target)
+            while (ModKeybinds.QUICK_FIRE.consumeClick()) {
+                if (!HeirloomSwordItem.isFlying(held)) continue;
+                SwordFamiliarEntity familiar = findClientFamiliar(player);
+                if (familiar == null || familiar.getState() != FamiliarState.HOVERING) continue;
+                if (familiar.getAwarenessTarget() == null) continue; // needs a lock-on
+                PacketDistributor.sendToServer(new SwordQuickFirePacket());
             }
 
             // Track charge hold state

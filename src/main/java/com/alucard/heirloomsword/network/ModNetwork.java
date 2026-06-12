@@ -41,5 +41,10 @@ public class ModNetwork {
                 SwordGuardPacket.STREAM_CODEC,
                 SwordGuardPacket::handle
         );
+        registrar.playToServer(
+                SwordQuickFirePacket.TYPE,
+                SwordQuickFirePacket.STREAM_CODEC,
+                SwordQuickFirePacket::handle
+        );
     }
 }

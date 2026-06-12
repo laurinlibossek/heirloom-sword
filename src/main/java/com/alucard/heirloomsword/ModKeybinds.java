@@ -31,4 +31,12 @@ public class ModKeybinds {
             GLFW.GLFW_KEY_G,
             CATEGORY
     );
+
+    public static final KeyMapping QUICK_FIRE = new KeyMapping(
+            "key.heirloomswordmod.quick_fire",
+            KeyConflictContext.IN_GAME,
+            InputConstants.Type.KEYSYM,
+            GLFW.GLFW_KEY_V,
+            CATEGORY
+    );
 }

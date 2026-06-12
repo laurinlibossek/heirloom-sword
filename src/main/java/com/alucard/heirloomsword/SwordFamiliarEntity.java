@@ -57,6 +57,8 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
             SynchedEntityData.defineId(SwordFamiliarEntity.class, EntityDataSerializers.VECTOR3);
     private static final EntityDataAccessor<Boolean> DATA_CHARGED =
             SynchedEntityData.defineId(SwordFamiliarEntity.class, EntityDataSerializers.BOOLEAN);
+    private static final EntityDataAccessor<Integer> DATA_QUICKFIRE_TARGET =
+            SynchedEntityData.defineId(SwordFamiliarEntity.class, EntityDataSerializers.INT);
 
     private static final double HOVER_RADIUS = 1.65; // [TUNE] 1.5 felt too close, 1.8 too far
     private static final double COLLISION_SPHERE_RADIUS = 0.4;
@@ -76,6 +78,9 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
     private static final int CHARGE_THRESHOLD_TICKS = 60; // 3 seconds for charged tier
     private static final ResourceLocation CHARGE_SLOW_ID =
             ResourceLocation.fromNamespaceAndPath(HeirloomSwordMod.MODID, "charge_slowdown");
+
+    private static final float QUICK_FIRE_DAMAGE = 12.0f;       // [TUNE]
+    private static final int QUICK_FIRE_COOLDOWN_TICKS = 20;    // [TUNE] ~1s
 
     private static final float UNDEAD_BURN_SECONDS = 4.0f; // [TUNE] holy blade ignites undead
 
@@ -128,6 +133,9 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
 
     // STUCK state fields
     private int stuckTimer = 0;
+
+    // QUICK_FIRE state fields
+    private int quickFireCooldown = 0;
 
     // RETURNING state fields
     private final Set<Integer> returnHitSet = new HashSet<>();
@@ -221,6 +229,7 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
         builder.define(DATA_GUARD_COOLDOWN, 0);
         builder.define(DATA_LAUNCH_DIR, new Vector3f());
         builder.define(DATA_CHARGED, false);
+        builder.define(DATA_QUICKFIRE_TARGET, 0);
     }
 
     @Override
@@ -301,6 +310,7 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
             case BLOCKING -> tickBlocking(owner);
             case DYING -> tickDying(owner);
             case ARRIVING -> tickArriving(owner);
+            case QUICK_FIRE -> tickQuickFire(owner);
         }
         burnUndeadOnContact(owner);
         updateOrientation();
@@ -342,6 +352,7 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
             case BLOCKING -> tickBlockingClient(owner);
             case DYING -> {}
             case ARRIVING -> tickArrivingClient();
+            case QUICK_FIRE -> tickQuickFireClient();
         }
         updateOrientation();
     }
@@ -369,6 +380,7 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
     // === HOVERING ===
 
     private void tickHovering(Player owner) {
+        if (quickFireCooldown > 0) quickFireCooldown--;
         if (getGuardCooldown() > 0) setGuardCooldown(getGuardCooldown() - 1);
         updateTargetPosition(owner);
         applySpringPhysics();
@@ -911,6 +923,62 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
         }
     }
 
+    // === QUICK_FIRE ===
+
+    public void quickFire() {
+        if (quickFireCooldown > 0) return;
+        Entity target = this.awarenessTarget; // server's own lock-on; never client-supplied
+        if (target == null || !target.isAlive()) return;
+        this.entityData.set(DATA_QUICKFIRE_TARGET, target.getId());
+        this.quickFireCooldown = QUICK_FIRE_COOLDOWN_TICKS;
+        setState(FamiliarState.QUICK_FIRE);
+    }
+
+    private void tickQuickFire(Player owner) {
+        Entity target = this.level().getEntity(this.entityData.get(DATA_QUICKFIRE_TARGET));
+        if (target == null || !target.isAlive()
+                || this.position().distanceTo(owner.position()) > MAX_LAUNCH_RANGE) {
+            enterReturning();
+            return;
+        }
+
+        Vec3 targetCenter = target.position().add(0, target.getBbHeight() * 0.5, 0);
+        Vec3 toTarget = targetCenter.subtract(this.position());
+
+        // Contact: hit and immediately come home
+        if (toTarget.length() <= LAUNCH_SPEED_NORMAL
+                || this.getBoundingBox().inflate(0.3).intersects(target.getBoundingBox())) {
+            if (target instanceof LivingEntity living) {
+                living.hurt(this.level().damageSources().playerAttack(owner), QUICK_FIRE_DAMAGE);
+                igniteIfUndead(living);
+                living.knockback(0.3, this.getX() - living.getX(), this.getZ() - living.getZ());
+            }
+            enterReturning();
+            return;
+        }
+
+        // Homing: re-aim every tick
+        Vec3 dir = toTarget.normalize();
+        Vec3 nextPos = this.position().add(dir.scale(LAUNCH_SPEED_NORMAL));
+        BlockHitResult blockHit = this.level().clip(new ClipContext(
+                this.position(), nextPos,
+                ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, this));
+        if (blockHit.getType() == HitResult.Type.BLOCK) {
+            enterReturning(); // quick-fire never sticks — just comes back
+            return;
+        }
+        this.setPos(nextPos);
+    }
+
+    private void tickQuickFireClient() {
+        Entity target = this.level().getEntity(this.entityData.get(DATA_QUICKFIRE_TARGET));
+        if (target == null) return;
+        Vec3 targetCenter = target.position().add(0, target.getBbHeight() * 0.5, 0);
+        Vec3 toTarget = targetCenter.subtract(this.position());
+        if (toTarget.length() <= LAUNCH_SPEED_NORMAL) return;
+        this.setPos(this.position().add(toTarget.normalize().scale(LAUNCH_SPEED_NORMAL)));
+    }
+
     // === COMBAT ===
 
     /** The blade is anathema to the undead — any contact sets them alight. */
@@ -1293,6 +1361,14 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
                 double horizDist = Math.sqrt(dir.x * dir.x + dir.z * dir.z);
                 targetPitch = (float) -Math.toDegrees(Math.atan2(dir.y, horizDist));
             }
+        } else if (getState() == FamiliarState.QUICK_FIRE) {
+            Entity qfTarget = this.level().getEntity(this.entityData.get(DATA_QUICKFIRE_TARGET));
+            if (qfTarget != null) {
+                Vec3 to = qfTarget.position().add(0, qfTarget.getBbHeight() * 0.5, 0).subtract(this.position());
+                targetYaw = (float) Math.toDegrees(Math.atan2(-to.x, to.z));
+                double horizDist = Math.sqrt(to.x * to.x + to.z * to.z);
+                targetPitch = (float) -Math.toDegrees(Math.atan2(to.y, horizDist));
+            }
                 } else if (getState() == FamiliarState.RETURNING) {
             Player owner = getOwner();
             if (owner != null) {
@@ -1342,7 +1418,8 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
             targetPitch = 0;
         }
 
-        float lerpFactor = (currentState == FamiliarState.LAUNCHING || currentState == FamiliarState.STUCK) ? 1.0f : 0.25f;
+        float lerpFactor = (currentState == FamiliarState.LAUNCHING || currentState == FamiliarState.STUCK
+                || currentState == FamiliarState.QUICK_FIRE) ? 1.0f : 0.25f;
         float smoothedYaw = Mth.rotLerp(lerpFactor, this.getYRot(), targetYaw);
         float smoothedPitch = Mth.rotLerp(lerpFactor, this.getXRot(), targetPitch);
         this.setYRot(smoothedYaw);
@@ -1384,6 +1461,7 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
             case SWEEPING_HOLD -> anim = "sweep_hold";
             case SWEEPING_RELEASE -> anim = sweepReturning ? "return_hilt" : "sweep_hold";
             case BLOCKING -> anim = "block_stance";
+            case QUICK_FIRE -> anim = "launch";
             case DYING -> anim = "idle";
             case ARRIVING -> anim = "idle"; // falling sword uses its hover orientation
         }
