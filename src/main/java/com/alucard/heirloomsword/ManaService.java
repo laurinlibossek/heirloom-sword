@@ -31,17 +31,22 @@ public final class ManaService {
     public static final float MIN_BLOCK  = 10f;
     public static final int   LOCKOUT_TICKS = 40;            // 2 s punishment after running dry
 
+    /** Creative players have infinite mana — they bypass every cost, gate, and the lockout. */
+    public static boolean isExempt(Player player) {
+        return player.getAbilities().instabuild;
+    }
+
     public static float get(Player player) {
         return player.getData(ManaAttachments.MANA.get());
     }
 
     public static boolean hasAtLeast(Player player, float amount) {
-        return get(player) >= amount;
+        return isExempt(player) || get(player) >= amount;
     }
 
     /** True while the depletion lockout is active — all sword inputs (except mode toggle) are rejected. */
     public static boolean isLockedOut(Player player) {
-        return getLockout(player) > 0;
+        return !isExempt(player) && getLockout(player) > 0;
     }
 
     public static int getLockout(Player player) {
@@ -50,6 +55,7 @@ public final class ManaService {
 
     /** Deduct {@code amount} (clamped at 0) and pause regen. */
     public static void spend(Player player, float amount) {
+        if (isExempt(player)) return; // creative — no cost
         setMana(player, get(player) - amount);
         player.setData(ManaAttachments.REGEN_DELAY.get(), REGEN_PAUSE_TICKS);
     }
@@ -66,6 +72,7 @@ public final class ManaService {
      * continue), false if the pool is now empty (the caller stops the action).
      */
     public static boolean drain(Player player, float perTick) {
+        if (isExempt(player)) return true; // creative — never drains, never depletes
         float remaining = get(player) - perTick;
         boolean depleted = remaining <= 0f;
         if (depleted) {

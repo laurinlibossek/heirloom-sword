@@ -132,7 +132,7 @@ public class HeirloomSwordModClient {
             // Handle R key (recall) — ignored during sweep states
             while (ModKeybinds.RECALL.consumeClick()) {
                 if (!HeirloomSwordItem.isFlying(held)) continue;
-                if (ClientManaState.lockoutTicks > 0) { playDeniedClient(player); continue; }
+                if (!isManaExempt(player) && ClientManaState.lockoutTicks > 0) { playDeniedClient(player); continue; }
                 SwordFamiliarEntity familiar = findClientFamiliar(player);
                 if (familiar != null && (familiar.getState() == FamiliarState.SWEEPING_HOLD
                         || familiar.getState() == FamiliarState.SWEEPING_RELEASE)) continue;
@@ -142,7 +142,7 @@ public class HeirloomSwordModClient {
             // Handle V key (quick fire at the locked-on target)
             while (ModKeybinds.QUICK_FIRE.consumeClick()) {
                 if (!HeirloomSwordItem.isFlying(held)) continue;
-                if (ClientManaState.lockoutTicks > 0) { playDeniedClient(player); continue; }
+                if (!isManaExempt(player) && ClientManaState.lockoutTicks > 0) { playDeniedClient(player); continue; }
                 SwordFamiliarEntity familiar = findClientFamiliar(player);
                 if (familiar == null || familiar.getState() != FamiliarState.HOVERING) continue;
                 if (familiar.getAwarenessTarget() == null) continue; // needs a lock-on
@@ -189,7 +189,7 @@ public class HeirloomSwordModClient {
                         if (s == FamiliarState.HOVERING
                                 || s == FamiliarState.CHARGING
                                 || s == FamiliarState.SWEEPING_HOLD) {
-                            if (ClientManaState.current < ManaService.MIN_BLOCK) {
+                            if (!isManaExempt(player) && ClientManaState.current < ManaService.MIN_BLOCK) {
                                 playDeniedClient(player);
                             } else {
                                 if (isCharging) resetChargeState();   // G cancels the charge — no launch packet
@@ -293,7 +293,7 @@ public class HeirloomSwordModClient {
 
                 SwordFamiliarEntity familiar = findClientFamiliar(player);
                 if (familiar != null && familiar.getState() == FamiliarState.HOVERING) {
-                    if (ClientManaState.current < ManaService.MIN_CHARGE) {
+                    if (!isManaExempt(player) && ClientManaState.current < ManaService.MIN_CHARGE) {
                         playDeniedClient(player);
                         event.setCanceled(true);
                         event.setSwingHand(false);
@@ -321,7 +321,7 @@ public class HeirloomSwordModClient {
 
                 SwordFamiliarEntity familiar = findClientFamiliar(player);
                 if (familiar != null && familiar.getState() == FamiliarState.HOVERING) {
-                    if (ClientManaState.current < ManaService.MIN_SWEEP) {
+                    if (!isManaExempt(player) && ClientManaState.current < ManaService.MIN_SWEEP) {
                         playDeniedClient(player);
                         event.setCanceled(true);
                         event.setSwingHand(false);
@@ -343,6 +343,11 @@ public class HeirloomSwordModClient {
         private static void playDeniedClient(LocalPlayer player) {
             // Mirror of SwordSounds.playDenied, played locally for client-predicted denials.
             player.playSound(net.minecraft.sounds.SoundEvents.DISPENSER_FAIL, 0.5f, 1.2f);
+        }
+
+        /** Creative players have infinite mana — client prediction mirrors the server exemption. */
+        private static boolean isManaExempt(LocalPlayer player) {
+            return player.getAbilities().instabuild;
         }
 
         private static void resetChargeState() {
@@ -389,9 +394,10 @@ public class HeirloomSwordModClient {
             LocalPlayer player = mc.player;
 
             // Mana bar: shown whenever the sword is in hand (normal or flying) or the
-            // familiar is present. Independent of the flying-only HUD below.
-            boolean showMana = player.getMainHandItem().getItem() instanceof HeirloomSwordItem
-                    || findClientFamiliar(player) != null;
+            // familiar is present. Hidden in creative — mana is infinite, so it conveys nothing.
+            boolean showMana = !isManaExempt(player)
+                    && (player.getMainHandItem().getItem() instanceof HeirloomSwordItem
+                        || findClientFamiliar(player) != null);
             if (showMana) {
                 renderManaBar(event.getGuiGraphics(),
                         mc.getWindow().getGuiScaledWidth(), mc.getWindow().getGuiScaledHeight());
