@@ -112,10 +112,12 @@ public class HeirloomSwordItem extends SwordItem implements GeoItem {
         return getMode(stack) == SwordMode.FLYING;
     }
 
-    // Cosmetic blood decay [TUNE]: a fresh 1.0 dries to 0.0 over ~60s while in normal mode.
+    // Cosmetic blood decay [TUNE]: a fresh 1.0 fades to 0.0 over ~10s without further contact,
+    // in BOTH normal and flying mode. Each qualifying flying-mode hit refreshes it to 1.0
+    // (see SwordFamiliarEntity#bloodyOwnerBlade), so repeated contact keeps the blade bloodied.
     // Decays in steps to bound component-sync traffic (writes only every interval).
     public static final long BLOOD_DECAY_INTERVAL = 6L;   // ticks between decay steps
-    public static final float BLOOD_DECAY_STEP = 0.005f;  // per step -> ~1.0 over 1200 ticks
+    public static final float BLOOD_DECAY_STEP = 0.03f;   // per step -> ~1.0 over ~200 ticks (10s)
 
     public static float getBlood(ItemStack stack) {
         return stack.getOrDefault(ModDataComponents.BLOOD.get(), 0f);
@@ -138,8 +140,8 @@ public class HeirloomSwordItem extends SwordItem implements GeoItem {
     public void inventoryTick(ItemStack stack, Level level, Entity entity, int slotId, boolean isSelected) {
         super.inventoryTick(stack, level, entity, slotId, isSelected);
         if (level.isClientSide()) return;
-        // While flying, the familiar holds/sets blood; only dry it out in normal mode.
-        if (isFlying(stack)) return;
+        // Decays in both modes: while flying the familiar refreshes blood to 1.0 on each hit,
+        // so this only wins out once contact stops for ~10s.
         if (level.getGameTime() % BLOOD_DECAY_INTERVAL != 0L) return;
         float blood = getBlood(stack);
         if (blood <= 0f) return;
