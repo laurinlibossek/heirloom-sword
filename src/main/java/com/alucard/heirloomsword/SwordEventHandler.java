@@ -128,6 +128,10 @@ public class SwordEventHandler {
     public void onPlayerTick(PlayerTickEvent.Post event) {
         if (!(event.getEntity() instanceof ServerPlayer player)) return;
 
+        if (playerHasSword(player)) {
+            ManaService.tickRegen(player);
+        }
+
         ItemStack swordStack = findFlyingSword(player);
         if (swordStack == null) return;
 
@@ -170,5 +174,14 @@ public class SwordEventHandler {
             }
         }
         return null;
+    }
+
+    private boolean playerHasSword(Player player) {
+        for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
+            if (player.getInventory().getItem(i).getItem() instanceof HeirloomSwordItem) {
+                return true;
+            }
+        }
+        return false;
     }
 }
