@@ -4,6 +4,7 @@ import com.alucard.heirloomsword.ClientManaState;
 import com.alucard.heirloomsword.ManaService;
 import com.alucard.heirloomsword.client.SwordFamiliarGeoRenderer;
 import net.minecraft.util.Mth;
+import com.alucard.heirloomsword.network.SwordCancelChargePacket;
 import com.alucard.heirloomsword.network.SwordChargePacket;
 import com.alucard.heirloomsword.network.SwordGuardPacket;
 import com.alucard.heirloomsword.network.SwordLaunchPacket;
@@ -82,7 +83,9 @@ public class HeirloomSwordModClient {
         public static void onClientTick(ClientTickEvent.Post event) {
             Minecraft mc = Minecraft.getInstance();
             if (mc.player == null || mc.screen != null) {
-                if (isCharging) resetChargeState();
+                if (isCharging) {
+                    if (mc.player != null) cancelCharging(); else resetChargeState();
+                }
                 if (isBlocking) {
                     if (mc.player != null) cancelBlocking(); else resetBlockState();
                 }
@@ -370,6 +373,13 @@ public class HeirloomSwordModClient {
         private static void cancelBlocking() {
             PacketDistributor.sendToServer(new SwordGuardPacket(false));
             isBlocking = false;
+        }
+
+        private static void cancelCharging() {
+            // Abort the charge server-side (no launch) so it can't get stuck in CHARGING limbo
+            // when the player opens a screen / pauses mid-charge.
+            PacketDistributor.sendToServer(new SwordCancelChargePacket());
+            resetChargeState();
         }
 
                 @SubscribeEvent

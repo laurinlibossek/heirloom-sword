@@ -400,6 +400,13 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
         setState(FamiliarState.BLOCKING);
     }
 
+    /** Abort a charge back to HOVERING with no launch (e.g. the player opened a screen/paused). */
+    public void cancelCharge() {
+        removeChargeSlowdown();
+        chargeTimer = 0;
+        setState(FamiliarState.HOVERING);
+    }
+
     public void cancelSweepIntoBlock() {
         this.sweepVelocity = Vec3.ZERO;
         this.sweepIFrames.clear();
