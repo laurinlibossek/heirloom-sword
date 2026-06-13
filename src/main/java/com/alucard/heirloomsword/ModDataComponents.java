@@ -1,8 +1,10 @@
 package com.alucard.heirloomsword;
 
+import com.mojang.serialization.Codec;
 import net.minecraft.core.UUIDUtil;
 import net.minecraft.core.component.DataComponentType;
 import net.minecraft.core.registries.Registries;
+import net.minecraft.network.codec.ByteBufCodecs;
 import net.neoforged.neoforge.registries.DeferredHolder;
 import net.neoforged.neoforge.registries.DeferredRegister;
 
@@ -22,5 +24,12 @@ public class ModDataComponents {
             DATA_COMPONENTS.register("familiar_uuid", () -> DataComponentType.<UUID>builder()
                     .persistent(UUIDUtil.CODEC)
                     .networkSynchronized(UUIDUtil.STREAM_CODEC)
+                    .build());
+
+    // Cosmetic blood level 0.0–1.0. Persists on the stack and syncs to clients for rendering.
+    public static final DeferredHolder<DataComponentType<?>, DataComponentType<Float>> BLOOD =
+            DATA_COMPONENTS.register("blood", () -> DataComponentType.<Float>builder()
+                    .persistent(Codec.FLOAT)
+                    .networkSynchronized(ByteBufCodecs.FLOAT)
                     .build());
 }
