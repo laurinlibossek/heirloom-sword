@@ -15,6 +15,12 @@ public class HeirloomSwordItemRenderer extends GeoItemRenderer<HeirloomSwordItem
 
     public HeirloomSwordItemRenderer() {
         super(new HeirloomSwordItemModel());
+
+        // Blood on the held / inventory blade, read from the stack currently being rendered.
+        addRenderLayer(new FadingOverlayLayer<>(this, SwordTextures.BLOOD, false, (item, partialTick) -> {
+            ItemStack stack = getCurrentItemStack();
+            return stack == null || stack.isEmpty() ? 0f : HeirloomSwordItem.getBlood(stack);
+        }));
     }
 
     @Override

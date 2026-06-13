@@ -1,13 +1,17 @@
 package com.alucard.heirloomsword.client;
 
 import com.alucard.heirloomsword.FamiliarState;
+import com.alucard.heirloomsword.HeirloomSwordItem;
 import com.alucard.heirloomsword.SwordFamiliarEntity;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.math.Axis;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.entity.EntityRendererProvider;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
 import software.bernie.geckolib.cache.object.BakedGeoModel;
 import software.bernie.geckolib.renderer.GeoEntityRenderer;
 
@@ -18,6 +22,29 @@ public class SwordFamiliarGeoRenderer extends GeoEntityRenderer<SwordFamiliarEnt
 
     public SwordFamiliarGeoRenderer(EntityRendererProvider.Context renderManager) {
         super(renderManager, new SwordFamiliarModel());
+
+        // Blood: normal lighting, alpha = the owner blade's blood level.
+        addRenderLayer(new FadingOverlayLayer<>(this, SwordTextures.BLOOD, false,
+                (entity, partialTick) -> bloodAlpha(entity)));
+        // Runes: full-bright emissive, alpha ramps with charge during CHARGING.
+        addRenderLayer(new FadingOverlayLayer<>(this, SwordTextures.RUNES, true,
+                SwordFamiliarGeoRenderer::runeAlpha));
+    }
+
+    private static float bloodAlpha(SwordFamiliarEntity entity) {
+        Player owner = entity.getOwner();
+        if (owner == null) return 0f;
+        ItemStack stack = HeirloomSwordItem.findInInventory(owner);
+        return stack.isEmpty() ? 0f : HeirloomSwordItem.getBlood(stack);
+    }
+
+    private static float runeAlpha(SwordFamiliarEntity entity, float partialTick) {
+        if (entity.getState() != FamiliarState.CHARGING) return 0f;
+        float t = entity.getChargeTimer() + partialTick;
+        if (t < 20f) return 0f;                 // first second: no runes
+        if (t < 60f) return (t - 20f) / 40f;    // 1s -> 3s: ramp half -> full
+        // Held at full charge: gentle pulse (doubles as the charge-complete cue).
+        return 0.85f + 0.15f * Mth.sin((entity.tickCount + partialTick) * 0.3f);
     }
 
     @Override
