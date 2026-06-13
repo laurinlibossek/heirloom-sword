@@ -30,6 +30,8 @@ public record SwordRecallPacket() implements CustomPacketPayload {
             if (!(held.getItem() instanceof HeirloomSwordItem)) return;
             if (!HeirloomSwordItem.isFlying(held)) return;
 
+            if (ManaService.isLockedOut(player)) return; // inputs locked during depletion punishment
+
             ServerLevel level = player.serverLevel();
             SwordFamiliarEntity familiar = SwordFamiliarEntity.findForOwner(level, player.getUUID());
             if (familiar == null) return;

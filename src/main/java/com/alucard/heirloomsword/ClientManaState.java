@@ -7,4 +7,7 @@ package com.alucard.heirloomsword;
  */
 public class ClientManaState {
     public static float current = ManaService.MAX_MANA;
+    // Depletion-lockout ticks remaining; mirrors the server timer and is also counted down
+    // locally each client tick. While > 0, all sword inputs except the mode toggle are blocked.
+    public static int lockoutTicks = 0;
 }

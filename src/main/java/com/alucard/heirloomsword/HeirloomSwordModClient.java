@@ -98,6 +98,12 @@ public class HeirloomSwordModClient {
                 return;
             }
 
+            // Count down the depletion lockout locally (mirrors the server; re-synced on its
+            // final tick). While > 0, every sword input below except the F mode toggle is blocked.
+            if (ClientManaState.lockoutTicks > 0) {
+                ClientManaState.lockoutTicks--;
+            }
+
                         // Handle F key (toggle mode)
                         while (ModKeybinds.TOGGLE_MODE.consumeClick()) {
                             SwordMode toggledCurrent = HeirloomSwordItem.getMode(held);
@@ -126,6 +132,7 @@ public class HeirloomSwordModClient {
             // Handle R key (recall) — ignored during sweep states
             while (ModKeybinds.RECALL.consumeClick()) {
                 if (!HeirloomSwordItem.isFlying(held)) continue;
+                if (ClientManaState.lockoutTicks > 0) { playDeniedClient(player); continue; }
                 SwordFamiliarEntity familiar = findClientFamiliar(player);
                 if (familiar != null && (familiar.getState() == FamiliarState.SWEEPING_HOLD
                         || familiar.getState() == FamiliarState.SWEEPING_RELEASE)) continue;
@@ -135,6 +142,7 @@ public class HeirloomSwordModClient {
             // Handle V key (quick fire at the locked-on target)
             while (ModKeybinds.QUICK_FIRE.consumeClick()) {
                 if (!HeirloomSwordItem.isFlying(held)) continue;
+                if (ClientManaState.lockoutTicks > 0) { playDeniedClient(player); continue; }
                 SwordFamiliarEntity familiar = findClientFamiliar(player);
                 if (familiar == null || familiar.getState() != FamiliarState.HOVERING) continue;
                 if (familiar.getAwarenessTarget() == null) continue; // needs a lock-on

@@ -29,6 +29,7 @@ public final class ManaService {
     public static final float MIN_CHARGE = 10f;
     public static final float MIN_SWEEP  = 10f;
     public static final float MIN_BLOCK  = 10f;
+    public static final int   LOCKOUT_TICKS = 40;            // 2 s punishment after running dry
 
     public static float get(Player player) {
         return player.getData(ManaAttachments.MANA.get());
@@ -36,6 +37,15 @@ public final class ManaService {
 
     public static boolean hasAtLeast(Player player, float amount) {
         return get(player) >= amount;
+    }
+
+    /** True while the depletion lockout is active — all sword inputs (except mode toggle) are rejected. */
+    public static boolean isLockedOut(Player player) {
+        return getLockout(player) > 0;
+    }
+
+    public static int getLockout(Player player) {
+        return player.getData(ManaAttachments.LOCKOUT.get());
     }
 
     /** Deduct {@code amount} (clamped at 0) and pause regen. */
@@ -57,13 +67,32 @@ public final class ManaService {
      */
     public static boolean drain(Player player, float perTick) {
         float remaining = get(player) - perTick;
-        setMana(player, remaining);
-        player.setData(ManaAttachments.REGEN_DELAY.get(), REGEN_PAUSE_TICKS);
-        return remaining > 0f;
+        boolean depleted = remaining <= 0f;
+        if (depleted) {
+            // Punish running dry: freeze at 0, hold regen, lock out inputs. Lockout supersedes
+            // the normal regen pause, so clear REGEN_DELAY and let LOCKOUT be the sole gate.
+            player.setData(ManaAttachments.LOCKOUT.get(), LOCKOUT_TICKS);
+            player.setData(ManaAttachments.REGEN_DELAY.get(), 0);
+        } else {
+            player.setData(ManaAttachments.REGEN_DELAY.get(), REGEN_PAUSE_TICKS);
+        }
+        setMana(player, remaining); // setMana carries the (now-updated) lockout to the client
+        return !depleted;
     }
 
-    /** Called every tick while the player possesses the sword. Handles the regen pause. */
+    /** Called every tick while the player possesses the sword. Handles the lockout and regen pause. */
     public static void tickRegen(Player player) {
+        int lockout = getLockout(player);
+        if (lockout > 0) {
+            int next = lockout - 1;
+            player.setData(ManaAttachments.LOCKOUT.get(), next);
+            // On the final lockout tick, re-sync so the client clears its lockout even though
+            // mana is still 0 (no whole-unit change would otherwise trigger a sync).
+            if (next == 0 && player instanceof ServerPlayer sp) {
+                PacketDistributor.sendToPlayer(sp, new ManaSyncPacket(get(player), 0));
+            }
+            return; // mana frozen at 0 during the punishment
+        }
         int delay = player.getData(ManaAttachments.REGEN_DELAY.get());
         if (delay > 0) {
             player.setData(ManaAttachments.REGEN_DELAY.get(), delay - 1);
@@ -80,7 +109,7 @@ public final class ManaService {
         float old = get(player);
         player.setData(ManaAttachments.MANA.get(), clamped);
         if (player instanceof ServerPlayer sp && shouldSync(old, clamped)) {
-            PacketDistributor.sendToPlayer(sp, new ManaSyncPacket(clamped));
+            PacketDistributor.sendToPlayer(sp, new ManaSyncPacket(clamped, getLockout(player)));
         }
     }
 

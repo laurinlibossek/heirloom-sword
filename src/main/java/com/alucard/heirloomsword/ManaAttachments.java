@@ -23,4 +23,11 @@ public class ManaAttachments {
             ATTACHMENT_TYPES.register("mana_regen_delay", () ->
                     AttachmentType.<Integer>builder(() -> 0)
                             .build());
+
+    // Depletion-punishment lockout: ticks during which mana is frozen at 0, regen is held,
+    // and all sword inputs (except mode toggle) are rejected. Transient (not serialized).
+    public static final Supplier<AttachmentType<Integer>> LOCKOUT =
+            ATTACHMENT_TYPES.register("mana_lockout", () ->
+                    AttachmentType.<Integer>builder(() -> 0)
+                            .build());
 }
