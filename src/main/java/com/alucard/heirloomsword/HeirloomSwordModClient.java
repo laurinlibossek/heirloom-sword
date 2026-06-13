@@ -427,7 +427,9 @@ public class HeirloomSwordModClient {
             int hotbarX = screenWidth / 2 - 91 + selectedSlot * 20;
             int hotbarY = screenHeight - 22;
 
-            renderPurpleGlow(guiGraphics, hotbarX, hotbarY);
+            SwordFamiliarEntity familiar = findClientFamiliar(player);
+            boolean stuck = familiar != null && familiar.getState() == FamiliarState.STUCK;
+            renderPurpleGlow(guiGraphics, hotbarX, hotbarY, stuck);
 
             // Render charge bar when charging (only after 1 second hold)
             if (isCharging && clientChargeTimer >= 20) {
@@ -469,9 +471,14 @@ public class HeirloomSwordModClient {
             guiGraphics.fill(barX, barY, barX + fillWidth, barY + barHeight, fillColor);
         }
 
-        private static void renderPurpleGlow(GuiGraphics guiGraphics, int x, int y) {
+        private static void renderPurpleGlow(GuiGraphics guiGraphics, int x, int y, boolean stuck) {
             // Subtle 1px purple outline around the slot's item area
             guiGraphics.renderOutline(x + 2, y + 2, 18, 18, 0x669933FF);
+            // While the blade is embedded in a block (STUCK), nest a red alert ring just inside
+            // the purple one so the player knows at a glance even when far from the impact.
+            if (stuck) {
+                guiGraphics.renderOutline(x + 3, y + 3, 16, 16, 0xCCFF2A2A);
+            }
         }
 
         @Nullable

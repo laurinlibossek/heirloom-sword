@@ -663,6 +663,9 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
     private void enterStuck() {
         setState(FamiliarState.STUCK);
         stuckTimer = 0;
+        if (!this.level().isClientSide) {
+            SwordSounds.playStuckImpact(this.level(), this.getX(), this.getY(), this.getZ());
+        }
     }
 
     private void tickStuck(Player owner) {
