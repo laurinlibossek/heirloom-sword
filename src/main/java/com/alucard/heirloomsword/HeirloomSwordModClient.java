@@ -79,6 +79,10 @@ public class HeirloomSwordModClient {
 
         private static boolean isBlocking = false;
 
+        // Hand shimmer is a rare ambient cue: at most one particle per interval while flying.
+        private static final int HAND_PARTICLE_INTERVAL = 50; // 2.5 s at 20 tps
+        private static int handParticleCooldown = 0;
+
         @SubscribeEvent
         public static void onClientTick(ClientTickEvent.Post event) {
             Minecraft mc = Minecraft.getInstance();
@@ -254,9 +258,10 @@ public class HeirloomSwordModClient {
                 }
             }
             
-                        // Telekinetic shimmer at the hand while flying mode is active
-            if (HeirloomSwordItem.isFlying(held) && mc.level != null
-                    && player.getRandom().nextFloat() < 0.15f) {
+                        // Telekinetic shimmer at the hand while flying mode is active — throttled to a single
+            // particle every HAND_PARTICLE_INTERVAL ticks so it reads as a faint occasional glint.
+            if (HeirloomSwordItem.isFlying(held) && mc.level != null && --handParticleCooldown <= 0) {
+                handParticleCooldown = HAND_PARTICLE_INTERVAL;
                 double dx = (player.getRandom().nextDouble() - 0.5) * 0.2;
                 double dy = (player.getRandom().nextDouble() - 0.5) * 0.2;
                 double dz = (player.getRandom().nextDouble() - 0.5) * 0.2;
