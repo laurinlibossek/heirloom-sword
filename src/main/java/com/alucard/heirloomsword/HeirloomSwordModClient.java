@@ -1,6 +1,9 @@
 package com.alucard.heirloomsword;
 
+import com.alucard.heirloomsword.ClientManaState;
+import com.alucard.heirloomsword.ManaService;
 import com.alucard.heirloomsword.client.SwordFamiliarGeoRenderer;
+import net.minecraft.util.Mth;
 import com.alucard.heirloomsword.network.SwordChargePacket;
 import com.alucard.heirloomsword.network.SwordGuardPacket;
 import com.alucard.heirloomsword.network.SwordLaunchPacket;
@@ -325,6 +328,16 @@ public class HeirloomSwordModClient {
             if (mc.player == null) return;
 
             LocalPlayer player = mc.player;
+
+            // Mana bar: shown whenever the sword is in hand (normal or flying) or the
+            // familiar is present. Independent of the flying-only HUD below.
+            boolean showMana = player.getMainHandItem().getItem() instanceof HeirloomSwordItem
+                    || findClientFamiliar(player) != null;
+            if (showMana) {
+                renderManaBar(event.getGuiGraphics(),
+                        mc.getWindow().getGuiScaledWidth(), mc.getWindow().getGuiScaledHeight());
+            }
+
             int selectedSlot = player.getInventory().selected;
             ItemStack stack = player.getInventory().getItem(selectedSlot);
 
@@ -345,6 +358,20 @@ public class HeirloomSwordModClient {
             if (isCharging && clientChargeTimer >= 20) {
                 renderChargeBar(guiGraphics, screenWidth, screenHeight);
             }
+        }
+
+        private static void renderManaBar(GuiGraphics guiGraphics, int screenWidth, int screenHeight) {
+            float ratio = Mth.clamp(ClientManaState.current / ManaService.MAX_MANA, 0f, 1f);
+
+            int barWidth = 80;          // [TUNE] placement/size — inconspicuous, above the hotbar
+            int barHeight = 4;
+            int barX = screenWidth / 2 - barWidth / 2;
+            int barY = screenHeight - 34;
+            int fillWidth = (int) (barWidth * ratio);
+
+            // Dark backing + a conventional mana-blue fill.
+            guiGraphics.fill(barX - 1, barY - 1, barX + barWidth + 1, barY + barHeight + 1, 0x88000000);
+            guiGraphics.fill(barX, barY, barX + fillWidth, barY + barHeight, 0xFF3A7BD5);
         }
 
         private static void renderChargeBar(GuiGraphics guiGraphics, int screenWidth, int screenHeight) {
