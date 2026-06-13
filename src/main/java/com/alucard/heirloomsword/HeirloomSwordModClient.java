@@ -420,8 +420,9 @@ public class HeirloomSwordModClient {
             int barY = screenHeight - 47;      // just above the hunger icon row
             int fillWidth = (int) (barWidth * ratio);
 
-            // Dark backing + a conventional mana-blue fill.
-            guiGraphics.fill(barX - 1, barY - 1, barX + barWidth + 1, barY + barHeight + 1, 0x88000000);
+            // Slot-gray outline + dark interior track + a conventional mana-blue fill.
+            guiGraphics.fill(barX - 1, barY - 1, barX + barWidth + 1, barY + barHeight + 1, 0xFF8B8B8B);
+            guiGraphics.fill(barX, barY, barX + barWidth, barY + barHeight, 0x88000000);
             guiGraphics.fill(barX, barY, barX + fillWidth, barY + barHeight, 0xFF3A7BD5);
         }
 
@@ -435,8 +436,9 @@ public class HeirloomSwordModClient {
             float progress = Math.min(1.0f, (clientChargeTimer - 20) / 40.0f);
             int fillWidth = (int) (barWidth * progress);
 
-            // Background
-            guiGraphics.fill(barX - 1, barY - 1, barX + barWidth + 1, barY + barHeight + 1, 0xAA000000);
+            // Slot-gray outline + dark interior track
+            guiGraphics.fill(barX - 1, barY - 1, barX + barWidth + 1, barY + barHeight + 1, 0xFF8B8B8B);
+            guiGraphics.fill(barX, barY, barX + barWidth, barY + barHeight, 0xAA000000);
 
             // Fill — purple when charging, gold when fully charged
             int fillColor = progress >= 1.0f ? 0xFFFFD700 : 0xFF9933FF;
