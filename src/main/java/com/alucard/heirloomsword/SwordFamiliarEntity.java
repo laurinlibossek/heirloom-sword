@@ -501,6 +501,13 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
     }
 
     private void tickCharging(Player owner) {
+        if (!ManaService.drain(owner, ManaService.CHARGE_DRAIN_PER_TICK)) {
+            // Mana exhausted mid-charge — stop, no launch (mirrors the design's depletion-stop).
+            removeChargeSlowdown();
+            chargeTimer = 0;
+            setState(FamiliarState.HOVERING);
+            return;
+        }
         chargeTimer++;
 
         // Apply movement slowdown via attribute modifier (like bow draw)
