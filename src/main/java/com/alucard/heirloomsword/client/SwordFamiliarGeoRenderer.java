@@ -54,6 +54,11 @@ public class SwordFamiliarGeoRenderer extends GeoEntityRenderer<SwordFamiliarEnt
         super.preRender(poseStack, animatable, model, bufferSource, vertexConsumer, isReRender,
                 partialTick, packedLight, packedOverlay, color);
 
+        // Overlay layers (blood/runes) re-render the model via reRender(), which re-invokes this
+        // preRender with isReRender=true. The base pass already applied these positioning transforms
+        // and the pose stack keeps them, so re-applying would double them and misalign the overlay.
+        if (isReRender) return;
+
         if (animatable.tickCount < 10 && !animatable.isSkyDropSpawn()) {
             float scale = (animatable.tickCount + partialTick) / 10.0f;
             poseStack.scale(scale, scale, scale);
