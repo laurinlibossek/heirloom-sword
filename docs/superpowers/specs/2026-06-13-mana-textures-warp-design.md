@@ -95,10 +95,11 @@ The mod never depends on EF for any of the five features here.
   indefinitely. Regen runs whenever the player exists (normal or flying mode).
 
 ### HUD
-- A **mana bar** appears whenever the blade is held in normal mode (for warp) **or** the
-  familiar is present (flying). Coexists with EF's stamina bar in normal mode when EF is
-  installed (two bars; acceptable — flag for playtest). The existing charge bar and purple
-  hotbar glow are unchanged.
+- A **mana bar** appears whenever the player has the sword in hand (normal mode) **or** the
+  familiar is present (flying) — i.e. whenever the sword is in use. **Inconspicuous**, styled
+  like a conventional mana bar. It coexists with EF's stamina bar in normal mode when EF is
+  installed (two bars; **accepted**). The existing charge bar and purple hotbar glow are
+  unchanged.
 
 ### Tuning (kept cheap — "don't make anything too expensive") **[TUNE]**
 | Value | Default |
@@ -278,12 +279,29 @@ now; the real asset comes in the audio/polish pass. Played to the acting player 
 
 Each becomes its own implementation plan in this order.
 
+### Where this slots into design doc v3's phases
+None of these five features require the rest of the mod to be finished first; they do **not**
+wait for Phases 10–13.
+- **Mana (1)** is the **resource half of Phase 9**. v3's Phase 9 bundled "Epic Fight
+  integration **& stamina**"; mana replaces the stamina / `StaminaProvider` portion entirely.
+  The EF combat-registration portion of Phase 9 stays separate and can land later. Mana has no
+  technical dependency on the Phase 7 leftovers or block piercing (v3 listed those "before
+  Phase 9" for completeness, not as a dependency), so it can proceed now.
+- **Default texture (2)** completes the Phase 8 visual layer.
+- **Runes + Blood (3, 4)** are Phase 8 / Phase 10 visual polish; they need Phase 8 (done) and
+  the reworked base (2).
+- **Warp (5)** is net-new normal-mode content; needs only mana.
+
+[TUNE] values use hardcoded constants for now (as the rest of the code does) and fold into the
+Phase 13 config pass (§25.1) along with everything else — not a blocker.
+
 ---
 
 ## 8. Open items / playtest flags
 
 - Mana magnitudes, regen, warp cost/cooldown, blood decay time, rune fade curve — all **[TUNE]**.
-- Two HUD bars (EF stamina + mana) coexisting in normal mode — confirm it isn't cluttered.
+- Two HUD bars (EF stamina + mana) coexisting in normal mode — **accepted**; mana bar shows
+  whenever the sword is in hand, inconspicuous styling.
 - Mana-bar exact placement/style.
 - Rune intermediate is brightness-only (one `runes.png` faded), not a different glyph pattern —
   confirmed acceptable.
