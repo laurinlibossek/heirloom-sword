@@ -61,6 +61,7 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
             SynchedEntityData.defineId(SwordFamiliarEntity.class, EntityDataSerializers.INT);
 
     private static final double HOVER_RADIUS = 1.65; // [TUNE] 1.5 felt too close, 1.8 too far
+    private static final double HORIZONTAL_LOCK_LIFT = 0.5; // [TUNE] extra hover height while horizontal/locked-on
     private static final double COLLISION_SPHERE_RADIUS = 0.4;
     private static final double MAX_LAG_DISTANCE = 3.0;
     private static final double MOB_AWARENESS_RADIUS = 16.0;
@@ -1047,7 +1048,9 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
                 if (candidateIdx != currentCandidateIndex) {
                     currentCandidateIndex = candidateIdx;
                 }
-                targetPosition = candidate;
+                // While horizontal (locked onto a hostile), float higher so the sword
+                // "looks down" at the target. Scaled by the tilt blend for a smooth rise.
+                targetPosition = candidate.add(0, HORIZONTAL_LOCK_LIFT * horizontalProgress, 0);
                 return;
             }
         }

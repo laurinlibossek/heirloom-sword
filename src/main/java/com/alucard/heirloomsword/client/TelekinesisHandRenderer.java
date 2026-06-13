@@ -26,14 +26,17 @@ public final class TelekinesisHandRenderer {
         }
     }
 
-    // [TUNE] every value below — lowered + pulled back from face
-    private static final HandPose RELAXED = new HandPose(0.55f, -0.75f, -0.40f,  5f,  -5f, 0f); // hovering, calm
-    private static final HandPose ALERT   = new HandPose(0.52f, -0.70f, -0.40f, 12f,  -8f, 0f); // mob in range
-    private static final HandPose CHARGE  = new HandPose(0.50f, -0.62f, -0.38f, 25f, -12f, 5f); // tightened, raised
-    private static final HandPose THRUST  = new HandPose(0.40f, -0.65f, -0.55f, 45f, -18f, 0f); // launch/quick-fire flick
-    private static final HandPose SWEEP   = new HandPose(0.38f, -0.60f, -0.45f, 38f, -22f, 0f); // tracing the view
-    private static final HandPose GUARD   = new HandPose(0.35f, -0.50f, -0.38f, 55f, -25f, 0f); // raised, palm forward
-    private static final HandPose RECEIVE = new HandPose(0.55f, -0.70f, -0.42f, 15f,  -8f, 0f); // returning
+    // Poses are DELTAS from the vanilla empty-hand arm pose (identity = exact vanilla).
+    // Translation is view-space: +x right, +y up, -z toward camera.
+    // Rotation pivots the arm around its anchor: rotX = pitch, rotY = yaw, rotZ = roll.
+    // [TUNE] every value below
+    private static final HandPose RELAXED = new HandPose(0f, 0f, 0f, 0f, 0f, 0f); // hovering, calm — vanilla
+    private static final HandPose ALERT   = new HandPose(0f, 0.06f, 0f, -12f, 0f, 0f); // mob in range
+    private static final HandPose CHARGE  = new HandPose(-0.05f, 0.12f, 0.05f, -25f, 5f, 0f); // tightened, raised
+    private static final HandPose THRUST  = new HandPose(-0.10f, 0.15f, -0.18f, -40f, 8f, 0f); // launch/quick-fire flick
+    private static final HandPose SWEEP   = new HandPose(-0.08f, 0.12f, -0.08f, -30f, 15f, 0f); // tracing the view
+    private static final HandPose GUARD   = new HandPose(-0.14f, 0.20f, -0.08f, -50f, 10f, 0f); // raised, palm forward
+    private static final HandPose RECEIVE = new HandPose(0f, 0.10f, -0.04f, -18f, 0f, 0f); // returning
 
     private static final float BLEND_SPEED = 0.12f; // [TUNE] per-frame pose blend
 
@@ -47,16 +50,30 @@ public final class TelekinesisHandRenderer {
 
         PoseStack poseStack = event.getPoseStack();
         poseStack.pushPose();
+
+        // View-space pose offset
         poseStack.translate(current.x(), current.y(), current.z());
+
+        // Subtle tremble while charging
+        if (familiar != null && familiar.getState() == FamiliarState.CHARGING) {
+            float t = (mc.player.tickCount + event.getPartialTick()) * 1.4f; // [TUNE] slightly slower
+            poseStack.translate(Math.sin(t * 3.1f) * 0.004f, Math.sin(t * 4.3f) * 0.004f, 0); // [TUNE] reduced amplitude
+        }
+
+        // Vanilla anchor, then pose rotations pivot the arm around it
+        poseStack.translate(0.64000005F, -0.6F, -0.71999997F);
         poseStack.mulPose(Axis.XP.rotationDegrees(current.rotX()));
         poseStack.mulPose(Axis.YP.rotationDegrees(current.rotY()));
         poseStack.mulPose(Axis.ZP.rotationDegrees(current.rotZ()));
 
-        // Subtle tremble while charging
-        if (familiar != null && familiar.getState() == FamiliarState.CHARGING) {
-            float t = (mc.player.tickCount + event.getPartialTick()) * 1.7f;
-            poseStack.translate(Math.sin(t * 3.1f) * 0.01f, Math.sin(t * 4.3f) * 0.01f, 0);
-        }
+        // Remainder of the vanilla right-arm chain (ItemInHandRenderer.renderPlayerArm,
+        // swingProgress = 0, equippedProgress = 0), verbatim
+        poseStack.mulPose(Axis.YP.rotationDegrees(45.0F));
+        poseStack.translate(-1.0F, 3.6F, 3.5F);
+        poseStack.mulPose(Axis.ZP.rotationDegrees(120.0F));
+        poseStack.mulPose(Axis.XP.rotationDegrees(200.0F));
+        poseStack.mulPose(Axis.YP.rotationDegrees(-135.0F));
+        poseStack.translate(5.6F, 0.0F, 0.0F);
 
         PlayerRenderer playerRenderer =
                 (PlayerRenderer) mc.getEntityRenderDispatcher().getRenderer(mc.player);
