@@ -69,10 +69,12 @@ public class HeirloomSwordModClient {
     public static class ClientEvents {
         private static boolean isCharging = false;
         private static int clientChargeTimer = 0;
+        private static boolean chargeConfirmed = false;  // server-confirmed CHARGING seen at least once
 
         private static boolean isSweeping = false;
         private static float lastYaw = 0;
         private static float lastPitch = 0;
+        private static boolean sweepConfirmed = false;   // server-confirmed SWEEPING_HOLD seen at least once
 
         private static boolean isBlocking = false;
 
@@ -146,12 +148,17 @@ public class HeirloomSwordModClient {
                     return;
                 }
 
-                // Detect if the server dropped the charge (e.g. mana exhaustion) so the
-                // client charge bar and isCharging flag don't linger in a stale state.
+                // Detect if the server dropped the charge (e.g. mana exhaustion). Only act
+                // once we've actually seen the server enter CHARGING — otherwise the network
+                // round-trip lag right after the click would reset before charging begins.
                 SwordFamiliarEntity chargeFamiliar = findClientFamiliar(player);
-                if (chargeFamiliar != null && chargeFamiliar.getState() != FamiliarState.CHARGING) {
-                    resetChargeState();
-                    return;
+                if (chargeFamiliar != null) {
+                    if (chargeFamiliar.getState() == FamiliarState.CHARGING) {
+                        chargeConfirmed = true;
+                    } else if (chargeConfirmed) {
+                        resetChargeState();
+                        return;
+                    }
                 }
 
                 boolean attackHeld = mc.options.keyAttack.isDown();
@@ -200,10 +207,15 @@ public class HeirloomSwordModClient {
 
                 // Detect if the server ended the sweep (e.g. mana exhaustion) to avoid
                 // sending a stale SwordLaunchPacket(Vec3.ZERO) that would corrupt server state.
+                // Only act once we've seen the server confirm SWEEPING_HOLD (network lag).
                 SwordFamiliarEntity sweepFamiliar = findClientFamiliar(player);
-                if (sweepFamiliar != null && sweepFamiliar.getState() != FamiliarState.SWEEPING_HOLD) {
-                    resetSweepState();
-                    return;
+                if (sweepFamiliar != null) {
+                    if (sweepFamiliar.getState() == FamiliarState.SWEEPING_HOLD) {
+                        sweepConfirmed = true;
+                    } else if (sweepConfirmed) {
+                        resetSweepState();
+                        return;
+                    }
                 }
 
                 boolean useHeld = mc.options.keyUse.isDown();
@@ -328,12 +340,14 @@ public class HeirloomSwordModClient {
         private static void resetChargeState() {
             isCharging = false;
             clientChargeTimer = 0;
+            chargeConfirmed = false;
         }
 
         private static void resetSweepState() {
             isSweeping = false;
             lastYaw = 0;
             lastPitch = 0;
+            sweepConfirmed = false;
         }
 
         private static void resetBlockState() {
@@ -403,7 +417,7 @@ public class HeirloomSwordModClient {
             int barWidth = 81;  // [TUNE] matches hunger-bar span (10 icons × 9px, right-aligned)
             int barHeight = 4;
             int barX = screenWidth / 2 + 10;  // left edge of hunger bar
-            int barY = screenHeight - 49;      // just above the hunger icon row
+            int barY = screenHeight - 47;      // just above the hunger icon row
             int fillWidth = (int) (barWidth * ratio);
 
             // Dark backing + a conventional mana-blue fill.
