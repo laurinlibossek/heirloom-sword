@@ -146,6 +146,14 @@ public class HeirloomSwordModClient {
                     return;
                 }
 
+                // Detect if the server dropped the charge (e.g. mana exhaustion) so the
+                // client charge bar and isCharging flag don't linger in a stale state.
+                SwordFamiliarEntity chargeFamiliar = findClientFamiliar(player);
+                if (chargeFamiliar != null && chargeFamiliar.getState() != FamiliarState.CHARGING) {
+                    resetChargeState();
+                    return;
+                }
+
                 boolean attackHeld = mc.options.keyAttack.isDown();
                 if (!attackHeld) {
                     Vec3 lookDir = player.getLookAngle();
@@ -186,6 +194,14 @@ public class HeirloomSwordModClient {
                         // Handle sweep hold state
             if (isSweeping) {
                 if (!HeirloomSwordItem.isFlying(held)) {
+                    resetSweepState();
+                    return;
+                }
+
+                // Detect if the server ended the sweep (e.g. mana exhaustion) to avoid
+                // sending a stale SwordLaunchPacket(Vec3.ZERO) that would corrupt server state.
+                SwordFamiliarEntity sweepFamiliar = findClientFamiliar(player);
+                if (sweepFamiliar != null && sweepFamiliar.getState() != FamiliarState.SWEEPING_HOLD) {
                     resetSweepState();
                     return;
                 }
@@ -384,10 +400,10 @@ public class HeirloomSwordModClient {
         private static void renderManaBar(GuiGraphics guiGraphics, int screenWidth, int screenHeight) {
             float ratio = Mth.clamp(ClientManaState.current / ManaService.MAX_MANA, 0f, 1f);
 
-            int barWidth = 80;          // [TUNE] placement/size — inconspicuous, above the hotbar
+            int barWidth = 81;  // [TUNE] matches hunger-bar span (10 icons × 9px, right-aligned)
             int barHeight = 4;
-            int barX = screenWidth / 2 - barWidth / 2;
-            int barY = screenHeight - 34;
+            int barX = screenWidth / 2 + 10;  // left edge of hunger bar
+            int barY = screenHeight - 49;      // just above the hunger icon row
             int fillWidth = (int) (barWidth * ratio);
 
             // Dark backing + a conventional mana-blue fill.

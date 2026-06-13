@@ -58,8 +58,12 @@ public record SwordLaunchPacket(Vec3 direction, boolean charged) implements Cust
                 boolean charged = familiar.isChargeReady();
                 familiar.launch(dir, charged);
             } else if (state == FamiliarState.HOVERING) {
-                Vec3 dir = packet.direction.normalize();
-                familiar.launch(dir, false);
+                // Guard against a zero-direction vector (can arrive as a stale sweep-release
+                // packet when the sweep was already ended server-side by mana exhaustion).
+                if (packet.direction.lengthSqr() > 1e-6) {
+                    Vec3 dir = packet.direction.normalize();
+                    familiar.launch(dir, false);
+                }
             } else if (state == FamiliarState.SWEEPING_HOLD) {
                 familiar.releaseSweep();
             }

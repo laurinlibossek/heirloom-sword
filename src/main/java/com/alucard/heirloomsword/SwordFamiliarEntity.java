@@ -506,8 +506,9 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
     }
 
     private void tickCharging(Player owner) {
-        if (!ManaService.drain(owner, ManaService.CHARGE_DRAIN_PER_TICK)) {
-            // Mana exhausted mid-charge — stop, no launch (mirrors the design's depletion-stop).
+        // Only drain while charging up; a fully-charged blade costs no further mana.
+        if (!isChargeReady() && !ManaService.drain(owner, ManaService.CHARGE_DRAIN_PER_TICK)) {
+            // Mana exhausted before charge is ready — stop, no launch.
             removeChargeSlowdown();
             chargeTimer = 0;
             setState(FamiliarState.HOVERING);
