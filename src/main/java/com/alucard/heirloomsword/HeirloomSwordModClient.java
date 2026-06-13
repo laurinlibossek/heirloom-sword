@@ -166,10 +166,14 @@ public class HeirloomSwordModClient {
                         if (s == FamiliarState.HOVERING
                                 || s == FamiliarState.CHARGING
                                 || s == FamiliarState.SWEEPING_HOLD) {
-                            if (isCharging) resetChargeState();   // G cancels the charge — no launch packet
-                            if (isSweeping) resetSweepState();    // G arrests the sweep — no release packet
-                            PacketDistributor.sendToServer(new SwordGuardPacket(true));
-                            isBlocking = true;
+                            if (ClientManaState.current < ManaService.MIN_BLOCK) {
+                                playDeniedClient(player);
+                            } else {
+                                if (isCharging) resetChargeState();   // G cancels the charge — no launch packet
+                                if (isSweeping) resetSweepState();    // G arrests the sweep — no release packet
+                                PacketDistributor.sendToServer(new SwordGuardPacket(true));
+                                isBlocking = true;
+                            }
                         }
                     }
                 }
@@ -253,6 +257,12 @@ public class HeirloomSwordModClient {
 
                 SwordFamiliarEntity familiar = findClientFamiliar(player);
                 if (familiar != null && familiar.getState() == FamiliarState.HOVERING) {
+                    if (ClientManaState.current < ManaService.MIN_CHARGE) {
+                        playDeniedClient(player);
+                        event.setCanceled(true);
+                        event.setSwingHand(false);
+                        return;
+                    }
                     PacketDistributor.sendToServer(new SwordChargePacket());
                     isCharging = true;
                     clientChargeTimer = 0;
@@ -275,6 +285,12 @@ public class HeirloomSwordModClient {
 
                 SwordFamiliarEntity familiar = findClientFamiliar(player);
                 if (familiar != null && familiar.getState() == FamiliarState.HOVERING) {
+                    if (ClientManaState.current < ManaService.MIN_SWEEP) {
+                        playDeniedClient(player);
+                        event.setCanceled(true);
+                        event.setSwingHand(false);
+                        return;
+                    }
                     PacketDistributor.sendToServer(new SwordSweepPacket());
                     isSweeping = true;
                     lastYaw = player.getYRot();
@@ -286,6 +302,11 @@ public class HeirloomSwordModClient {
                     event.setSwingHand(false);
                 }
             }
+        }
+
+        private static void playDeniedClient(LocalPlayer player) {
+            // Mirror of SwordSounds.playDenied, played locally for client-predicted denials.
+            player.playSound(net.minecraft.sounds.SoundEvents.DISPENSER_FAIL, 0.5f, 1.2f);
         }
 
         private static void resetChargeState() {
