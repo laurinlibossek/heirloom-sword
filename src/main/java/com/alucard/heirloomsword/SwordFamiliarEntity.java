@@ -750,6 +750,11 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
     }
 
     private void tickSweepingHold(Player owner) {
+        if (!ManaService.drain(owner, ManaService.SWEEP_DRAIN_PER_TICK)) {
+            // Mana exhausted mid-sweep — end it (transitions to SWEEPING_RELEASE / HOVERING).
+            releaseSweep();
+            return;
+        }
         Vec3 lookDir = owner.getLookAngle();
         Vec3 eyePos = owner.getEyePosition();
         Vec3 holdTarget = eyePos.add(lookDir.scale(SWEEP_HOLD_DISTANCE));

@@ -36,6 +36,11 @@ public record SwordSweepPacket() implements CustomPacketPayload {
 
             if (familiar.getState() != FamiliarState.HOVERING) return;
 
+            if (!ManaService.hasAtLeast(player, ManaService.MIN_SWEEP)) {
+                SwordSounds.playDenied(player);
+                return;
+            }
+
             familiar.startSweeping();
         });
     }
