@@ -25,6 +25,7 @@ import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.phys.shapes.VoxelShape;
 import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.ParticleTypes;
 
@@ -832,6 +833,7 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
                 e -> e.isAlive() && e != owner && !sweepIFrames.containsKey(e.getId()));
 
         if (entities.isEmpty()) return;
+        bloodyOwnerBlade();
 
         Vec3 travelDir = this.sweepVelocity.length() > 0.01 ? this.sweepVelocity.normalize() : owner.getLookAngle();
         DamageSource source = this.level().damageSources().playerAttack(owner);
@@ -979,6 +981,7 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
                 living.hurt(this.level().damageSources().playerAttack(owner), QUICK_FIRE_DAMAGE);
                 igniteIfUndead(living);
                 living.knockback(0.3, this.getX() - living.getX(), this.getZ() - living.getZ());
+                bloodyOwnerBlade();
             }
             enterReturning();
             return;
@@ -1015,6 +1018,16 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
         }
     }
 
+    /** Cosmetic: mark the owner's blade freshly bloodied (server-side). */
+    private void bloodyOwnerBlade() {
+        Player owner = getOwner();
+        if (owner == null) return;
+        ItemStack stack = HeirloomSwordItem.findInInventory(owner);
+        if (!stack.isEmpty()) {
+            HeirloomSwordItem.setBlood(stack, 1.0f);
+        }
+    }
+
     private void burnUndeadOnContact(Player owner) {
         if (this.tickCount % 5 != 0) return;
         for (LivingEntity entity : this.level().getEntitiesOfClass(LivingEntity.class,
@@ -1038,6 +1051,7 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
                 e -> e.isAlive() && e != owner && !hitSet.contains(e.getId()));
 
         DamageSource source = this.level().damageSources().playerAttack(owner);
+        if (!entities.isEmpty()) bloodyOwnerBlade();
         for (LivingEntity entity : entities) {
             hitSet.add(entity.getId());
             entity.hurt(source, damage);
