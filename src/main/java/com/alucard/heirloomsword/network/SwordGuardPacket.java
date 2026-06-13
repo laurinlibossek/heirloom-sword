@@ -40,6 +40,10 @@ public record SwordGuardPacket(boolean held) implements CustomPacketPayload {
 
             if (packet.held()) {
                 if (familiar.getGuardCooldown() > 0) return;
+                if (!ManaService.hasAtLeast(player, ManaService.MIN_BLOCK)) {
+                    SwordSounds.playDenied(player);
+                    return;
+                }
                 switch (familiar.getState()) {
                     case HOVERING -> familiar.startBlocking();
                     case CHARGING -> familiar.cancelChargeIntoBlock();      // cancels charge, no launch

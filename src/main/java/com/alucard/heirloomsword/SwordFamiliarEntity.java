@@ -464,6 +464,11 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
     }
 
     private void tickBlocking(Player owner) {
+        if (!ManaService.drain(owner, ManaService.BLOCK_DRAIN_PER_TICK)) {
+            // Mana exhausted while guarding — guard break (existing 3s cooldown applies).
+            guardBreak();
+            return;
+        }
         Vec3 target = owner.getEyePosition().add(owner.getLookAngle().scale(1.5));
         targetPosition = target;
         applySpringPhysics();
