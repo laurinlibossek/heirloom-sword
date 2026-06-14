@@ -66,7 +66,7 @@ public final class WarpHandler {
         player.teleportTo(level, dest.x, dest.y, dest.z, rot[0], rot[1]);
 
         level.sendParticles(ParticleTypes.PORTAL, dest.x, dest.y + 1.0, dest.z, 20, 0.3, 0.5, 0.3, 0.1);
-        level.playSound(null, BlockPos.containing(dest), SoundEvents.CHORUS_FRUIT_TELEPORT,
+        level.playSound(null, BlockPos.containing(dest), SoundEvents.ENDER_EYE_DEATH,
                 SoundSource.PLAYERS, 0.7f, 1.3f);
 
         ManaService.spend(player, ManaService.WARP_COST);
