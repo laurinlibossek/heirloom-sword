@@ -16,10 +16,13 @@ public class HeirloomSwordItemRenderer extends GeoItemRenderer<HeirloomSwordItem
     public HeirloomSwordItemRenderer() {
         super(new HeirloomSwordItemModel());
 
-        // Blood on the held / inventory blade, read from the stack currently being rendered.
+        // Blood overlay never renders in normal (held) mode — recall is a sheathe, the blood
+        // flies off instantly. It only shows on the flying familiar (its own renderer). Gating
+        // on the render side means a lingering data-component value can never paint the held blade.
         addRenderLayer(new FadingOverlayLayer<>(this, SwordTextures.BLOOD, false, (item, partialTick) -> {
             ItemStack stack = getCurrentItemStack();
-            return stack == null || stack.isEmpty() ? 0f : HeirloomSwordItem.getBlood(stack);
+            if (stack == null || stack.isEmpty() || !HeirloomSwordItem.isFlying(stack)) return 0f;
+            return HeirloomSwordItem.getBlood(stack);
         }));
     }
 
