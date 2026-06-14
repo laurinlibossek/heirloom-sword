@@ -130,6 +130,10 @@ public class SwordEventHandler {
 
         if (playerHasSword(player)) {
             ManaService.tickRegen(player);
+            int warpCd = player.getData(ManaAttachments.WARP_COOLDOWN.get());
+            if (warpCd > 0) {
+                player.setData(ManaAttachments.WARP_COOLDOWN.get(), warpCd - 1);
+            }
         }
 
         ItemStack swordStack = findFlyingSword(player);

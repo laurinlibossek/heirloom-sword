@@ -30,4 +30,10 @@ public class ManaAttachments {
             ATTACHMENT_TYPES.register("mana_lockout", () ->
                     AttachmentType.<Integer>builder(() -> 0)
                             .build());
+
+    // Ticks remaining before warp can be used again. Transient (not serialized).
+    public static final Supplier<AttachmentType<Integer>> WARP_COOLDOWN =
+            ATTACHMENT_TYPES.register("warp_cooldown", () ->
+                    AttachmentType.<Integer>builder(() -> 0)
+                            .build());
 }
