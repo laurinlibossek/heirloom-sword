@@ -14,7 +14,7 @@ import net.minecraft.world.entity.Pose;
 import net.minecraft.world.entity.ai.attributes.AttributeInstance;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
-import net.minecraft.world.entity.monster.Monster;
+import net.minecraft.world.entity.monster.Enemy;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.Level;
@@ -433,8 +433,8 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
         AABB arc = new AABB(center, center).inflate(BLOCK_SLASH_RANGE, 1.2, BLOCK_SLASH_RANGE);
         Vec3 lookFlat = new Vec3(owner.getLookAngle().x, 0, owner.getLookAngle().z).normalize();
 
-        return !this.level().getEntitiesOfClass(Monster.class, arc, e -> {
-            if (!e.isAlive()) return false;
+        return !this.level().getEntitiesOfClass(LivingEntity.class, arc, e -> {
+            if (!(e instanceof Enemy) || !e.isAlive()) return false;
             Vec3 toEntity = e.position().subtract(owner.position());
             Vec3 toEntityFlat = new Vec3(toEntity.x, 0, toEntity.z).normalize();
             return toEntityFlat.dot(lookFlat) > 0.1;
@@ -1224,8 +1224,8 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
                 owner.getZ() + MOB_AWARENESS_RADIUS
         );
 
-        List<Monster> hostiles = this.level().getEntitiesOfClass(Monster.class, scanBox,
-                mob -> mob.isAlive() && mob.distanceTo(owner) <= MOB_AWARENESS_RADIUS);
+        List<LivingEntity> hostiles = this.level().getEntitiesOfClass(LivingEntity.class, scanBox,
+                mob -> mob instanceof Enemy && mob.isAlive() && mob.distanceTo(owner) <= MOB_AWARENESS_RADIUS);
 
         if (hostiles.isEmpty()) {
             awarenessTarget = null;
