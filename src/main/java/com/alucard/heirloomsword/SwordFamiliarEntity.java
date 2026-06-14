@@ -5,7 +5,11 @@ import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.network.syncher.EntityDataSerializers;
 import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.tags.EntityTypeTags;
+import net.minecraft.tags.TagKey;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityDimensions;
 import net.minecraft.world.entity.EntityType;
@@ -77,6 +81,8 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
     private static final double MAX_LAUNCH_RANGE = 48.0;
     private static final double PICKUP_RANGE = 1.5;
     private static final int STUCK_TIMEOUT_TICKS = 60; // 3 seconds
+    private static final TagKey<Block> PIERCEABLE_BLOCKS = TagKey.create(
+            Registries.BLOCK, ResourceLocation.fromNamespaceAndPath(HeirloomSwordMod.MODID, "pierceable"));
     private static final int CHARGE_THRESHOLD_TICKS = 60; // 3 seconds for charged tier
     private static final ResourceLocation CHARGE_SLOW_ID =
             ResourceLocation.fromNamespaceAndPath(HeirloomSwordMod.MODID, "charge_slowdown");
@@ -624,10 +630,14 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
                 ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, this));
 
         if (blockHit.getType() == HitResult.Type.BLOCK) {
-            // Embed in block face
-            this.setPos(blockHit.getLocation().subtract(launchDirection.scale(0.1)));
-            enterStuck();
-            return;
+            BlockState hitState = this.level().getBlockState(blockHit.getBlockPos());
+            if (!hitState.is(PIERCEABLE_BLOCKS)) {
+                // Embed in block face
+                this.setPos(blockHit.getLocation().subtract(launchDirection.scale(0.1)));
+                enterStuck();
+                return;
+            }
+            // Pierceable block — phase through, keep moving
         }
 
         // Move the sword
@@ -830,7 +840,7 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
         );
 
         List<LivingEntity> entities = this.level().getEntitiesOfClass(LivingEntity.class, sweepBox,
-                e -> e.isAlive() && e != owner && !sweepIFrames.containsKey(e.getId()));
+                e -> e.isAlive() && e != owner && e != owner.getVehicle() && !sweepIFrames.containsKey(e.getId()));
 
         if (entities.isEmpty()) return;
 
@@ -977,6 +987,10 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
         // Contact: hit and immediately come home
         if (toTarget.length() <= LAUNCH_SPEED_NORMAL
                 || this.getBoundingBox().inflate(0.3).intersects(target.getBoundingBox())) {
+            if (target == owner.getVehicle()) {
+                enterReturning();
+                return;
+            }
             if (target instanceof LivingEntity living) {
                 living.hurt(this.level().damageSources().playerAttack(owner), QUICK_FIRE_DAMAGE);
                 igniteIfUndead(living);
@@ -1072,7 +1086,7 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
         );
 
         List<LivingEntity> entities = this.level().getEntitiesOfClass(LivingEntity.class, sweepBox,
-                e -> e.isAlive() && e != owner && !hitSet.contains(e.getId()));
+                e -> e.isAlive() && e != owner && e != owner.getVehicle() && !hitSet.contains(e.getId()));
 
         DamageSource source = this.level().damageSources().playerAttack(owner);
         boolean returning = getState() == FamiliarState.RETURNING;
