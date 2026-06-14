@@ -833,7 +833,6 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
                 e -> e.isAlive() && e != owner && !sweepIFrames.containsKey(e.getId()));
 
         if (entities.isEmpty()) return;
-        bloodyOwnerBlade();
 
         Vec3 travelDir = this.sweepVelocity.length() > 0.01 ? this.sweepVelocity.normalize() : owner.getLookAngle();
         DamageSource source = this.level().damageSources().playerAttack(owner);
@@ -841,6 +840,7 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
         for (LivingEntity entity : entities) {
             entity.hurt(source, SWEEP_CONTACT_DAMAGE);
             igniteIfUndead(entity);
+            bloodyOwnerBlade(entity);
             // Directional knockback in sword travel direction
             entity.setDeltaMovement(entity.getDeltaMovement().add(
                     travelDir.x * SWEEP_KNOCKBACK_STRENGTH,
@@ -981,7 +981,7 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
                 living.hurt(this.level().damageSources().playerAttack(owner), QUICK_FIRE_DAMAGE);
                 igniteIfUndead(living);
                 living.knockback(0.3, this.getX() - living.getX(), this.getZ() - living.getZ());
-                bloodyOwnerBlade();
+                bloodyOwnerBlade(living);
             }
             enterReturning();
             return;
@@ -1018,14 +1018,38 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
         }
     }
 
-    /** Cosmetic: mark the owner's blade freshly bloodied (server-side). */
-    private void bloodyOwnerBlade() {
+    /** Cosmetic: mark the owner's blade freshly bloodied (server-side), if the hit entity bleeds. */
+    private void bloodyOwnerBlade(LivingEntity hit) {
+        if (!canBleed(hit)) return;
         Player owner = getOwner();
         if (owner == null) return;
         ItemStack stack = HeirloomSwordItem.findInInventory(owner);
         if (!stack.isEmpty()) {
             HeirloomSwordItem.setBlood(stack, 1.0f);
         }
+    }
+
+    /** Returns false for entities that have no blood (mechanical, elemental, slime, bare bone). */
+    private static boolean canBleed(LivingEntity entity) {
+        EntityType<?> t = entity.getType();
+        return !(
+            // Constructed — no biology
+            t == EntityType.IRON_GOLEM   ||
+            t == EntityType.SNOW_GOLEM   ||
+            t == EntityType.ARMOR_STAND  ||
+            // Fire / energy — no liquid to spill
+            t == EntityType.BLAZE        ||
+            t == EntityType.MAGMA_CUBE   ||
+            t == EntityType.VEX          ||
+            // Slime — goo, not blood
+            t == EntityType.SLIME        ||
+            // Undead bone — dry, nothing left to bleed
+            t == EntityType.SKELETON         ||
+            t == EntityType.STRAY            ||
+            t == EntityType.BOGGED           ||
+            t == EntityType.WITHER_SKELETON  ||
+            t == EntityType.SKELETON_HORSE
+        );
     }
 
     private void burnUndeadOnContact(Player owner) {
@@ -1051,12 +1075,13 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
                 e -> e.isAlive() && e != owner && !hitSet.contains(e.getId()));
 
         DamageSource source = this.level().damageSources().playerAttack(owner);
-        // The return flight passes back through mobs but shouldn't re-bloody — the outbound strike already did.
-        if (!entities.isEmpty() && getState() != FamiliarState.RETURNING) bloodyOwnerBlade();
+        boolean returning = getState() == FamiliarState.RETURNING;
         for (LivingEntity entity : entities) {
             hitSet.add(entity.getId());
             entity.hurt(source, damage);
             igniteIfUndead(entity);
+            // Return flight passes through mobs without re-bloodying; outbound strike already did.
+            if (!returning) bloodyOwnerBlade(entity);
         }
     }
 
