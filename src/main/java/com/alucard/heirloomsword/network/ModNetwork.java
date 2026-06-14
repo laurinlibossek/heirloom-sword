@@ -47,6 +47,11 @@ public class ModNetwork {
                 SwordQuickFirePacket::handle
         );
         registrar.playToServer(
+                SwordWarpPacket.TYPE,
+                SwordWarpPacket.STREAM_CODEC,
+                SwordWarpPacket::handle
+        );
+        registrar.playToServer(
                 SwordCancelChargePacket.TYPE,
                 SwordCancelChargePacket.STREAM_CODEC,
                 SwordCancelChargePacket::handle
