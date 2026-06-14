@@ -99,6 +99,16 @@ public class HeirloomSwordItem extends SwordItem implements GeoItem {
         return false;
     }
 
+    // The blood component decays every few ticks (see inventoryTick). Vanilla's default
+    // re-equip check treats ANY stack difference as a swap, so each decay step replayed the
+    // first-person "rise in hand" equip bob on a loop. Re-equip only on a real swap or an
+    // actual mode change (FLYING<->NORMAL) — never for cosmetic blood decay.
+    @Override
+    public boolean shouldCauseReequipAnimation(ItemStack oldStack, ItemStack newStack, boolean slotChanged) {
+        if (slotChanged || oldStack.getItem() != newStack.getItem()) return true;
+        return getMode(oldStack) != getMode(newStack);
+    }
+
     public static SwordMode getMode(ItemStack stack) {
         SwordMode mode = stack.get(ModDataComponents.SWORD_MODE.get());
         return mode != null ? mode : SwordMode.NORMAL;
