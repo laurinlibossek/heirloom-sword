@@ -138,6 +138,7 @@ public class SwordEventHandler {
         java.util.UUID familiarUUID = swordStack.get(ModDataComponents.FAMILIAR_UUID.get());
         if (familiarUUID == null) {
             HeirloomSwordItem.setMode(swordStack, SwordMode.NORMAL);
+            HeirloomSwordItem.setBlood(swordStack, 0f); // recall = sheathe: blood flies off instantly
             player.displayClientMessage(
                     Component.translatable("msg.heirloomswordmod.sword_returns"), true);
             return;
@@ -147,6 +148,7 @@ public class SwordEventHandler {
         Entity entity = level.getEntity(familiarUUID);
         if (!(entity instanceof SwordFamiliarEntity) || entity.isRemoved()) {
             HeirloomSwordItem.setMode(swordStack, SwordMode.NORMAL);
+            HeirloomSwordItem.setBlood(swordStack, 0f); // recall = sheathe: blood flies off instantly
             swordStack.remove(ModDataComponents.FAMILIAR_UUID.get());
             player.displayClientMessage(
                     Component.translatable("msg.heirloomswordmod.sword_returns"), true);
@@ -160,6 +162,7 @@ public class SwordEventHandler {
         ItemStack swordStack = findFlyingSword(player);
         if (swordStack != null) {
             HeirloomSwordItem.setMode(swordStack, SwordMode.NORMAL);
+            HeirloomSwordItem.setBlood(swordStack, 0f); // recall = sheathe: blood flies off instantly
             swordStack.remove(ModDataComponents.FAMILIAR_UUID.get());
         }
 

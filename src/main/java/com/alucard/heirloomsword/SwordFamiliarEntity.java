@@ -1051,7 +1051,8 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
                 e -> e.isAlive() && e != owner && !hitSet.contains(e.getId()));
 
         DamageSource source = this.level().damageSources().playerAttack(owner);
-        if (!entities.isEmpty()) bloodyOwnerBlade();
+        // The return flight passes back through mobs but shouldn't re-bloody — the outbound strike already did.
+        if (!entities.isEmpty() && getState() != FamiliarState.RETURNING) bloodyOwnerBlade();
         for (LivingEntity entity : entities) {
             hitSet.add(entity.getId());
             entity.hurt(source, damage);
