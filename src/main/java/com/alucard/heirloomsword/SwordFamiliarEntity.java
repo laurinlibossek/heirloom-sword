@@ -1247,6 +1247,7 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
                 var stack = owner.getInventory().getItem(i);
                 if (stack.getItem() instanceof HeirloomSwordItem && HeirloomSwordItem.isFlying(stack)) {
                     HeirloomSwordItem.setMode(stack, SwordMode.NORMAL);
+                    HeirloomSwordItem.setBlood(stack, 0f); // recall = sheathe: blood flies off instantly
                     stack.remove(ModDataComponents.FAMILIAR_UUID.get());
                     break;
                 }
