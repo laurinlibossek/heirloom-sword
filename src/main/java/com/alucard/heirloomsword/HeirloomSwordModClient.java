@@ -12,6 +12,7 @@ import com.alucard.heirloomsword.network.SwordModePacket;
 import com.alucard.heirloomsword.network.SwordMomentumPacket;
 import com.alucard.heirloomsword.network.SwordQuickFirePacket;
 import com.alucard.heirloomsword.network.SwordRecallPacket;
+import com.alucard.heirloomsword.network.SwordWarpPacket;
 import com.alucard.heirloomsword.network.SwordSweepPacket;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -146,9 +147,13 @@ public class HeirloomSwordModClient {
                 PacketDistributor.sendToServer(new SwordRecallPacket());
             }
 
-            // Handle V key (quick fire at the locked-on target)
+            // Handle V key: flying mode = quick-fire; normal mode = warp next to the targeted enemy.
             while (ModKeybinds.QUICK_FIRE.consumeClick()) {
-                if (!HeirloomSwordItem.isFlying(held)) continue;
+                if (!HeirloomSwordItem.isFlying(held)) {
+                    // Normal mode: the server validates target / mana / cooldown and gives feedback.
+                    PacketDistributor.sendToServer(new SwordWarpPacket());
+                    continue;
+                }
                 if (!isManaExempt(player) && ClientManaState.lockoutTicks > 0) { playDeniedClient(player); continue; }
                 SwordFamiliarEntity familiar = findClientFamiliar(player);
                 if (familiar == null || familiar.getState() != FamiliarState.HOVERING) continue;
