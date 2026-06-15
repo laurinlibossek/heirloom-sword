@@ -81,9 +81,11 @@ public class HeirloomSwordModClient {
 
         private static boolean isBlocking = false;
 
-        // Tether uses the vanilla sneak key; track its edge so a fresh press (not a held key)
-        // triggers the pull during STUCK. Not consumed — the player still sneaks normally.
-        private static boolean wasSneaking = false;
+        // Tether: hold left-click for 300 ms (6 ticks) to yank to the sword midpoint from STUCK.
+        // Rising-edge resets the counter so only a fresh hold counts.
+        private static boolean wasAttacking = false;
+        private static int attackHoldTicks = 0;
+        private static final int TETHER_HOLD_TICKS = 6; // 300 ms at 20 TPS [TUNE]
 
         // Hand shimmer is a rare ambient cue: at most one particle per interval while flying.
         private static final int HAND_PARTICLE_INTERVAL = 50; // 2.5 s at 20 tps
@@ -152,18 +154,25 @@ public class HeirloomSwordModClient {
                 PacketDistributor.sendToServer(new SwordRecallPacket());
             }
 
-            // Tether: a FRESH sneak press while the familiar is STUCK yanks the player to the
-            // midpoint. Rising-edge only, so holding Shift into STUCK does nothing until released
-            // and re-pressed. The STUCK gate (here + server-side) makes any stray packet inert.
-            boolean sneakingNow = mc.options.keyShift.isDown();
-            if (sneakingNow && !wasSneaking && HeirloomSwordItem.isFlying(held)
+            // Tether: hold left-click for TETHER_HOLD_TICKS while in flying mode to yank to the
+            // sword midpoint from STUCK. Rising-edge resets the counter so only a fresh hold counts.
+            // Gate is at threshold — counting happens regardless of state, packet only fires if STUCK.
+            boolean attackingNow = mc.options.keyAttack.isDown();
+            if (!attackingNow) {
+                attackHoldTicks = 0;
+            } else if (!wasAttacking) {
+                attackHoldTicks = 0; // fresh press — restart count
+            } else if (HeirloomSwordItem.isFlying(held)
                     && (isManaExempt(player) || ClientManaState.lockoutTicks <= 0)) {
-                SwordFamiliarEntity tetherFamiliar = findClientFamiliar(player);
-                if (tetherFamiliar != null && tetherFamiliar.getState() == FamiliarState.STUCK) {
-                    PacketDistributor.sendToServer(new SwordTetherPacket());
+                attackHoldTicks++;
+                if (attackHoldTicks == TETHER_HOLD_TICKS) {
+                    SwordFamiliarEntity tetherFamiliar = findClientFamiliar(player);
+                    if (tetherFamiliar != null && tetherFamiliar.getState() == FamiliarState.STUCK) {
+                        PacketDistributor.sendToServer(new SwordTetherPacket());
+                    }
                 }
             }
-            wasSneaking = sneakingNow;
+            wasAttacking = attackingNow;
 
             // Handle V key: flying mode = quick-fire; normal mode = warp next to the targeted enemy.
             while (ModKeybinds.QUICK_FIRE.consumeClick()) {
