@@ -1204,6 +1204,23 @@ class guarded by `ModList.get().isLoaded("epicfight")`, greatsword weapon-type r
 and the moveset/skill hookup so normal mode uses Epic Fight combat (with Epic Fight's own
 native stamina). Vanilla-swing fallback when Epic Fight is absent. No mod-side stamina code.
 
+> **Phase 9 status (2026-06-15): COMPLETE — datapack only, no code, no dependency.**
+> Implemented purely as a bundled Epic Fight capability datapack
+> (`data/heirloomswordmod/capabilities/weapons/heirloom_sword.json` → `epicfight:greatsword`).
+> The `EpicFightCompat` Java class described above was **not** built: a code class would require
+> linking against Epic Fight (a dependency), which is forbidden — the mod must be *compatible, not
+> dependent*. Epic Fight is declared `optional` in `neoforge.mods.toml`. Vanilla netherite-sword
+> fallback when Epic Fight is absent. No mod-side stamina/mana code added.
+>
+> **Explicitly out of scope (decided 2026-06-15):** guarding Epic Fight's battle-mode toggle so the
+> sword's flying mode forces Epic Fight back to mining/vanilla mode. Epic Fight exposes no stable
+> public API for mode control; the state lives in internal classes (`LocalPlayerPatch`,
+> `InputManager`) that Epic Fight renames across minor versions. Any implementation (compileOnly or
+> reflection) would couple the mod to Epic Fight internals and break on Epic Fight updates —
+> unacceptable for an optional integration. Known residual interaction: while in Epic Fight battle
+> mode, clicks route to Epic Fight combat rather than the familiar; players exit battle mode (R) to
+> use flying mode. Documented, not coded around.
+
 **Phase 10 — Audio and Polish**
 Custom sound event registration with Minecraft placeholders (including `guard_break` and
 `tether_pull` sounds). Particle effects on impact, deflection, embed, spawn, and tether

@@ -99,6 +99,18 @@ Example mod description.
     ordering="AFTER"
     side="BOTH"
 
+# Epic Fight is OPTIONAL: the mod never requires or depends on it. When present, the bundled
+# capability datapack (data/heirloomswordmod/capabilities/weapons/heirloom_sword.json) makes the
+# sword use Epic Fight's greatsword combat in normal mode. When absent, the sword is a vanilla
+# netherite-tier weapon. No code links against Epic Fight.
+[[dependencies.${mod_id}]]
+    modId="epicfight"
+    type="optional"
+    reason="When present, the heirloom sword uses Epic Fight's greatsword combat via a bundled capability datapack."
+    versionRange="*"
+    ordering="AFTER"
+    side="BOTH"
+
 # Features are specific properties of the game environment, that you may want to declare you require. This example declares
 # that your mod requires GL version 3.2 or higher. Other features will be added. They are side aware so declaring this won't
 # stop your mod loading on the server for example.
