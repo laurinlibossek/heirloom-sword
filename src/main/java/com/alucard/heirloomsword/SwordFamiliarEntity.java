@@ -64,6 +64,10 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
             SynchedEntityData.defineId(SwordFamiliarEntity.class, EntityDataSerializers.BOOLEAN);
     private static final EntityDataAccessor<Integer> DATA_QUICKFIRE_TARGET =
             SynchedEntityData.defineId(SwordFamiliarEntity.class, EntityDataSerializers.INT);
+    private static final EntityDataAccessor<Integer> DATA_IDLE_ANIM =
+            SynchedEntityData.defineId(SwordFamiliarEntity.class, EntityDataSerializers.INT);
+    private static final EntityDataAccessor<Optional<BlockPos>> DATA_CURIOSITY_POS =
+            SynchedEntityData.defineId(SwordFamiliarEntity.class, EntityDataSerializers.OPTIONAL_BLOCK_POS);
 
     private static final double HOVER_RADIUS = 1.65; // [TUNE] 1.5 felt too close, 1.8 too far
     private static final double HORIZONTAL_LOCK_LIFT = 0.5; // [TUNE] extra hover height while horizontal/locked-on
@@ -256,6 +260,8 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
         builder.define(DATA_LAUNCH_DIR, new Vector3f());
         builder.define(DATA_CHARGED, false);
         builder.define(DATA_QUICKFIRE_TARGET, 0);
+        builder.define(DATA_IDLE_ANIM, 0);
+        builder.define(DATA_CURIOSITY_POS, Optional.empty());
     }
 
     @Override
@@ -1415,6 +1421,34 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
         return awarenessTarget;
     }
 
+    // === Idle personality hooks (used by IdlePersonality) ===
+
+    public int getIdleAnim() {
+        return this.entityData.get(DATA_IDLE_ANIM);
+    }
+
+    public void setIdleAnim(int id) {
+        this.entityData.set(DATA_IDLE_ANIM, id);
+    }
+
+    public Optional<BlockPos> getCuriosityPos() {
+        return this.entityData.get(DATA_CURIOSITY_POS);
+    }
+
+    public void setCuriosityPos(Optional<BlockPos> pos) {
+        this.entityData.set(DATA_CURIOSITY_POS, pos);
+    }
+
+    /** Nudge the hover target this tick; the spring physics carries the sword there and back. */
+    public void addIdleOffset(Vec3 offset) {
+        this.targetPosition = this.targetPosition.add(offset);
+    }
+
+    /** Fire a one-shot idle reaction clip on the shared "action" controller. */
+    public void triggerIdleAnim(String clip) {
+        triggerAnim("action", ANIM_PREFIX + clip);
+    }
+
         private void exitFlyingMode(Player owner) {
             if (getState() == FamiliarState.DYING) return;
         
@@ -1699,7 +1733,9 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
         controllers.add(new AnimationController<>(this, "action", 0, state -> PlayState.STOP)
                 .triggerableAnim(ANIM_PREFIX + "block_slash", RawAnimation.begin().thenPlay(ANIM_PREFIX + "block_slash"))
                 .triggerableAnim(ANIM_PREFIX + "guard_break", RawAnimation.begin().thenPlay(ANIM_PREFIX + "guard_break"))
-                .triggerableAnim(ANIM_PREFIX + "death_fall", RawAnimation.begin().thenPlay(ANIM_PREFIX + "death_fall")));
+                .triggerableAnim(ANIM_PREFIX + "death_fall", RawAnimation.begin().thenPlay(ANIM_PREFIX + "death_fall"))
+                .triggerableAnim(ANIM_PREFIX + "idle_recoil", RawAnimation.begin().thenPlay(ANIM_PREFIX + "idle_recoil"))
+                .triggerableAnim(ANIM_PREFIX + "idle_perk", RawAnimation.begin().thenPlay(ANIM_PREFIX + "idle_perk")));
     }
 
     private PlayState animationPredicate(AnimationState<SwordFamiliarEntity> state) {
@@ -1707,7 +1743,17 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
         String anim = "idle";
 
         switch (familiarState) {
-            case HOVERING -> anim = awarenessTarget != null ? "alert" : "idle";
+            case HOVERING -> {
+                if (awarenessTarget != null) {
+                    anim = "alert";
+                } else {
+                    anim = switch (getIdleAnim()) {
+                        case 1 -> "idle_curious";
+                        case 2 -> "idle_figure_eight";
+                        default -> "idle";
+                    };
+                }
+            }
             case CHARGING -> anim = "charge_spin";
             case LAUNCHING -> anim = "launch";
             case STUCK -> anim = "stuck";
