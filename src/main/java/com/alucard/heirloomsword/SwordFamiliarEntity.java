@@ -140,6 +140,7 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
 
     private Vec3 velocity = Vec3.ZERO;
     private Vec3 targetPosition = Vec3.ZERO;
+    private final IdlePersonality idle = new IdlePersonality(this);
     private double smoothedAnchorY = Double.NaN;
     private int currentCandidateIndex = 0;
     private int preferredFreeTicks = 0;
@@ -423,6 +424,7 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
         if (quickFireCooldown > 0) quickFireCooldown--;
         if (getGuardCooldown() > 0) setGuardCooldown(getGuardCooldown() - 1);
         updateTargetPosition(owner);
+        idle.tick(owner);          // adds idle offset to targetPosition (no-op when not idle)
         applySpringPhysics();
         updateMobAwareness(owner);
         if (this.tickCount % 80 == 0) {
