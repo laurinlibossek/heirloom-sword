@@ -1249,6 +1249,13 @@ Custom sound event registration with Minecraft placeholders (including `guard_br
 arrival. Network sync polish and client prediction. Third-person review of all states and
 transitions.
 
+> **Phase 10 status (2026-06-15): audio triggers + particles DONE (Plan A, placeholders).** All §21
+> sound events except the 3 tether sounds (Phase 11) are now wired to vanilla placeholders, centralized
+> in `SwordSounds`. Added deflection + embed particle bursts and impact CRIT bursts. The 7 pre-existing
+> cues were kept as-is per user preference. **Still deferred to final release:** custom `.ogg` files +
+> `DeferredRegister<SoundEvent>` + `sounds.json` (Plan B), and true looping sound instances (hover/charge
+> are throttled one-shots). Third-person review pass completed in-game.
+
 **Phase 11 — Tether Pull**
 TETHERING state implementation. Shift input during STUCK (fresh press only — Shift already
 held is ignored). Player velocity application toward midpoint between player and sword with
