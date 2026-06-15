@@ -56,6 +56,11 @@ public class ModNetwork {
                 SwordCancelChargePacket.STREAM_CODEC,
                 SwordCancelChargePacket::handle
         );
+        registrar.playToServer(
+                SwordTetherPacket.TYPE,
+                SwordTetherPacket.STREAM_CODEC,
+                SwordTetherPacket::handle
+        );
         registrar.playToClient(
                 ManaSyncPacket.TYPE,
                 ManaSyncPacket.STREAM_CODEC,
