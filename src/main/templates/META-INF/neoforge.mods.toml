@@ -88,6 +88,17 @@ Example mod description.
     ordering="NONE"
     side="BOTH"
 
+# GeckoLib is a hard dependency: the item (GeoItem) and familiar renderer link against
+# its classes, so the mod cannot load without it. Declaring it 'required' makes NeoForge
+# show a clean "missing GeckoLib" screen instead of a NoClassDefFoundError crash.
+[[dependencies.${mod_id}]]
+    modId="geckolib"
+    type="required"
+    reason="The heirloom sword and familiar entity render through GeckoLib (GeoItem / GeoRenderer)."
+    versionRange="[${geckolib_version},)"
+    ordering="AFTER"
+    side="BOTH"
+
 # Features are specific properties of the game environment, that you may want to declare you require. This example declares
 # that your mod requires GL version 3.2 or higher. Other features will be added. They are side aware so declaring this won't
 # stop your mod loading on the server for example.
