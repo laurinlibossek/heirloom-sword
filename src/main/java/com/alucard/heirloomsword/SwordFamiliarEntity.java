@@ -399,6 +399,9 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
         updateTargetPosition(owner);
         applySpringPhysics();
         updateMobAwareness(owner);
+        if (this.tickCount % 80 == 0) {
+            SwordSounds.playHoverAmbient(this.level(), getX(), getY(), getZ());
+        }
     }
 
     // === BLOCKING ===
@@ -547,6 +550,10 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
             return;
         }
         chargeTimer++;
+        if (!isChargeReady() && chargeTimer % 10 == 0) {
+            SwordSounds.playChargeLoop(this.level(), getX(), getY(), getZ(),
+                    Math.min(1.0f, (float) chargeTimer / CHARGE_THRESHOLD_TICKS));
+        }
 
         // Apply movement slowdown via attribute modifier (like bow draw)
         AttributeInstance speedAttr = owner.getAttribute(Attributes.MOVEMENT_SPEED);
