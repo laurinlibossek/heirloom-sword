@@ -1737,8 +1737,7 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
                 .triggerableAnim(ANIM_PREFIX + "guard_break", RawAnimation.begin().thenPlay(ANIM_PREFIX + "guard_break"))
                 .triggerableAnim(ANIM_PREFIX + "death_fall", RawAnimation.begin().thenPlay(ANIM_PREFIX + "death_fall"))
                 .triggerableAnim(ANIM_PREFIX + "idle_recoil", RawAnimation.begin().thenPlay(ANIM_PREFIX + "idle_recoil"))
-                .triggerableAnim(ANIM_PREFIX + "idle_perk", RawAnimation.begin().thenPlay(ANIM_PREFIX + "idle_perk"))
-                .triggerableAnim(ANIM_PREFIX + "block_stance", RawAnimation.begin().thenPlay(ANIM_PREFIX + "block_stance")));
+                .triggerableAnim(ANIM_PREFIX + "idle_perk", RawAnimation.begin().thenPlay(ANIM_PREFIX + "idle_perk")));
     }
 
     private PlayState animationPredicate(AnimationState<SwordFamiliarEntity> state) {
@@ -1753,6 +1752,7 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
                     anim = switch (getIdleAnim()) {
                         case 1 -> "idle_curious";
                         case 2 -> "idle_figure_eight";
+                        case 3 -> "block_stance"; // trapped-chest guard beat
                         default -> "idle";
                     };
                 }

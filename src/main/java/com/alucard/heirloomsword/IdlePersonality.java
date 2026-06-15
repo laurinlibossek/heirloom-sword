@@ -31,6 +31,7 @@ public final class IdlePersonality {
     public static final int ANIM_NONE = 0;
     public static final int ANIM_CURIOUS = 1;
     public static final int ANIM_FIGURE_EIGHT = 2;
+    public static final int ANIM_GUARD = 3;   // held guard pose toward a trapped chest
 
     // [TUNE]
     private static final int CURIOSITY_TRIGGER_TICKS = 100;    // 5s idle before curious drift
@@ -38,6 +39,7 @@ public final class IdlePersonality {
     private static final double CURIOSITY_MIN_DRIFT = 1.0;
     private static final double CURIOSITY_MAX_DRIFT = 2.0;
     private static final int CURIOSITY_HOLD_TICKS = 50;         // 2.5s inspection hold
+    private static final int GUARD_GESTURE_TICKS = 20;          // 1s guard hold for a trapped chest
     private static final int CURIOSITY_COOLDOWN_TICKS = 600;    // 30s before it cares about any block again
     private static final int FIGURE_EIGHT_TRIGGER_TICKS = 400;  // 20s idle before figure-eight
     private static final double FIGURE_EIGHT_SPEED = 0.04;
@@ -55,6 +57,7 @@ public final class IdlePersonality {
     // Server-only timing/selection state.
     private int idleTicks = 0;
     private int curiosityHeldTicks = 0;
+    private int gestureTicks = 0;
     private boolean curiosityConsumedThisPeriod = false;
     private Vec3 lastOwnerPos = null;
     private boolean recoilLatched = false;
@@ -82,7 +85,7 @@ public final class IdlePersonality {
     // ---- Client: reproduce the server's offset from synced data (no timers) ----
     private void applyClientOffset() {
         switch (sword.getIdleAnim()) {
-            case ANIM_CURIOUS -> sword.getCuriosityPos().ifPresent(pos ->
+            case ANIM_CURIOUS, ANIM_GUARD -> sword.getCuriosityPos().ifPresent(pos ->
                     sword.addIdleOffset(curiosityOffset(Vec3.atCenterOf(pos))));
             case ANIM_FIGURE_EIGHT -> sword.addIdleOffset(figureEightOffset());
             default -> { /* plain idle — no offset */ }
@@ -107,12 +110,17 @@ public final class IdlePersonality {
         lastOwnerPos = owner.position();
         idleTicks++;
 
-        // One-shot environmental reactions — independent of the 5s/10s thresholds.
+        // One-shot environmental reactions — independent of the 5s/20s thresholds.
         handleReactions();
 
-        // Curious drift holds its block for the inspection window.
-        if (sword.getIdleAnim() == ANIM_CURIOUS) {
+        // Curious look-hold and the trapped-chest guard beat both pin the sword at the block.
+        int phase = sword.getIdleAnim();
+        if (phase == ANIM_CURIOUS) {
             tickCuriousHold();
+            return;
+        }
+        if (phase == ANIM_GUARD) {
+            tickGuardHold();
             return;
         }
 
@@ -146,18 +154,37 @@ public final class IdlePersonality {
     private void tickCuriousHold() {
         curiosityHeldTicks++;
         Optional<BlockPos> target = sword.getCuriosityPos();
-        if (target.isEmpty() || curiosityHeldTicks >= CURIOSITY_HOLD_TICKS) {
-            // Inspection over — drift back (spring eases home); stay idle so figure-eight can follow.
-            // A trapped chest gets a quick guard pose first, as if to say "don't open that".
-            if (curiousIsTrappedChest) {
-                sword.triggerIdleAnim("block_stance");
-                curiousIsTrappedChest = false;
-            }
-            sword.setIdleAnim(ANIM_NONE);
-            sword.setCuriosityPos(Optional.empty());
+        if (target.isEmpty()) {
+            endInspection();
             return;
         }
         sword.addIdleOffset(curiosityOffset(Vec3.atCenterOf(target.get())));
+        if (curiosityHeldTicks >= CURIOSITY_HOLD_TICKS) {
+            if (curiousIsTrappedChest) {
+                // Stay pinned at the chest and raise a guard pose for a beat ("don't open that").
+                gestureTicks = 0;
+                sword.setIdleAnim(ANIM_GUARD);
+            } else {
+                endInspection();
+            }
+        }
+    }
+
+    /** Trapped-chest guard beat: hold the guard pose at the chest, then drift home. */
+    private void tickGuardHold() {
+        gestureTicks++;
+        sword.getCuriosityPos().ifPresent(pos ->
+                sword.addIdleOffset(curiosityOffset(Vec3.atCenterOf(pos))));
+        if (gestureTicks >= GUARD_GESTURE_TICKS) {
+            endInspection();
+        }
+    }
+
+    /** End the inspection: clear gesture state and idle anim; the spring eases the sword home. */
+    private void endInspection() {
+        curiousIsTrappedChest = false;
+        sword.setIdleAnim(ANIM_NONE);
+        sword.setCuriosityPos(Optional.empty());
     }
 
     private boolean shouldCancel(Player owner) {
@@ -240,6 +267,7 @@ public final class IdlePersonality {
     public void reset() {
         idleTicks = 0;
         curiosityHeldTicks = 0;
+        gestureTicks = 0;
         curiosityConsumedThisPeriod = false;
         curiousIsTrappedChest = false;
         recoilLatched = false;
