@@ -372,6 +372,12 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
             // this window would hold the guard pose on slash-less releases.
             slashVisualTicks = SLASH_VISUAL_TICKS; // block_slash is playing — hold the guard pose
         }
+        if (to == FamiliarState.CHARGING) {
+            // Client predicts chargeTimer locally for the gather glyphs; the server's reset in
+            // startCharging() isn't synced, so reset here on every entry or the timer stays
+            // >= threshold after the first charge and the particles never reappear.
+            chargeTimer = 0;
+        }
         if (to == FamiliarState.SWEEPING_HOLD) {
             spinRampTicks = 0; // rev the sawblade up from rest
         }
@@ -592,6 +598,9 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
         double horizDist = Math.sqrt(launchDirection.x * launchDirection.x + launchDirection.z * launchDirection.z);
         this.setXRot((float) -Math.toDegrees(Math.atan2(launchDirection.y, horizDist)));
         setState(FamiliarState.LAUNCHING);
+        if (!this.level().isClientSide) {
+            SwordSounds.playLaunch(this.level(), getX(), getY(), getZ(), charged);
+        }
     }
 
     public Vec3 getLaunchDirection() {
@@ -717,6 +726,7 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
             this.velocity = Vec3.ZERO;
             this.smoothedAnchorY = Double.NaN;
             this.targetPosition = computeCandidatePosition(owner, 0);
+            SwordSounds.playReturnArrival(this.level(), getX(), getY(), getZ());
             return;
         }
 
@@ -996,6 +1006,11 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
                 igniteIfUndead(living);
                 living.knockback(0.3, this.getX() - living.getX(), this.getZ() - living.getZ());
                 bloodyOwnerBlade(living);
+                if (this.level() instanceof net.minecraft.server.level.ServerLevel sl) {
+                    SwordSounds.playImpact(this.level(), getX(), getY(), getZ());
+                    sl.sendParticles(ParticleTypes.CRIT,
+                            getX(), getY() + getBbHeight() * 0.5, getZ(), 8, 0.2, 0.2, 0.2, 0.0);
+                }
             }
             enterReturning();
             return;
@@ -1096,6 +1111,11 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
             igniteIfUndead(entity);
             // Return flight passes through mobs without re-bloodying; outbound strike already did.
             if (!returning) bloodyOwnerBlade(entity);
+        }
+        if (!entities.isEmpty() && this.level() instanceof net.minecraft.server.level.ServerLevel sl) {
+            SwordSounds.playImpact(this.level(), getX(), getY(), getZ());
+            sl.sendParticles(ParticleTypes.CRIT,
+                    getX(), getY() + getBbHeight() * 0.5, getZ(), 8, 0.2, 0.2, 0.2, 0.0);
         }
     }
 
@@ -1271,6 +1291,7 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
             triggerAnim("action", ANIM_PREFIX + "death_fall");
             setState(FamiliarState.DYING);
             dyingTimer = 0;
+            SwordSounds.playDeathFall(this.level(), getX(), getY(), getZ());
         }
 
         private void tickDying(Player owner) {
