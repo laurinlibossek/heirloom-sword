@@ -82,10 +82,10 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
     private static final double PICKUP_RANGE = 1.5;
     private static final int STUCK_TIMEOUT_TICKS = 60; // 3 seconds
     // TETHERING constants — riptide-style single-impulse yank to the midpoint [all TUNE → Phase 13 config]
-    private static final double TETHER_IMPULSE_PER_BLOCK = 0.30; // impulse magnitude per block of distance
-    private static final double TETHER_IMPULSE_MIN = 0.7;        // floor so short tethers still feel like a yank
-    private static final double TETHER_IMPULSE_MAX = 2.6;        // cap so long tethers don't fling absurdly
-    private static final double TETHER_VERTICAL_BOOST = 0.32;    // added upward so the player arcs, not skids
+    private static final double TETHER_IMPULSE_PER_BLOCK = 0.45; // impulse magnitude per block of distance
+    private static final double TETHER_IMPULSE_MIN = 1.05;       // floor so short tethers still feel like a yank
+    private static final double TETHER_IMPULSE_MAX = 3.9;        // cap so long tethers don't fling absurdly
+    private static final double TETHER_VERTICAL_BOOST = 0.16;    // added upward so the player arcs, not skids
     private static final double TETHER_ARRIVAL_RANGE = 2.0;      // within this of the midpoint → done
     private static final int TETHER_TIMEOUT_TICKS = 40;          // 2 seconds
     private static final int TETHER_GEOMETRY_BLOCK_TICKS = 10;   // ticks of near-zero horizontal travel → done
