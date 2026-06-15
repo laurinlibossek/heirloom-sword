@@ -81,6 +81,15 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
     private static final double MAX_LAUNCH_RANGE = 48.0;
     private static final double PICKUP_RANGE = 1.5;
     private static final int STUCK_TIMEOUT_TICKS = 60; // 3 seconds
+    // TETHERING constants — riptide-style single-impulse yank to the midpoint [all TUNE → Phase 13 config]
+    private static final double TETHER_IMPULSE_PER_BLOCK = 0.30; // impulse magnitude per block of distance
+    private static final double TETHER_IMPULSE_MIN = 0.7;        // floor so short tethers still feel like a yank
+    private static final double TETHER_IMPULSE_MAX = 2.6;        // cap so long tethers don't fling absurdly
+    private static final double TETHER_VERTICAL_BOOST = 0.32;    // added upward so the player arcs, not skids
+    private static final double TETHER_ARRIVAL_RANGE = 2.0;      // within this of the midpoint → done
+    private static final int TETHER_TIMEOUT_TICKS = 40;          // 2 seconds
+    private static final int TETHER_GEOMETRY_BLOCK_TICKS = 10;   // ticks of near-zero horizontal travel → done
+    private static final double TETHER_GEOMETRY_MOVE_SQR = 0.01; // (~0.1 block/tick)^2 horizontal-movement floor
     private static final TagKey<Block> PIERCEABLE_BLOCKS = TagKey.create(
             Registries.BLOCK, ResourceLocation.fromNamespaceAndPath(HeirloomSwordMod.MODID, "pierceable"));
     private static final int CHARGE_THRESHOLD_TICKS = 60; // 3 seconds for charged tier
@@ -141,6 +150,13 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
 
     // STUCK state fields
     private int stuckTimer = 0;
+
+    // TETHERING state fields
+    private boolean tetherPending = false;
+    private Vec3 tetherMidpoint = Vec3.ZERO;
+    private int tetherTimer = 0;
+    private int tetherGeometryTicks = 0;
+    private Vec3 tetherLastPos = Vec3.ZERO;
 
     // QUICK_FIRE state fields
     private int quickFireCooldown = 0;
@@ -319,6 +335,7 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
             case DYING -> tickDying(owner);
             case ARRIVING -> tickArriving(owner);
             case QUICK_FIRE -> tickQuickFire(owner);
+            case TETHERING -> tickTethering(owner);
         }
         burnUndeadOnContact(owner);
         updateOrientation();
@@ -361,6 +378,7 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
             case DYING -> {}
             case ARRIVING -> tickArrivingClient();
             case QUICK_FIRE -> tickQuickFireClient();
+            case TETHERING -> {}
         }
         updateOrientation();
     }
@@ -712,7 +730,14 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
     private void tickStuck(Player owner) {
         if (recallPending) {
             recallPending = false;
+            tetherPending = false;
             enterReturning();
+            return;
+        }
+
+        if (tetherPending) {
+            tetherPending = false;
+            enterTether(owner);
             return;
         }
 
@@ -729,9 +754,93 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
         setState(FamiliarState.RETURNING);
     }
 
+    // === TETHERING ===
+
+    private void enterTether(Player owner) {
+        Vec3 a = owner.position();               // player feet
+        Vec3 b = this.position();                // embedded sword
+        tetherMidpoint = a.add(b).scale(0.5);
+        tetherTimer = 0;
+        tetherGeometryTicks = 0;
+        tetherLastPos = a;
+        setState(FamiliarState.TETHERING);
+
+        // Riptide-style single impulse toward the midpoint. Magnitude scales with distance
+        // (clamped), plus a fixed upward boost so the player arcs over terrain instead of
+        // skidding into it. Applied server-side; hurtMarked forces the velocity packet to the
+        // client (same path vanilla knockback uses for a client-authoritative player).
+        Vec3 dir = tetherMidpoint.subtract(a);
+        double dist = dir.length();
+        if (dist > 1.0E-4) {
+            double mag = Math.min(Math.max(dist * TETHER_IMPULSE_PER_BLOCK, TETHER_IMPULSE_MIN), TETHER_IMPULSE_MAX);
+            Vec3 impulse = dir.normalize().scale(mag).add(0.0, TETHER_VERTICAL_BOOST, 0.0);
+            owner.setDeltaMovement(impulse);
+            owner.hurtMarked = true;
+            // Fall damage is intentionally NOT reset here — the player takes it naturally on
+            // landing, exactly like a riptide launch (design L629: "can still take damage during
+            // the pull"). Do not add owner.fallDistance = 0.
+        }
+
+        if (!this.level().isClientSide) {
+            SwordSounds.playTetherStart(this.level(), getX(), getY(), getZ());
+        }
+    }
+
+    private void tickTethering(Player owner) {
+        tetherTimer++;
+
+        // Throttled reel-in loop (one-shot every 4 ticks while pulling).
+        if (!this.level().isClientSide && tetherTimer % 4 == 0) {
+            SwordSounds.playTetherLoop(this.level(), getX(), getY(), getZ());
+        }
+
+        // Arrival: player within range of the snapshot midpoint.
+        if (owner.position().distanceToSqr(tetherMidpoint) <= TETHER_ARRIVAL_RANGE * TETHER_ARRIVAL_RANGE) {
+            endTether();
+            return;
+        }
+
+        // Timeout.
+        if (tetherTimer >= TETHER_TIMEOUT_TICKS) {
+            endTether();
+            return;
+        }
+
+        // Geometry block: player's horizontal travel stalls (wall/ceiling). Measured from
+        // position deltas — more reliable than getDeltaMovement() for a client-auth player.
+        Vec3 nowPos = owner.position();
+        double dx = nowPos.x - tetherLastPos.x;
+        double dz = nowPos.z - tetherLastPos.z;
+        if (dx * dx + dz * dz < TETHER_GEOMETRY_MOVE_SQR) {
+            tetherGeometryTicks++;
+            if (tetherGeometryTicks >= TETHER_GEOMETRY_BLOCK_TICKS) {
+                endTether();
+                return;
+            }
+        } else {
+            tetherGeometryTicks = 0;
+        }
+        tetherLastPos = nowPos;
+    }
+
+    private void endTether() {
+        if (!this.level().isClientSide) {
+            SwordSounds.playTetherArrival(this.level(), getX(), getY(), getZ());
+            ((net.minecraft.server.level.ServerLevel) this.level()).sendParticles(ParticleTypes.POOF,
+                    getX(), getY() + getBbHeight() * 0.5, getZ(), 16, 0.25, 0.3, 0.25, 0.03);
+        }
+        enterReturning();
+    }
+
     public void recall() {
         if (getState() == FamiliarState.LAUNCHING || getState() == FamiliarState.STUCK) {
             this.recallPending = true;
+        }
+    }
+
+    public void startTether() {
+        if (getState() == FamiliarState.STUCK) {
+            this.tetherPending = true;
         }
     }
 
@@ -1599,6 +1708,7 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
             case SWEEPING_RELEASE -> anim = sweepReturning ? "return_hilt" : "sweep_hold";
             case BLOCKING -> anim = "block_stance";
             case QUICK_FIRE -> anim = "launch";
+            case TETHERING -> anim = "stuck"; // PLACEHOLDER: real `tether_pull` clip + glow is an art/GeckoLib-pass task
             case DYING -> anim = "idle";
             case ARRIVING -> anim = "idle"; // falling sword uses its hover orientation
         }

@@ -11,7 +11,8 @@ public enum FamiliarState {
     BLOCKING(7),
     DYING(8),
     ARRIVING(9),
-    QUICK_FIRE(10);
+    QUICK_FIRE(10),
+    TETHERING(11);
 
     private final int id;
 
@@ -35,6 +36,7 @@ public enum FamiliarState {
             case 8 -> DYING;
             case 9 -> ARRIVING;
             case 10 -> QUICK_FIRE;
+            case 11 -> TETHERING;
             default -> HOVERING;
         };
     }
