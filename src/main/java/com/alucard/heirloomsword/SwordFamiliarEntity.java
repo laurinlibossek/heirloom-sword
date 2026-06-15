@@ -704,6 +704,8 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
         stuckTimer = 0;
         if (!this.level().isClientSide) {
             SwordSounds.playStuckImpact(this.level(), this.getX(), this.getY(), this.getZ());
+            ((net.minecraft.server.level.ServerLevel) this.level()).sendParticles(ParticleTypes.POOF,
+                    getX(), getY() + getBbHeight() * 0.5, getZ(), 12, 0.2, 0.3, 0.2, 0.02);
         }
     }
 

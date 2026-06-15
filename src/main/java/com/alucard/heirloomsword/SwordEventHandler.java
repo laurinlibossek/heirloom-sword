@@ -1,5 +1,6 @@
 package com.alucard.heirloomsword;
 
+import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
@@ -98,6 +99,8 @@ public class SwordEventHandler {
         Vec3 reflected = velocity.subtract(normal.scale(2.0 * velocity.dot(normal))).scale(0.4); // [TUNE] speed factor
 
         event.setCanceled(true);
+        player.serverLevel().sendParticles(ParticleTypes.CRIT,
+                projectile.getX(), projectile.getY(), projectile.getZ(), 10, 0.1, 0.1, 0.1, 0.2);
         projectile.setDeltaMovement(reflected);
         projectile.hurtMarked = true; // force velocity sync to clients
         if (reflected.lengthSqr() > 1.0e-4) {
