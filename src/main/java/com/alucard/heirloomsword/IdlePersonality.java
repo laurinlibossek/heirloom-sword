@@ -8,6 +8,7 @@ import net.minecraft.world.entity.item.PrimedTnt;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
@@ -37,7 +38,8 @@ public final class IdlePersonality {
     private static final double CURIOSITY_MIN_DRIFT = 1.0;
     private static final double CURIOSITY_MAX_DRIFT = 2.0;
     private static final int CURIOSITY_HOLD_TICKS = 50;         // 2.5s inspection hold
-    private static final int FIGURE_EIGHT_TRIGGER_TICKS = 200;  // 10s idle before figure-eight
+    private static final int CURIOSITY_COOLDOWN_TICKS = 600;    // 30s before it cares about any block again
+    private static final int FIGURE_EIGHT_TRIGGER_TICKS = 400;  // 20s idle before figure-eight
     private static final double FIGURE_EIGHT_SPEED = 0.04;
     private static final double FIGURE_EIGHT_WIDTH = 0.6;
     private static final double FIGURE_EIGHT_BOB = 0.2;
@@ -58,6 +60,8 @@ public final class IdlePersonality {
     private boolean recoilLatched = false;
     private boolean wasRaining = false;
     private long lastTickedAt = Long.MIN_VALUE;
+    private long curiosityReadyAt = Long.MIN_VALUE; // game-time gate; survives idle-period resets
+    private boolean curiousIsTrappedChest = false;
 
     public IdlePersonality(SwordFamiliarEntity sword) {
         this.sword = sword;
@@ -112,11 +116,16 @@ public final class IdlePersonality {
             return;
         }
 
-        // Start a curious inspection: one block, once per idle period.
-        if (!curiosityConsumedThisPeriod && idleTicks >= CURIOSITY_TRIGGER_TICKS) {
+        // Start a curious inspection: one block, once per idle period, and not during the
+        // 30s cooldown that follows any inspection (so it won't fixate on the same spot).
+        if (!curiosityConsumedThisPeriod
+                && idleTicks >= CURIOSITY_TRIGGER_TICKS
+                && sword.level().getGameTime() >= curiosityReadyAt) {
             BlockPos block = findCuriosityBlock();
             if (block != null) {
                 curiosityConsumedThisPeriod = true;
+                curiosityReadyAt = sword.level().getGameTime() + CURIOSITY_COOLDOWN_TICKS;
+                curiousIsTrappedChest = sword.level().getBlockState(block).is(Blocks.TRAPPED_CHEST);
                 curiosityHeldTicks = 0;
                 sword.setIdleAnim(ANIM_CURIOUS);
                 sword.setCuriosityPos(Optional.of(block));
@@ -139,6 +148,11 @@ public final class IdlePersonality {
         Optional<BlockPos> target = sword.getCuriosityPos();
         if (target.isEmpty() || curiosityHeldTicks >= CURIOSITY_HOLD_TICKS) {
             // Inspection over — drift back (spring eases home); stay idle so figure-eight can follow.
+            // A trapped chest gets a quick guard pose first, as if to say "don't open that".
+            if (curiousIsTrappedChest) {
+                sword.triggerIdleAnim("block_stance");
+                curiousIsTrappedChest = false;
+            }
             sword.setIdleAnim(ANIM_NONE);
             sword.setCuriosityPos(Optional.empty());
             return;
@@ -218,11 +232,16 @@ public final class IdlePersonality {
         return best;
     }
 
-    /** Clear all idle state and the synced descriptor. Server-side only (called from tickServer). */
+    /**
+     * Clear per-period idle state and the synced descriptor. Server-side only (called from
+     * tickServer). Note {@code curiosityReadyAt} is deliberately NOT cleared — the 30s
+     * curiosity cooldown must survive idle-period resets (moving away and back).
+     */
     public void reset() {
         idleTicks = 0;
         curiosityHeldTicks = 0;
         curiosityConsumedThisPeriod = false;
+        curiousIsTrappedChest = false;
         recoilLatched = false;
         if (sword.getIdleAnim() != ANIM_NONE) {
             sword.setIdleAnim(ANIM_NONE);
