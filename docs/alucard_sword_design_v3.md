@@ -891,6 +891,15 @@ circumstances. The item always travels with the inventory.
 
 ## 13. Water & Swimming Logic
 
+> **OVERRULED (decision 2026-06-14) — Sections 13–16 mid-flight gating is NOT implemented and will
+> not be.** Playtesting found the default behavior good as-is, so the mid-flight auto-exits (swimming
+> §13, elytra §15, dimension §16) and the mount-block-while-flying (§14) were cut. The entity-
+> validation tick (§18) already resets flying mode cleanly when the familiar becomes invalid (e.g.
+> across a dimension change), which covers these cases naturally. The **only** change kept from this
+> area is **vehicle-damage immunity** — the sword never damages the owner's own mount (commit
+> `4bd047b`). The specs in §13–§16 below are retained for historical context only. See the Phase 7
+> status note in Section 24.
+
 **Trigger:** The player's `EntityPose` transitions to `EntityPose.SWIMMING`.
 Wading through shallow water without entering the swimming pose has no effect on flying mode.
 
@@ -909,6 +918,10 @@ manually to re-enter flying mode.
 ## 14. Mounting & Riding Logic
 
 Flying mode cannot be **entered** while the player is riding any entity.
+
+> **Overruled (2026-06-14):** the mount-block-while-flying described below was **cut**. A flying-mode
+> player may mount freely. The only implemented protection in this area is that the sword's attacks
+> cannot damage the owner's own mount. The original spec is kept below for historical context.
 
 If flying mode is **already active** and the player attempts to mount or ride anything
 (horse, boat, minecart, pig, strider, or any other `is_passenger` situation), the
@@ -1172,13 +1185,17 @@ detection and auto-exit (Section 15). Dimension travel auto-exit (Section 16). D
 clean reset (Section 17). Q-key prevention. Mode lock conditions with BLOCKING and
 SWEEPING_HOLD exceptions for F.
 
-> **Status (2026-06-12): partially complete.** Done: entry-blocking (cannot summon while
-> riding/swimming/elytra-flying, client + server), Q-drop prevention, entity validation
-> tick, disconnect cleanup, loot injection. **Outstanding:** (a) mount-action blocking
-> *while flying* with the "Sheathe your sword first." message (Section 14 — currently a
-> player in flying mode can mount freely); (b) mid-flight swimming auto-exit (Section 13);
-> (c) mid-flight elytra auto-exit (Section 15); (d) dimension-travel auto-exit (Section 16).
-> These are scheduled in "Outstanding Work Before Phase 9" below.
+> **Status (2026-06-15): COMPLETE — mid-flight gating overruled by design decision.** Done:
+> entry-blocking (cannot summon while riding/swimming/elytra-flying, client + server), Q-drop
+> prevention, entity-validation tick, disconnect cleanup, loot injection.
+> **Overruled (decision 2026-06-14, do NOT implement):** (a) mount-action blocking *while flying*
+> with a "Sheathe your sword first." message (Section 14); (b) mid-flight swimming auto-exit
+> (Section 13); (c) mid-flight elytra auto-exit (Section 15); (d) dimension-travel auto-exit
+> (Section 16). Playtesting showed the default behavior feels good as-is, and the entity-validation
+> tick already resets flying mode cleanly when the familiar becomes invalid (e.g. across a dimension
+> change). The **only** change kept from this area is **vehicle-damage immunity**: the sword's
+> attacks never damage the owner's own mount (commit `4bd047b`). (Earlier cloud sessions left
+> misleading commit/doc text implying these were still pending — they are not.)
 
 **Phase 8 — GeckoLib Integration**
 Replace debug hitbox with full Blockbench model and all animation clips (including
@@ -1186,11 +1203,14 @@ Replace debug hitbox with full Blockbench model and all animation clips (includi
 Hand gesture system. Telekinetic shimmer effect. Hotbar purple glow shader. Familiar spawn
 fade-in effect.
 
-**Outstanding Work Before Phase 9** (must be complete before Epic Fight integration)
-1. Phase 7 leftovers listed in the Phase 7 status note: mount-block while flying,
-   mid-flight swimming/elytra/dimension auto-exits.
-2. Block piercing implementation (Section 26) — wire the existing
-   `heirloomswordmod:pierceable` tag into `tickLaunching()`.
+**Outstanding Work Before Phase 9** — RESOLVED (2026-06-15)
+1. Phase 7 mid-flight gating (mount-block while flying, swimming/elytra/dimension auto-exits):
+   **OVERRULED — not implemented, will not be** (see the Phase 7 status note above). The default
+   behavior was kept; only vehicle-damage immunity was added (commit `4bd047b`).
+2. Block piercing (Section 26): **DONE** — `heirloomswordmod:pierceable` wired into the LAUNCHING
+   phase (commit `4bd047b`).
+
+Phase 9 itself is also **DONE** (datapack-only Epic Fight greatsword compat; see the Phase 9 entry).
 
 **Phase 9 — Epic Fight Combat Integration** (DESCOPED 2026-06-13)
 > **Scope changed.** The `StaminaProvider` interface and the internal hidden stamina pool
