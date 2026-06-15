@@ -405,12 +405,18 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
 
         public void startBlocking() {
         setState(FamiliarState.BLOCKING);
+        if (!this.level().isClientSide) {
+            SwordSounds.playGuardRaised(this.level(), getX(), getY(), getZ());
+        }
     }
 
     public void cancelChargeIntoBlock() {
         removeChargeSlowdown();
         chargeTimer = 0;
         setState(FamiliarState.BLOCKING);
+        if (!this.level().isClientSide) {
+            SwordSounds.playGuardRaised(this.level(), getX(), getY(), getZ());
+        }
     }
 
     /** Abort a charge back to HOVERING with no launch (e.g. the player opened a screen/paused). */
@@ -424,6 +430,9 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
         this.sweepVelocity = Vec3.ZERO;
         this.sweepIFrames.clear();
         setState(FamiliarState.BLOCKING);
+        if (!this.level().isClientSide) {
+            SwordSounds.playGuardRaised(this.level(), getX(), getY(), getZ());
+        }
     }
 
     public void stopBlocking() {
@@ -481,6 +490,9 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
         triggerAnim("action", ANIM_PREFIX + "guard_break");
         setState(FamiliarState.HOVERING);
         setGuardCooldown(60);
+        if (!this.level().isClientSide) {
+            SwordSounds.playGuardBreak(this.level(), getX(), getY(), getZ());
+        }
     }
 
     private void tickBlocking(Player owner) {
@@ -869,6 +881,9 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
             ));
             entity.hurtMarked = true;
             sweepIFrames.put(entity.getId(), SWEEP_IFRAME_TICKS);
+        }
+        if (!this.level().isClientSide) {
+            SwordSounds.playSweepContact(this.level(), getX(), getY(), getZ());
         }
     }
 
