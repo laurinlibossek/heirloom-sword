@@ -770,11 +770,12 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
         // skidding into it. Applied server-side; hurtMarked forces the velocity packet to the
         // client (same path vanilla knockback uses for a client-authoritative player).
         Vec3 dir = tetherMidpoint.subtract(a);
-        double dist = dir.length();
-        if (dist > 1.0E-4) {
-            double mag = Math.min(Math.max(dist * TETHER_IMPULSE_PER_BLOCK, TETHER_IMPULSE_MIN), TETHER_IMPULSE_MAX);
-            Vec3 impulse = dir.normalize().scale(mag).add(0.0, TETHER_VERTICAL_BOOST, 0.0);
-            owner.setDeltaMovement(impulse);
+        double horizDist = Math.sqrt(dir.x * dir.x + dir.z * dir.z);
+        double totalDist = dir.length();
+        if (totalDist > 1.0E-4) {
+            double mag = Math.min(Math.max(totalDist * TETHER_IMPULSE_PER_BLOCK, TETHER_IMPULSE_MIN), TETHER_IMPULSE_MAX);
+            Vec3 horizDir = horizDist > 1.0E-4 ? new Vec3(dir.x, 0, dir.z).normalize() : Vec3.ZERO;
+            owner.setDeltaMovement(horizDir.scale(mag).add(0.0, TETHER_VERTICAL_BOOST, 0.0));
             owner.hurtMarked = true;
             // Fall damage is intentionally NOT reset here — the player takes it naturally on
             // landing, exactly like a riptide launch (design L629: "can still take damage during
