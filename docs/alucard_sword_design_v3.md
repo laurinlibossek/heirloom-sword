@@ -1280,14 +1280,29 @@ and arrival.
 > (no such asset exists yet; using the real name would crash GeckoLib). Custom `.ogg` tether sounds
 > remain deferred to the final-release audio pass with the rest (Plan B).
 
-**Phase 12 — Idle Personality**
-Idle behavior branching within HOVERING state. Idle timer tracking (5s trigger for
-curiosity, 10s for figure-eight). Notable block scanning within 4-block radius. Curious
-drift movement with inquisitive tilt. Figure-eight trace path at hover position.
-Environmental stimulus detection (fire, lava, TNT within 3 blocks; rain start event).
-Recoil and perk reactions (one-shot per stimulus). Instant cancellation on any player input,
-mob entering range, or player movement. Four idle animation clips: `idle_curious`,
-`idle_figure_eight`, `idle_recoil`, `idle_perk`.
+**Phase 12 — Idle Personality** ✅ DONE
+Idle behavior branching within HOVERING state, in the server-authoritative `IdlePersonality`
+helper (synced `DATA_IDLE_ANIM` + `DATA_CURIOSITY_POS`; client reproduces the `targetPosition`
+offset). Idle timer tracking, notable-block scanning within 4-block radius via the
+`#heirloomswordmod:curiosities` block tag, curious drift with inquisitive tilt, figure-eight
+trace, environmental reactions, instant position-based cancellation. Animation clips:
+`idle_curious`, `idle_figure_eight`, `idle_recoil`, `idle_perk` (+ `block_stance` reused for
+the trapped-chest guard beat).
+
+*As-built deviations from the original spec:*
+- **Recoil is primed-TNT only.** Fire/lava removed — the familiar entity is fire-immune and the
+  sword item gains netherite-esque immunity, so an indestructible artifact has no reason to
+  flinch from flame. TNT stays (it still avoids being *hit* by the blast).
+- **Cancellation is position-only.** WASD movement / mob-in-range / combat input cancel idle;
+  camera rotation does not (the familiar may daydream while the player looks around).
+- **Figure-eight trigger raised to 20s** (was 10s) after playtesting.
+- **30s curiosity cooldown** after each inspection (game-time gated, survives idle-period
+  resets) so the sword won't refixate on the same spot.
+- **Trapped-chest guard beat:** when the inspected block is a trapped chest, the sword holds a
+  1s `block_stance` guard pose at the chest ("don't open that") before returning. Driven by a
+  synced anim state, not a one-shot overlay, so it transitions back cleanly.
+
+All `IdlePersonality` constants are `[TUNE]` and bound for the Phase 13 `idle` config section.
 
 **Phase 13 — Add-On: Polish, Protection & Soul**
 The hardening pass specified in Section 25 (items 1–12; item 6 already shipped, item 12a
