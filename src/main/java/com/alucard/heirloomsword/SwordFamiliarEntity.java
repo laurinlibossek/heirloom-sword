@@ -81,15 +81,17 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
     private static final double MAX_LAUNCH_RANGE = 48.0;
     private static final double PICKUP_RANGE = 1.5;
     private static final int STUCK_TIMEOUT_TICKS = 60; // 3 seconds
-    // TETHERING constants — riptide-style single-impulse yank to the midpoint [all TUNE → Phase 13 config]
-    private static final double TETHER_IMPULSE_PER_BLOCK = 0.45; // impulse magnitude per block of distance
-    private static final double TETHER_IMPULSE_MIN = 1.05;       // floor so short tethers still feel like a yank
-    private static final double TETHER_IMPULSE_MAX = 3.9;        // cap so long tethers don't fling absurdly
-    private static final double TETHER_VERTICAL_BOOST = 0.16;    // added upward so the player arcs, not skids
+    // TETHERING constants — single ballistic "force pull": one launch toward the midpoint, then the
+    // player arcs the rest of the way under gravity (no per-tick reel) [all TUNE → Phase 13 config]
+    private static final double TETHER_PULL_SPEED = 3.2;         // blocks/tick the launch closes the gap (snappiness)
+    private static final int TETHER_MIN_FLIGHT_TICKS = 4;        // floor on flight time so close pulls arc, not teleport
+    private static final int TETHER_MAX_FLIGHT_TICKS = 16;       // cap so far pulls stay snappy, not floaty
+    private static final double TETHER_GRAVITY = 0.08;           // MC player gravity; the vy solve uses it to land on target
+    private static final double TETHER_DRAG_COMP = 1.5;          // horizontal boost to offset air drag so far pulls reach
     private static final double TETHER_ARRIVAL_RANGE = 2.0;      // within this of the midpoint → done
     private static final int TETHER_TIMEOUT_TICKS = 40;          // 2 seconds
-    private static final int TETHER_GEOMETRY_BLOCK_TICKS = 10;   // ticks of near-zero horizontal travel → done
-    private static final double TETHER_GEOMETRY_MOVE_SQR = 0.01; // (~0.1 block/tick)^2 horizontal-movement floor
+    private static final int TETHER_GEOMETRY_BLOCK_TICKS = 10;   // ticks of near-zero travel (blocked / landed) → done
+    private static final double TETHER_GEOMETRY_MOVE_SQR = 0.01; // (~0.1 block/tick)^2 movement floor
     private static final TagKey<Block> PIERCEABLE_BLOCKS = TagKey.create(
             Registries.BLOCK, ResourceLocation.fromNamespaceAndPath(HeirloomSwordMod.MODID, "pierceable"));
     private static final int CHARGE_THRESHOLD_TICKS = 60; // 3 seconds for charged tier
@@ -765,21 +767,20 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
         tetherLastPos = a;
         setState(FamiliarState.TETHERING);
 
-        // Riptide-style single impulse toward the midpoint. Magnitude scales with distance
-        // (clamped), plus a fixed upward boost so the player arcs over terrain instead of
-        // skidding into it. Applied server-side; hurtMarked forces the velocity packet to the
-        // client (same path vanilla knockback uses for a client-authoritative player).
-        Vec3 dir = tetherMidpoint.subtract(a);
-        double horizDist = Math.sqrt(dir.x * dir.x + dir.z * dir.z);
-        double totalDist = dir.length();
-        if (totalDist > 1.0E-4) {
-            double mag = Math.min(Math.max(totalDist * TETHER_IMPULSE_PER_BLOCK, TETHER_IMPULSE_MIN), TETHER_IMPULSE_MAX);
-            Vec3 horizDir = horizDist > 1.0E-4 ? new Vec3(dir.x, 0, dir.z).normalize() : Vec3.ZERO;
-            owner.setDeltaMovement(horizDir.scale(mag).add(0.0, TETHER_VERTICAL_BOOST, 0.0));
+        // Force-pull: ONE ballistic launch toward the midpoint, applied this tick so it feels
+        // instant; gravity then arcs the player the rest of the way (no per-tick reel). Flight time
+        // scales with distance (clamped) so horizontal speed feels the same near or far, and vy is
+        // SOLVED from that time + gravity so the player lands on the target — which also lifts them
+        // off the ground immediately, escaping the ground friction that made a flat pull skid out.
+        // hurtMarked syncs the server-set velocity to the client (vanilla knockback path). Fall
+        // damage is NOT reset — the player takes it on landing (design L629).
+        Vec3 delta = tetherMidpoint.subtract(a);
+        double dist = delta.length();
+        if (dist > 1.0E-4) {
+            double t = Math.min(Math.max(dist / TETHER_PULL_SPEED, TETHER_MIN_FLIGHT_TICKS), TETHER_MAX_FLIGHT_TICKS);
+            double vy = delta.y / t + 0.5 * TETHER_GRAVITY * t;
+            owner.setDeltaMovement(delta.x / t * TETHER_DRAG_COMP, vy, delta.z / t * TETHER_DRAG_COMP);
             owner.hurtMarked = true;
-            // Fall damage is intentionally NOT reset here — the player takes it naturally on
-            // landing, exactly like a riptide launch (design L629: "can still take damage during
-            // the pull"). Do not add owner.fallDistance = 0.
         }
 
         if (!this.level().isClientSide) {
@@ -790,7 +791,11 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
     private void tickTethering(Player owner) {
         tetherTimer++;
 
-        // Throttled reel-in loop (one-shot every 4 ticks while pulling).
+        // Pure ballistic monitor — the launch in enterTether did the work; gravity carries the arc.
+        // No velocity is set here, so the flight stays smooth instead of stuttering against a
+        // per-tick re-aim.
+
+        // Throttled reel-in loop (one-shot every 4 ticks while in flight).
         if (!this.level().isClientSide && tetherTimer % 4 == 0) {
             SwordSounds.playTetherLoop(this.level(), getX(), getY(), getZ());
         }
@@ -807,12 +812,14 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
             return;
         }
 
-        // Geometry block: player's horizontal travel stalls (wall/ceiling). Measured from
-        // position deltas — more reliable than getDeltaMovement() for a client-auth player.
+        // Geometry block / landed: the player's position has stalled in every axis (slammed into
+        // terrain, or the arc has come to rest short of the target). Full-3D delta so a still-rising
+        // or still-falling arc isn't cut off mid-flight.
         Vec3 nowPos = owner.position();
         double dx = nowPos.x - tetherLastPos.x;
+        double dy = nowPos.y - tetherLastPos.y;
         double dz = nowPos.z - tetherLastPos.z;
-        if (dx * dx + dz * dz < TETHER_GEOMETRY_MOVE_SQR) {
+        if (dx * dx + dy * dy + dz * dz < TETHER_GEOMETRY_MOVE_SQR) {
             tetherGeometryTicks++;
             if (tetherGeometryTicks >= TETHER_GEOMETRY_BLOCK_TICKS) {
                 endTether();
