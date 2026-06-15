@@ -87,4 +87,21 @@ public final class SwordSounds {
     public static void playDeathFall(Level level, double x, double y, double z) {
         level.playSound(null, x, y, z, SoundEvents.TRIDENT_HIT_GROUND, SoundSource.PLAYERS, 0.8f, 0.9f);
     }
+
+    // === Phase 11 tether placeholder cues (vanilla sounds; swap to custom SoundEvents in the audio pass) ===
+
+    /** Tether yank begins — the chain snaps taut as the player is pulled. */
+    public static void playTetherStart(Level level, double x, double y, double z) {
+        level.playSound(null, x, y, z, SoundEvents.CHAIN_BREAK, SoundSource.PLAYERS, 0.9f, 1.0f);
+    }
+
+    /** Tether pull loop (throttled one-shot while TETHERING). Pitched up reel-in whir. */
+    public static void playTetherLoop(Level level, double x, double y, double z) {
+        level.playSound(null, x, y, z, SoundEvents.FISHING_BOBBER_RETRIEVE, SoundSource.PLAYERS, 0.5f, 1.6f);
+    }
+
+    /** Tether ends — sword wrenches free into RETURNING. Quieter, pitched-up teleport-like pop. */
+    public static void playTetherArrival(Level level, double x, double y, double z) {
+        level.playSound(null, x, y, z, SoundEvents.ENDERMAN_TELEPORT, SoundSource.PLAYERS, 0.6f, 1.3f);
+    }
 }
