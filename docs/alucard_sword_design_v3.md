@@ -1265,6 +1265,21 @@ RETURNING. `SwordTetherPacket` network packet. `tether_pull` animation clip with
 intensified vibration and glow. Tether arrival particle burst. Sound events for start, loop,
 and arrival.
 
+> **Phase 11 status (2026-06-15): DONE.** `TETHERING` state, `SwordTetherPacket`, arrival/timeout/
+> geometry-block exits → RETURNING, and the 3 placeholder tether sounds (Plan A vanilla) are all
+> implemented. Two as-built deviations from the text above, both deliberate after playtesting:
+> (1) **Trigger is a fresh 300 ms left-click hold during STUCK, not Shift** — the vanilla sneak key
+> felt accidental; a deliberate hold reads as a Force-pull gesture and never fires by mistake.
+> (2) **The pull is a single ballistic "force pull", not a per-tick reel.** One projectile-solved
+> launch toward the midpoint (flight time scales with distance, vy solved from gravity so the player
+> lands on target), then gravity arcs them the rest of the way. A per-tick reel was tried and felt
+> like a winch/grappling-hook with a janky ground-friction start; the ballistic launch is smooth and
+> snappy. All `TETHER_*` constants are named `[TUNE]` values bound for the Phase 13 config.
+> **Still deferred to the art/GeckoLib pass:** the bespoke `tether_pull` clip with intensified
+> vibration + emissive glow — `TETHERING` currently aliases the existing `stuck` animation clip
+> (no such asset exists yet; using the real name would crash GeckoLib). Custom `.ogg` tether sounds
+> remain deferred to the final-release audio pass with the rest (Plan B).
+
 **Phase 12 — Idle Personality**
 Idle behavior branching within HOVERING state. Idle timer tracking (5s trigger for
 curiosity, 10s for figure-eight). Notable block scanning within 4-block radius. Curious
