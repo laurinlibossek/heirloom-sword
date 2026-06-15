@@ -1218,8 +1218,10 @@ native stamina). Vanilla-swing fallback when Epic Fight is absent. No mod-side s
 > `InputManager`) that Epic Fight renames across minor versions. Any implementation (compileOnly or
 > reflection) would couple the mod to Epic Fight internals and break on Epic Fight updates —
 > unacceptable for an optional integration. Known residual interaction: while in Epic Fight battle
-> mode, clicks route to Epic Fight combat rather than the familiar; players exit battle mode (R) to
-> use flying mode. Documented, not coded around.
+> mode, clicks route to Epic Fight combat rather than the familiar. Resolution is left to the player,
+> not coded around: (1) Epic Fight's mode toggle and the sword's recall both default to **R** — the
+> vanilla Controls screen flags this conflict, and the player rebinds either key; (2) the player
+> manually toggles Epic Fight out of battle mode before/while using flying mode. No mod code involved.
 
 **Phase 10 — Audio and Polish**
 Custom sound event registration with Minecraft placeholders (including `guard_break` and
