@@ -7,7 +7,6 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 
 public record SwordQuickFirePacket() implements CustomPacketPayload {
@@ -26,12 +25,11 @@ public record SwordQuickFirePacket() implements CustomPacketPayload {
         context.enqueueWork(() -> {
             if (!(context.player() instanceof ServerPlayer player)) return;
 
-            ItemStack held = player.getMainHandItem();
-            if (!(held.getItem() instanceof HeirloomSwordItem)) return;
-            if (!HeirloomSwordItem.isFlying(held)) return;
-
             if (ManaService.isLockedOut(player)) return; // inputs locked during depletion punishment
 
+            // No held-item check: the familiar only exists in flying mode and is matched by owner
+            // UUID, so its presence authorises the quick-fire even when the sword isn't selected
+            // (lets the player loose it as a quick defense while holding/using something else).
             ServerLevel level = player.serverLevel();
             SwordFamiliarEntity familiar = SwordFamiliarEntity.findForOwner(level, player.getUUID());
             if (familiar == null) return;

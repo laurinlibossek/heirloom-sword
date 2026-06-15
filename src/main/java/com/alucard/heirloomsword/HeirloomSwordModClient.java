@@ -106,6 +106,25 @@ public class HeirloomSwordModClient {
 
             LocalPlayer player = mc.player;
             ItemStack held = player.getMainHandItem();
+
+            // V quick-fire is drained here — above the held-item gate — so the familiar can be
+            // loosed even when the sword isn't the selected item (e.g. a quick defense while
+            // eating), and so presses never queue up to fire the instant the sword is reselected.
+            // The familiar only exists in flying mode, so its presence is the flying-mode signal;
+            // normal-mode warp still requires the sword in hand.
+            while (ModKeybinds.QUICK_FIRE.consumeClick()) {
+                SwordFamiliarEntity familiar = findClientFamiliar(player);
+                if (familiar != null) {
+                    if (!isManaExempt(player) && ClientManaState.lockoutTicks > 0) { playDeniedClient(player); continue; }
+                    if (familiar.getState() != FamiliarState.HOVERING) continue;
+                    if (familiar.getAwarenessTarget() == null) continue; // needs a lock-on
+                    PacketDistributor.sendToServer(new SwordQuickFirePacket());
+                } else if (held.getItem() instanceof HeirloomSwordItem && !HeirloomSwordItem.isFlying(held)) {
+                    // Normal mode: server validates target / mana / cooldown and gives feedback.
+                    PacketDistributor.sendToServer(new SwordWarpPacket());
+                }
+            }
+
             if (!(held.getItem() instanceof HeirloomSwordItem)) {
                 if (isCharging) resetChargeState();
                 if (isSweeping) resetSweepState();
@@ -173,20 +192,6 @@ public class HeirloomSwordModClient {
                 }
             }
             wasAttacking = attackingNow;
-
-            // Handle V key: flying mode = quick-fire; normal mode = warp next to the targeted enemy.
-            while (ModKeybinds.QUICK_FIRE.consumeClick()) {
-                if (!HeirloomSwordItem.isFlying(held)) {
-                    // Normal mode: the server validates target / mana / cooldown and gives feedback.
-                    PacketDistributor.sendToServer(new SwordWarpPacket());
-                    continue;
-                }
-                if (!isManaExempt(player) && ClientManaState.lockoutTicks > 0) { playDeniedClient(player); continue; }
-                SwordFamiliarEntity familiar = findClientFamiliar(player);
-                if (familiar == null || familiar.getState() != FamiliarState.HOVERING) continue;
-                if (familiar.getAwarenessTarget() == null) continue; // needs a lock-on
-                PacketDistributor.sendToServer(new SwordQuickFirePacket());
-            }
 
             // Track charge hold state
             if (isCharging) {
