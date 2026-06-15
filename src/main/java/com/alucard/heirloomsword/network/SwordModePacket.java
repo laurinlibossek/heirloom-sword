@@ -46,6 +46,7 @@ public record SwordModePacket() implements CustomPacketPayload {
                 HeirloomSwordItem.setMode(held, SwordMode.NORMAL);
                 held.remove(ModDataComponents.FAMILIAR_UUID.get());
                 SwordFamiliarEntity.despawnForOwner(level, player.getUUID());
+                SwordSounds.playModeExit(level, player.getX(), player.getY(), player.getZ());
             } else {
                 if (player.isPassenger()) {
                     player.displayClientMessage(
@@ -66,6 +67,7 @@ public record SwordModePacket() implements CustomPacketPayload {
                 SwordFamiliarEntity familiar = new SwordFamiliarEntity(level, player);
                 level.addFreshEntity(familiar);
                 held.set(ModDataComponents.FAMILIAR_UUID.get(), familiar.getUUID());
+                SwordSounds.playModeEnter(level, player.getX(), player.getY(), player.getZ());
             }
         });
     }
