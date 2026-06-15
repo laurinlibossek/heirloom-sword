@@ -1,0 +1,10 @@
+{
+  "values": [
+    "minecraft:chest",
+    "minecraft:trapped_chest",
+    "minecraft:crafting_table",
+    "minecraft:brewing_stand",
+    "minecraft:enchanting_table",
+    "minecraft:bookshelf"
+  ]
+}
