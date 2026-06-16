@@ -14,5 +14,7 @@
   "entity.heirloomswordmod.sword_familiar": "Heirloom Sword",
   "heirloomswordmod.configuration.title": "Heirloom Sword Mod Configs",
   "heirloomswordmod.configuration.section.heirloomswordmod.common.toml": "Heirloom Sword Mod Configs",
-  "heirloomswordmod.configuration.section.heirloomswordmod.common.toml.title": "Heirloom Sword Mod Configs"
+  "heirloomswordmod.configuration.section.heirloomswordmod.common.toml.title": "Heirloom Sword Mod Configs",
+  "tooltip.heirloomswordmod.lore1": "Forged in darkness, bound by will.",
+  "tooltip.heirloomswordmod.lore2": "It remembers the hand that wields it."
 }
