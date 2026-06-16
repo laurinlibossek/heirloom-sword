@@ -30,7 +30,9 @@ import net.neoforged.neoforge.event.entity.EntityJoinLevelEvent;
 import net.neoforged.neoforge.event.entity.ProjectileImpactEvent;
 import net.neoforged.neoforge.event.entity.item.ItemTossEvent;
 import net.neoforged.neoforge.event.entity.living.LivingIncomingDamageEvent;
+import net.minecraft.world.level.GameType;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
+import net.neoforged.neoforge.event.entity.player.PlayerEvent.PlayerChangeGameModeEvent;
 import net.neoforged.neoforge.event.tick.EntityTickEvent;
 import net.neoforged.neoforge.event.tick.PlayerTickEvent;
 
@@ -179,6 +181,20 @@ public class SwordEventHandler {
             swordStack.remove(ModDataComponents.FAMILIAR_UUID.get());
         }
 
+        SwordFamiliarEntity.despawnForOwner(player.serverLevel(), player.getUUID());
+    }
+
+    @SubscribeEvent
+    public void onChangeGameMode(PlayerChangeGameModeEvent event) {
+        if (event.getNewGameMode() != GameType.SPECTATOR) return;
+        if (!(event.getEntity() instanceof ServerPlayer player)) return;
+
+        ItemStack swordStack = findFlyingSword(player);
+        if (swordStack != null) {
+            HeirloomSwordItem.setMode(swordStack, SwordMode.NORMAL);
+            HeirloomSwordItem.setBlood(swordStack, 0f);
+            swordStack.remove(ModDataComponents.FAMILIAR_UUID.get());
+        }
         SwordFamiliarEntity.despawnForOwner(player.serverLevel(), player.getUUID());
     }
 
