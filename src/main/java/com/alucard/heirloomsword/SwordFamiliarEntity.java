@@ -131,6 +131,19 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
         return owner.canHarmPlayer(victim); // honors scoreboard team friendly-fire
     }
 
+    /**
+     * Emits a vibration game-event at the sword's position, attributed to the owner, so sculk
+     * sensors / shriekers / the Warden respond as if a real projectile was fired or landed.
+     * No-op when {@code integration.sculkResonance=false} or on the client.
+     */
+    private void emitVibration(net.minecraft.core.Holder<net.minecraft.world.level.gameevent.GameEvent> event) {
+        if (!Config.SCULK_RESONANCE.getAsBoolean()) return;
+        if (this.level().isClientSide) return;
+        Player owner = getOwner();
+        // Context = the owner so detectors attribute the vibration to the player (like a real projectile).
+        this.level().gameEvent(owner, event, this.position());
+    }
+
     // SWEEPING constants
     private static final double SWEEP_HOLD_DISTANCE = 1.8;
     private static final int SWEEP_IFRAME_TICKS = 6;
@@ -662,6 +675,7 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
         double horizDist = Math.sqrt(launchDirection.x * launchDirection.x + launchDirection.z * launchDirection.z);
         this.setXRot((float) -Math.toDegrees(Math.atan2(launchDirection.y, horizDist)));
         setState(FamiliarState.LAUNCHING);
+        emitVibration(net.minecraft.world.level.gameevent.GameEvent.PROJECTILE_SHOOT);
         if (!this.level().isClientSide) {
             SwordSounds.playLaunch(this.level(), getX(), getY(), getZ(), charged);
         }
@@ -751,6 +765,7 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
             SwordSounds.playStuckImpact(this.level(), this.getX(), this.getY(), this.getZ());
             ((net.minecraft.server.level.ServerLevel) this.level()).sendParticles(ParticleTypes.POOF,
                     getX(), getY() + getBbHeight() * 0.5, getZ(), 12, 0.2, 0.3, 0.2, 0.02);
+            emitVibration(net.minecraft.world.level.gameevent.GameEvent.PROJECTILE_LAND);
         }
     }
 
@@ -1148,6 +1163,7 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
         this.entityData.set(DATA_QUICKFIRE_TARGET, target.getId());
         this.quickFireCooldown = quickFireCooldownTicks();
         setState(FamiliarState.QUICK_FIRE);
+        emitVibration(net.minecraft.world.level.gameevent.GameEvent.PROJECTILE_SHOOT);
     }
 
     private void tickQuickFire(Player owner) {
