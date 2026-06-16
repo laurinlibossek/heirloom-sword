@@ -31,9 +31,13 @@ public final class ManaService {
     public static final float MIN_BLOCK  = 10f;
     public static final int   LOCKOUT_TICKS = 40;            // 2 s punishment after running dry
 
-    /** Creative players have infinite mana — they bypass every cost, gate, and the lockout. */
+    /**
+     * True when mana costs do not apply to this player: either {@code combat.consumeMana=false}
+     * (mana disabled server-wide) or the player is in creative. Bypasses every cost, gate, and
+     * the depletion lockout.
+     */
     public static boolean isExempt(Player player) {
-        return player.getAbilities().instabuild;
+        return !Config.CONSUME_MANA.getAsBoolean() || player.getAbilities().instabuild;
     }
 
     public static float get(Player player) {
