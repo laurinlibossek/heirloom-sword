@@ -1,5 +1,6 @@
 package com.alucard.heirloomsword;
 
+import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
@@ -10,11 +11,14 @@ import net.minecraft.sounds.SoundSource;
 import net.minecraft.tags.DamageTypeTags;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.projectile.AbstractArrow;
 import net.minecraft.world.entity.projectile.Fireball;
 import net.minecraft.world.entity.projectile.Projectile;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.level.storage.loot.LootPool;
 import net.minecraft.world.level.storage.loot.entries.LootItem;
 import net.minecraft.world.level.storage.loot.predicates.LootItemRandomChanceCondition;
@@ -22,10 +26,12 @@ import net.minecraft.world.phys.EntityHitResult;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.neoforge.event.LootTableLoadEvent;
+import net.neoforged.neoforge.event.entity.EntityJoinLevelEvent;
 import net.neoforged.neoforge.event.entity.ProjectileImpactEvent;
 import net.neoforged.neoforge.event.entity.item.ItemTossEvent;
 import net.neoforged.neoforge.event.entity.living.LivingIncomingDamageEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
+import net.neoforged.neoforge.event.tick.EntityTickEvent;
 import net.neoforged.neoforge.event.tick.PlayerTickEvent;
 
 public class SwordEventHandler {
@@ -174,6 +180,32 @@ public class SwordEventHandler {
         }
 
         SwordFamiliarEntity.despawnForOwner(player.serverLevel(), player.getUUID());
+    }
+
+    @SubscribeEvent
+    public void onEntityJoin(EntityJoinLevelEvent event) {
+        if (event.getEntity() instanceof ItemEntity item
+                && item.getItem().getItem() instanceof HeirloomSwordItem) {
+            item.setUnlimitedLifetime();  // never despawns from age (persists via Age NBT)
+            item.setExtendedLifetime();   // also exempt from merge-despawn shortcuts
+        }
+    }
+
+    @SubscribeEvent
+    public void onItemEntityTick(EntityTickEvent.Post event) {
+        if (!(event.getEntity() instanceof ItemEntity item)) return;
+        if (!(item.getItem().getItem() instanceof HeirloomSwordItem)) return;
+        Level level = item.level();
+        if (level.isClientSide) return;
+        // Rescue before vanilla void-destruction at minBuildHeight - 64.
+        if (item.getY() < level.getMinBuildHeight() - 32) {
+            BlockPos spawn = level.getSharedSpawnPos();
+            int safeY = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
+                    spawn.getX(), spawn.getZ());
+            item.setPos(spawn.getX() + 0.5, safeY + 1.0, spawn.getZ() + 0.5);
+            item.setDeltaMovement(Vec3.ZERO);
+            item.fallDistance = 0.0f;
+        }
     }
 
     private ItemStack findFlyingSword(Player player) {
