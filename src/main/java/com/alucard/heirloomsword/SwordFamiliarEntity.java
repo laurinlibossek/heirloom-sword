@@ -102,21 +102,24 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
     private static final ResourceLocation CHARGE_SLOW_ID =
             ResourceLocation.fromNamespaceAndPath(HeirloomSwordMod.MODID, "charge_slowdown");
 
-    private static final float QUICK_FIRE_DAMAGE = 12.0f;       // [TUNE]
-    private static final int QUICK_FIRE_COOLDOWN_TICKS = 20;    // [TUNE] ~1s
-
-    private static final float UNDEAD_BURN_SECONDS = 4.0f; // [TUNE] holy blade ignites undead
-
-    private static final float LAUNCH_DAMAGE_NORMAL = 16.0f;
-    private static final float LAUNCH_DAMAGE_CHARGED = 32.0f;
-    private static final float RETURN_DAMAGE = 8.0f;
-    private static final float BLOCK_SLASH_DAMAGE = 13.0f;  // [TUNE 12-14 per design doc]
     private static final double BLOCK_SLASH_RANGE = 3.0;    // [TUNE]
+
+    // Combat values are config-backed (design §25.1). Read per-use so a /reload-style config
+    // edit on world reload applies without a restart. Names mirror the deleted constants.
+    private static float launchDamageNormal()      { return (float) Config.LAUNCH_DAMAGE_NORMAL.getAsDouble(); }
+    private static float launchDamageCharged()     { return (float) Config.LAUNCH_DAMAGE_CHARGED.getAsDouble(); }
+    private static float returnDamage()            { return (float) Config.RETURN_DAMAGE.getAsDouble(); }
+    private static float quickFireDamage()         { return (float) Config.QUICK_FIRE_DAMAGE.getAsDouble(); }
+    private static float sweepContactDamage()      { return (float) Config.SWEEP_CONTACT_DAMAGE.getAsDouble(); }
+    private static float sweepReleaseDamage()      { return (float) Config.SWEEP_RELEASE_DAMAGE.getAsDouble(); }
+    private static float blockSlashDamage()        { return (float) Config.BLOCK_SLASH_DAMAGE.getAsDouble(); }
+    private static float landingImpactDamage()     { return (float) Config.LANDING_IMPACT_DAMAGE.getAsDouble(); }
+    private static int   quickFireCooldownTicks()  { return Config.QUICK_FIRE_COOLDOWN_TICKS.getAsInt(); }
+    private static int   guardBreakCooldownTicks() { return Config.GUARD_BREAK_COOLDOWN_TICKS.getAsInt(); }
+    private static float undeadBurnSeconds()       { return (float) Config.UNDEAD_IGNITE_SECONDS.getAsDouble(); }
 
     // SWEEPING constants
     private static final double SWEEP_HOLD_DISTANCE = 1.8;
-    private static final float SWEEP_CONTACT_DAMAGE = 4.0f;
-    private static final float SWEEP_RELEASE_DAMAGE = 8.0f;
     private static final int SWEEP_IFRAME_TICKS = 6;
     private static final double SWEEP_MOMENTUM_SCALE = 0.08;
     private static final double SWEEP_DAMPING = 0.72;
@@ -507,7 +510,7 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
             Vec3 toEntity = entity.position().subtract(owner.position());
             Vec3 toEntityFlat = new Vec3(toEntity.x, 0, toEntity.z).normalize();
             if (toEntityFlat.dot(lookFlat) <= 0.1) continue; // frontal ~180° arc only
-            entity.hurt(source, BLOCK_SLASH_DAMAGE);
+            entity.hurt(source, blockSlashDamage());
             igniteIfUndead(entity);
             entity.knockback(0.4, owner.getX() - entity.getX(), owner.getZ() - entity.getZ());
         }
@@ -520,7 +523,7 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
     public void guardBreak() {
         triggerAnim("action", ANIM_PREFIX + "guard_break");
         setState(FamiliarState.HOVERING);
-        setGuardCooldown(60);
+        setGuardCooldown(guardBreakCooldownTicks());
         if (!this.level().isClientSide) {
             SwordSounds.playGuardBreak(this.level(), getX(), getY(), getZ());
         }
@@ -707,7 +710,7 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
 
         // Damage entities along the path
         damageEntitiesInPath(currentPos, nextPos, outboundHitSet,
-                chargedLaunch ? LAUNCH_DAMAGE_CHARGED : LAUNCH_DAMAGE_NORMAL, owner);
+                chargedLaunch ? launchDamageCharged() : launchDamageNormal(), owner);
     }
 
     private void tickLaunchingClient() {
@@ -884,7 +887,7 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
         this.setPos(nextPos);
 
         // Damage entities on return path
-        damageEntitiesInPath(currentPos, nextPos, returnHitSet, RETURN_DAMAGE, owner);
+        damageEntitiesInPath(currentPos, nextPos, returnHitSet, returnDamage(), owner);
     }
 
     private void tickReturningClient(Player owner) {
@@ -1004,7 +1007,7 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
         DamageSource source = this.level().damageSources().playerAttack(owner);
 
         for (LivingEntity entity : entities) {
-            entity.hurt(source, SWEEP_CONTACT_DAMAGE);
+            entity.hurt(source, sweepContactDamage());
             igniteIfUndead(entity);
             bloodyOwnerBlade(entity);
             // Directional knockback in sword travel direction
@@ -1049,7 +1052,7 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
             // Store reversed velocity so updateOrientation() points hilt-first (backwards)
             this.sweepVelocity = toOwner.scale(-SWEEP_RETURN_SPEED);
             Vec3 nextPos = currentPos.add(toOwner.scale(SWEEP_RETURN_SPEED));
-            damageEntitiesInPath(currentPos, nextPos, sweepReturnHitSet, SWEEP_RELEASE_DAMAGE, owner);
+            damageEntitiesInPath(currentPos, nextPos, sweepReturnHitSet, sweepReleaseDamage(), owner);
             this.setPos(nextPos);
             return;
         }
@@ -1078,7 +1081,7 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
         this.setPos(nextPos);
 
         // Damage entities in path (8 damage, each entity hit once)
-        damageEntitiesInPath(currentPos, nextPos, sweepReleaseHitSet, SWEEP_RELEASE_DAMAGE, owner, SWORD_HALF_LENGTH);
+        damageEntitiesInPath(currentPos, nextPos, sweepReleaseHitSet, sweepReleaseDamage(), owner, SWORD_HALF_LENGTH);
     }
 
     private void tickSweepingReleaseClient(Player owner) {
@@ -1128,7 +1131,7 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
         Entity target = this.awarenessTarget; // server's own lock-on; never client-supplied
         if (target == null || !target.isAlive()) return;
         this.entityData.set(DATA_QUICKFIRE_TARGET, target.getId());
-        this.quickFireCooldown = QUICK_FIRE_COOLDOWN_TICKS;
+        this.quickFireCooldown = quickFireCooldownTicks();
         setState(FamiliarState.QUICK_FIRE);
     }
 
@@ -1151,7 +1154,7 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
                 return;
             }
             if (target instanceof LivingEntity living) {
-                living.hurt(this.level().damageSources().playerAttack(owner), QUICK_FIRE_DAMAGE);
+                living.hurt(this.level().damageSources().playerAttack(owner), quickFireDamage());
                 igniteIfUndead(living);
                 living.knockback(0.3, this.getX() - living.getX(), this.getZ() - living.getZ());
                 bloodyOwnerBlade(living);
@@ -1192,7 +1195,7 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
     /** The blade is anathema to the undead — any contact sets them alight. */
     public static void igniteIfUndead(LivingEntity entity) {
         if (entity.getType().is(EntityTypeTags.UNDEAD)) {
-            entity.igniteForSeconds(UNDEAD_BURN_SECONDS);
+            entity.igniteForSeconds(undeadBurnSeconds());
         }
     }
 
@@ -1235,7 +1238,7 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
         for (LivingEntity entity : this.level().getEntitiesOfClass(LivingEntity.class,
                 this.getBoundingBox().inflate(0.2),
                 e -> e.isAlive() && e != owner && e.getType().is(EntityTypeTags.UNDEAD))) {
-            entity.igniteForSeconds(UNDEAD_BURN_SECONDS);
+            entity.igniteForSeconds(undeadBurnSeconds());
         }
     }
 
@@ -1495,7 +1498,7 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
             // Landing impact: 4 damage + knockback in a 3-block radius (not the owner)
             for (LivingEntity target : this.level().getEntitiesOfClass(LivingEntity.class,
                     this.getBoundingBox().inflate(3.0), e -> e != owner && e.isAlive())) {
-                target.hurt(this.level().damageSources().playerAttack(owner), 4.0f);
+                target.hurt(this.level().damageSources().playerAttack(owner), landingImpactDamage());
                 double dx = target.getX() - this.getX();
                 double dz = target.getZ() - this.getZ();
                 target.knockback(0.5, -dx, -dz);
