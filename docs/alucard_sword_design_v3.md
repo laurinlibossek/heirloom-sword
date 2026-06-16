@@ -1305,10 +1305,12 @@ the trapped-chest guard beat).
 All `IdlePersonality` constants are `[TUNE]` and bound for the Phase 13 `idle` config section.
 
 **Phase 13 — Add-On: Polish, Protection & Soul**
-The hardening pass specified in Section 25 (items 1–12; item 6 already shipped, item 12a
-dropped). Runs after all main phases. Items 1–3 (config, localization, tooltip) are
-infrastructure the later items depend on — implement in the listed order, confirming
-compilation after each item.
+The hardening pass specified in Section 25. Already shipped/closed before this phase: item
+6 (charge cue), item 9 (block-destruction — pierceable blocks phase through and never
+destroy, so there is nothing to gate). Dropped: item 4 (inventory-relocation lock —
+item-safety already covered), item 12a (Warden tremble). Remaining items run after all main
+phases; items 1–3 (config, localization, tooltip) are infrastructure the later items depend
+on — implement in the listed order, confirming compilation after each item.
 
 ---
 
@@ -1322,20 +1324,39 @@ item.
 ### 25.1 Config file
 
 A TOML config (NeoForge `ModConfigSpec`, COMMON type — already registered in the mod
-constructor) exposing **every [TUNE] value from Section 23**, including the rows added for
-quick-fire, undead ignite, sky-drop, and landing impact, plus the toggles introduced by the
-items below. Sections:
+constructor) exposing only the values server admins would realistically tune.
 
-| Section | Contents |
-|---|---|
-| `combat` | Damage values, speeds, ranges, quick-fire cooldown, undead ignite duration |
-| `tether` | Pull speed, timeout, arrival range, geometry-block threshold |
-| `idle` | Trigger timers, curiosity/recoil ranges, hold times |
-| `mana` | Flying-mode drain rates, guard-break cooldown, warp cost/cooldown (Section 1, Resource Model) |
-| `integration` | `allowPvpDamage`, `respectMobGriefing`, `sculkResonance` (items 5, 9, 11) |
+| Section | Key | Default | Backing constant |
+|---|---|---|---|
+| `combat` | `launchDamageNormal` | 16.0 | `LAUNCH_DAMAGE_NORMAL` |
+| `combat` | `launchDamageCharged` | 32.0 | `LAUNCH_DAMAGE_CHARGED` |
+| `combat` | `returnDamage` | 8.0 | `RETURN_DAMAGE` |
+| `combat` | `quickFireDamage` | 12.0 | `QUICK_FIRE_DAMAGE` |
+| `combat` | `sweepContactDamage` | 4.0 | `SWEEP_CONTACT_DAMAGE` |
+| `combat` | `sweepReleaseDamage` | 8.0 | `SWEEP_RELEASE_DAMAGE` |
+| `combat` | `blockSlashDamage` | 13.0 | `BLOCK_SLASH_DAMAGE` |
+| `combat` | `landingImpactDamage` | 4.0 | ARRIVING AoE literal (`tickArriving`) |
+| `combat` | `quickFireCooldownTicks` | 20 | `QUICK_FIRE_COOLDOWN_TICKS` |
+| `combat` | `guardBreakCooldownTicks` | 60 | `setGuardCooldown(60)` literal (`guardBreak`) |
+| `combat` | `undeadIgniteSeconds` | 4.0 | `UNDEAD_BURN_SECONDS` |
+| `combat` | `consumeMana` | true | master mana switch (see below) |
+| `integration` | `allowPvpDamage` | true | item 5 — sword may hit players where server PvP allows |
+| `integration` | `sculkResonance` | true | item 11 — emit vibration game-events |
 
-Replace **all** hardcoded constants in the codebase with config lookups. Config changes
-apply on world reload; no in-game GUI needed.
+**Mana is a single on/off toggle, not per-rate control.** `combat.consumeMana = false`
+makes every flying-mode action (charge, sweep, block, warp) free — equivalent to the
+existing creative exemption applied to all players (no drain, no min-cost gate, no
+depletion lockout). The individual drain rates (`CHARGE_DRAIN_PER_TICK`, etc.) stay
+hardcoded `[TUNE]` in `ManaService`; if per-rate control is ever demanded it ships later.
+
+Internal feel/physics constants (idle timers, tether geometry, sky-drop speed, spring
+constants, curiosity ranges, mana drain rates) remain hardcoded — admins have no reason to
+change them. Config changes apply on world reload; no in-game GUI needed.
+
+> **`respectMobGriefing` dropped.** The shipped block-piercing behavior (Section 26) phases
+> pierceable blocks through **without destroying** them, so the sword never changes the
+> world and there is no griefing to gate. Item 25.9 is already satisfied; the toggle is not
+> built.
 
 ### 25.2 Localization
 
@@ -1346,10 +1367,10 @@ leave your side." (`msg.heirloomswordmod.no_drop`), "Recall your sword first."
 (`msg.heirloomswordmod.sword_returns`) are already lang keys. Remaining work:
 
 - Audit all Java code for any remaining hardcoded user-visible strings.
-- Add "Sheathe your sword first." (`msg.heirloomswordmod.sheathe_first`) when the Phase 7
-  leftover mount-block-while-flying lands (Section 14). Note this is a *different* message
-  from `no_mount`: `no_mount` fires when entering flying mode while riding; `sheathe_first`
-  fires when mounting while flying.
+- ~~Add `msg.heirloomswordmod.sheathe_first` for mount-while-flying~~ — **dropped.** The
+  mount-while-flying block was overruled (see **Outstanding Work Before Phase 9**); the only
+  mount message is `no_mount` (entering flying mode while already riding), already a lang
+  key. No new key needed.
 - Tooltip lore keys (item 3) and advancement title/description keys (item 12c).
 
 ### 25.3 Tooltip lore
@@ -1358,22 +1379,15 @@ Italic, purple-tinted (`ChatFormatting.DARK_PURPLE` + `ITALIC`) lore on the item
 via lang keys (`tooltip.heirloomswordmod.lore1`, `tooltip.heirloomswordmod.lore2`):
 
 > *"Forged in darkness, bound by will."*
-> *"It does not serve. It accompanies."*
 
-### 25.4 Inventory movement lock
+### 25.4 Inventory movement lock — DROPPED
 
-While flying mode is active, the sword item cannot be moved out of its hotbar slot by ANY
-inventory interaction: dragging in the inventory screen, shift-clicking, number-key swap,
-offhand swap (handle the **vanilla swap keybind whatever it is bound to** — this mod uses F
-for mode toggle, so the player may have rebound vanilla offhand-swap), dropping into
-containers, or cursor pickup. Cancel the relevant container events **server-side**. On any
-blocked attempt, show the existing `msg.heirloomswordmod.no_drop` hotbar message. In normal
-mode, all inventory movement works as usual.
-
-This lock governs item **relocation**, not hotbar **selection**. The player may freely scroll
-the selected slot away from the sword while flying — the familiar keeps hovering at their side
-so they can mine, build, or use other hotbar items. Do **not** add a recall-on-scroll or
-force-selected-slot behavior; the floating familiar during other actions is intended.
+Cut. The "can't lose the sword" guarantee is already met by the existing Q-drop block
+(`onItemToss` → re-adds the stack, shows `no_drop`), the death-drop protection (25.7), and
+the guarding mechanics around item safety. A full inventory-relocation lock (drag,
+shift-click, number-swap, offhand-swap, container-drop, cursor-pickup) is disproportionate
+hardening for the remaining gap and is not built. Revisit only if players report losing the
+flying sword through inventory manipulation.
 
 ### 25.5 PvP damage rule
 
@@ -1409,22 +1423,23 @@ still despawns per Section 12 death logic (`death_fall`/DYING, or instant from S
 mode resets to normal, and the item stays in the player's inventory (no drop). **Verify the
 existing death logic doesn't assume a drop occurs.**
 
-### 25.9 Block-destruction permissions
+### 25.9 Block-destruction permissions — already satisfied (no work)
 
-Depends on Section 26 (block piercing) being implemented first — it is scheduled before
-Phase 9. The pierceable block destruction must respect the `mobGriefing` gamerule when
-config `integration.respectMobGriefing` is `true` (default). When the gamerule blocks
-destruction, the sword **phases through** pierceable blocks without destroying them — no
-STUCK, no block change. Non-pierceable blocks still cause STUCK regardless.
+The shipped LAUNCHING behavior (`tickLaunching`, Section 26) phases pierceable blocks
+through **without destroying** them and embeds (→ STUCK) on every non-pierceable block.
+Because the sword never destroys or changes a block, there is nothing for the `mobGriefing`
+gamerule to gate — no destruction-permission check and no `respectMobGriefing` config are
+needed. Item closed.
 
 ### 25.10 Creative & spectator flight
 
-- **Creative flight:** fully compatible with flying mode. No forced exit, no restrictions —
-  spring physics follow handles vertical movement. Explicitly verify the elytra detection
-  uses elytra-specific checks (`isFallFlying()`), not a generic "is flying" check, so
-  creative flight cannot false-positive.
+- **Creative flight & elytra:** overruled in playtesting — both work as-is with the spring
+  follow, no forced exit and no elytra-detection change. (Mode-*enter* still blocks
+  *starting* flying mode while elytra-gliding via `isFallFlying()` → `no_enter_elytra`; that
+  stays.) No work.
 - **Spectator mode:** entering spectator force-exits flying mode immediately (despawn
-  familiar, normal mode, no animation). Leaving spectator does not auto re-engage.
+  familiar, reset to normal mode, no death animation). Leaving spectator does not auto
+  re-engage.
 
 ### 25.11 Sculk resonance
 
@@ -1462,7 +1477,7 @@ choice):
 | ID | Title | Trigger | Notes |
 |---|---|---|---|
 | `heirloomswordmod:soul_bound` | "Soul-Bound" | `inventory_changed` — obtain the sword item | |
-| `heirloomswordmod:a_will_of_its_own` | "A Will of Its Own" | Custom trigger fired from the F-activation server code, first flying-mode activation | Parent: `soul_bound`; hidden until `soul_bound` is earned |
+| `heirloomswordmod:a_will_of_its_own` | "It flies?" | Custom trigger fired from the F-activation server code, first flying-mode activation | Parent: `soul_bound`; hidden until `soul_bound` is earned |
 
 ### 25.13 Verification checklist
 
@@ -1476,39 +1491,6 @@ advancements grant.
 
 ---
 
-## 26. Block Piercing (LAUNCHING) — Specified, NOT Yet Implemented
-
-> **Status (2026-06-12):** Only the data half of this feature exists. The block tag was
-> committed (`data/heirloomswordmod/tags/blocks/pierceable.json`, Phase 8 WIP commit), but
-> **no Java code reads it** — `tickLaunching()` still enters STUCK on every collidable
-> block. An earlier revision of this section incorrectly described the feature as done.
-> Scheduled in "Outstanding Work Before Phase 9" (Section 24).
-
-**Behavior:** During LAUNCHING (outbound only), each block contact is checked against the
-`heirloomswordmod:pierceable` block tag:
-
-- **Pierceable** (leaves, cobwebs, flowers, crops, vines, snow layers, carpets, candles,
-  scaffolding, decorated pots, etc.): the block is **destroyed with drops** and the sword
-  continues traveling at unchanged speed. Multiple pierceable blocks can be destroyed in a
-  single launch.
-- **Not pierceable:** the sword embeds → STUCK, exactly as before.
-
-**Scope limits:**
-- Applies to LAUNCHING only. RETURNING and SWEEPING_RELEASE returns already phase through
-  all blocks and destroy nothing. QUICK_FIRE never destroys blocks (it returns on any block
-  contact).
-- When the add-on config lands (Section 25, item 9): if `integration.respectMobGriefing`
-  is true (default) and the `mobGriefing` gamerule is off, the sword **phases through**
-  pierceable blocks without destroying them — no STUCK, no block change. Non-pierceable
-  blocks still cause STUCK regardless of the gamerule.
-- Destruction is server-side via `Level.destroyBlock(pos, true)` (drops enabled); fire a
-  block-destroy effect so clients see particles.
-
-**Data-driven:** the tag lives at `data/heirloomswordmod/tags/blocks/pierceable.json` so
-datapack authors can customize it. Namespace is `heirloomswordmod` (the real mod id), not
-`alucardsword`.
-
----
 
 *Document version: 3.2 (2026-06-13) — Supersedes the 2026-06-12 Stamina Model with the
 two-resource Resource Model (Section 1): mana (the mod's own player attachment) powers all
