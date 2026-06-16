@@ -118,6 +118,19 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
     private static int   guardBreakCooldownTicks() { return Config.GUARD_BREAK_COOLDOWN_TICKS.getAsInt(); }
     private static float undeadBurnSeconds()       { return (float) Config.UNDEAD_IGNITE_SECONDS.getAsDouble(); }
 
+    /**
+     * Whether the sword may damage this target. Non-players: always. Players: only when
+     * {@code integration.allowPvpDamage} is on, the server permits PvP, and vanilla team
+     * friendly-fire rules allow it. Mirrors §25.5.
+     */
+    private boolean canDamage(Player owner, LivingEntity target) {
+        if (!(target instanceof Player victim)) return true;
+        if (!Config.ALLOW_PVP_DAMAGE.getAsBoolean()) return false;
+        var server = this.level().getServer();
+        if (server == null || !server.isPvpAllowed()) return false;
+        return owner.canHarmPlayer(victim); // honors scoreboard team friendly-fire
+    }
+
     // SWEEPING constants
     private static final double SWEEP_HOLD_DISTANCE = 1.8;
     private static final int SWEEP_IFRAME_TICKS = 6;
@@ -510,6 +523,7 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
             Vec3 toEntity = entity.position().subtract(owner.position());
             Vec3 toEntityFlat = new Vec3(toEntity.x, 0, toEntity.z).normalize();
             if (toEntityFlat.dot(lookFlat) <= 0.1) continue; // frontal ~180° arc only
+            if (!canDamage(owner, entity)) continue;
             entity.hurt(source, blockSlashDamage());
             igniteIfUndead(entity);
             entity.knockback(0.4, owner.getX() - entity.getX(), owner.getZ() - entity.getZ());
@@ -1007,6 +1021,7 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
         DamageSource source = this.level().damageSources().playerAttack(owner);
 
         for (LivingEntity entity : entities) {
+            if (!canDamage(owner, entity)) continue;
             entity.hurt(source, sweepContactDamage());
             igniteIfUndead(entity);
             bloodyOwnerBlade(entity);
@@ -1154,8 +1169,10 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
                 return;
             }
             if (target instanceof LivingEntity living) {
-                living.hurt(this.level().damageSources().playerAttack(owner), quickFireDamage());
-                igniteIfUndead(living);
+                if (canDamage(owner, living)) {
+                    living.hurt(this.level().damageSources().playerAttack(owner), quickFireDamage());
+                    igniteIfUndead(living);
+                }
                 living.knockback(0.3, this.getX() - living.getX(), this.getZ() - living.getZ());
                 bloodyOwnerBlade(living);
                 if (this.level() instanceof net.minecraft.server.level.ServerLevel sl) {
@@ -1258,6 +1275,7 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
         DamageSource source = this.level().damageSources().playerAttack(owner);
         boolean returning = getState() == FamiliarState.RETURNING;
         for (LivingEntity entity : entities) {
+            if (!canDamage(owner, entity)) continue;
             hitSet.add(entity.getId());
             entity.hurt(source, damage);
             igniteIfUndead(entity);
@@ -1498,6 +1516,7 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
             // Landing impact: 4 damage + knockback in a 3-block radius (not the owner)
             for (LivingEntity target : this.level().getEntitiesOfClass(LivingEntity.class,
                     this.getBoundingBox().inflate(3.0), e -> e != owner && e.isAlive())) {
+                if (!canDamage(owner, target)) continue;
                 target.hurt(this.level().damageSources().playerAttack(owner), landingImpactDamage());
                 double dx = target.getX() - this.getX();
                 double dz = target.getZ() - this.getZ();
