@@ -32,4 +32,11 @@ public class ModDataComponents {
                     .persistent(Codec.FLOAT)
                     .networkSynchronized(ByteBufCodecs.FLOAT)
                     .build());
+
+    // True once the sword has ever been activated into flying mode. Drives the one-time awakening.
+    public static final DeferredHolder<DataComponentType<?>, DataComponentType<Boolean>> AWAKENED =
+            DATA_COMPONENTS.register("awakened", () -> DataComponentType.<Boolean>builder()
+                    .persistent(Codec.BOOL)
+                    .networkSynchronized(ByteBufCodecs.BOOL)
+                    .build());
 }

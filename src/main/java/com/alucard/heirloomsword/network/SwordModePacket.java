@@ -64,7 +64,14 @@ public record SwordModePacket() implements CustomPacketPayload {
                     return;
                 }
                 HeirloomSwordItem.setMode(held, SwordMode.FLYING);
+                boolean firstAwakening = !held.getOrDefault(ModDataComponents.AWAKENED.get(), false);
                 SwordFamiliarEntity familiar = new SwordFamiliarEntity(level, player);
+                if (firstAwakening) {
+                    held.set(ModDataComponents.AWAKENED.get(), true);
+                    // Only the sky-drop entrance can be ceremonial; if it materialized (no clearance)
+                    // there is nothing to slow — the flag is harmless either way.
+                    familiar.setAwakening(true);
+                }
                 level.addFreshEntity(familiar);
                 held.set(ModDataComponents.FAMILIAR_UUID.get(), familiar.getUUID());
                 SwordSounds.playModeEnter(level, player.getX(), player.getY(), player.getZ());

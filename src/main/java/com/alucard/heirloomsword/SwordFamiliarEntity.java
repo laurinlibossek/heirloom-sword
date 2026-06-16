@@ -163,6 +163,14 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
     private static final double ARRIVE_SPEED = 2.5;      // [TUNE] blocks/tick descent
     private boolean skyDropSpawn = false;
 
+    private boolean awakening = false;
+    private int awakeningOrbitTicks = 0;
+    private static final double AWAKENING_DESCENT_SPEED = 0.32; // [TUNE] ~2.5s over a ~16-block drop
+    private static final int    AWAKENING_ORBIT_TICKS  = 40;    // [TUNE] one slow orbit (~2s)
+    private static final double AWAKENING_ORBIT_RADIUS = 1.6;   // [TUNE] blocks from the owner
+
+    public void setAwakening(boolean value) { this.awakening = value; }
+
     public boolean isSkyDropSpawn() {
         return skyDropSpawn;
     }
@@ -1519,6 +1527,35 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
 
     private void tickArriving(Player owner) {
         Vec3 hoverPos = computeCandidatePosition(owner, 0);
+
+        if (awakening) {
+            // Phase 1: ceremonial slow descent.
+            Vec3 toTarget = hoverPos.subtract(this.position());
+            if (toTarget.length() > AWAKENING_DESCENT_SPEED && awakeningOrbitTicks == 0) {
+                this.setPos(this.position().add(toTarget.normalize().scale(AWAKENING_DESCENT_SPEED)));
+                return;
+            }
+            // Phase 2: one slow orbit around the owner, then settle. No landing impact.
+            awakeningOrbitTicks++;
+            double angle = (awakeningOrbitTicks / (double) AWAKENING_ORBIT_TICKS) * (Math.PI * 2.0);
+            Vec3 orbit = hoverPos.add(Math.cos(angle) * AWAKENING_ORBIT_RADIUS, 0,
+                    Math.sin(angle) * AWAKENING_ORBIT_RADIUS);
+            this.setPos(orbit);
+            if (awakeningOrbitTicks >= AWAKENING_ORBIT_TICKS) {
+                this.setPos(hoverPos);
+                this.targetPosition = hoverPos;
+                this.velocity = Vec3.ZERO;
+                this.smoothedAnchorY = Double.NaN;
+                this.awakening = false;
+                setState(FamiliarState.HOVERING);
+                this.level().playSound(null, this.blockPosition(),
+                        net.minecraft.sounds.SoundEvents.AMETHYST_CLUSTER_BREAK,
+                        net.minecraft.sounds.SoundSource.PLAYERS, 1.0f, 0.7f);
+            }
+            return;
+        }
+
+        // Default fast sky-drop.
         Vec3 toTarget = hoverPos.subtract(this.position());
         if (toTarget.length() <= ARRIVE_SPEED) {
             this.setPos(hoverPos);
