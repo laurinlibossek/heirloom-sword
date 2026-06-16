@@ -16,5 +16,9 @@
   "heirloomswordmod.configuration.section.heirloomswordmod.common.toml": "Heirloom Sword Mod Configs",
   "heirloomswordmod.configuration.section.heirloomswordmod.common.toml.title": "Heirloom Sword Mod Configs",
   "tooltip.heirloomswordmod.lore1": "Forged in darkness, bound by will.",
-  "tooltip.heirloomswordmod.lore2": "It remembers the hand that wields it."
+  "tooltip.heirloomswordmod.lore2": "It remembers the hand that wields it.",
+  "advancements.heirloomswordmod.soul_bound.title": "Soul-Bound",
+  "advancements.heirloomswordmod.soul_bound.description": "Obtain Alucard's Sword.",
+  "advancements.heirloomswordmod.a_will_of_its_own.title": "It flies?",
+  "advancements.heirloomswordmod.a_will_of_its_own.description": "Awaken the sword into flight for the first time."
 }

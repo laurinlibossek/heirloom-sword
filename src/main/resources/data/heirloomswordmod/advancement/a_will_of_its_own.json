@@ -1,0 +1,16 @@
+{
+  "parent": "heirloomswordmod:soul_bound",
+  "display": {
+    "icon": { "id": "heirloomswordmod:heirloom_sword" },
+    "title": { "translate": "advancements.heirloomswordmod.a_will_of_its_own.title" },
+    "description": { "translate": "advancements.heirloomswordmod.a_will_of_its_own.description" },
+    "frame": "goal",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": true
+  },
+  "criteria": {
+    "activated": { "trigger": "minecraft:impossible" }
+  },
+  "requirements": [ [ "activated" ] ]
+}

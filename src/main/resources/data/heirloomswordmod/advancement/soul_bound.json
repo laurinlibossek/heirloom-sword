@@ -1,0 +1,19 @@
+{
+  "parent": "minecraft:adventure/root",
+  "display": {
+    "icon": { "id": "heirloomswordmod:heirloom_sword" },
+    "title": { "translate": "advancements.heirloomswordmod.soul_bound.title" },
+    "description": { "translate": "advancements.heirloomswordmod.soul_bound.description" },
+    "frame": "goal",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "has_sword": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": { "items": [ { "items": "heirloomswordmod:heirloom_sword" } ] }
+    }
+  },
+  "requirements": [ [ "has_sword" ] ]
+}

@@ -71,6 +71,11 @@ public record SwordModePacket() implements CustomPacketPayload {
                     // Only the sky-drop entrance can be ceremonial; if it materialized (no clearance)
                     // there is nothing to slow — the flag is harmless either way.
                     familiar.setAwakening(true);
+                    var adv = player.server.getAdvancements().get(
+                            ResourceLocation.fromNamespaceAndPath(HeirloomSwordMod.MODID, "a_will_of_its_own"));
+                    if (adv != null) {
+                        player.getAdvancements().award(adv, "activated");
+                    }
                 }
                 level.addFreshEntity(familiar);
                 held.set(ModDataComponents.FAMILIAR_UUID.get(), familiar.getUUID());
