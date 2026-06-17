@@ -2,346 +2,366 @@
   "C:\\Users\\xycra\\Coding\\MC\\HeirloomSword\\build.gradle": {
     "mtime": 1781550780.0217593,
     "ast_hash": "d8ecd197053b93a1d9a6657ef555f20a",
-    "semantic_hash": ""
+    "semantic_hash": "d8ecd197053b93a1d9a6657ef555f20a"
   },
   "C:\\Users\\xycra\\Coding\\MC\\HeirloomSword\\gradlew": {
     "mtime": 1781000500.3144722,
     "ast_hash": "794669d78aef1dd5c7d889ef618b311a",
-    "semantic_hash": ""
+    "semantic_hash": "794669d78aef1dd5c7d889ef618b311a"
   },
   "C:\\Users\\xycra\\Coding\\MC\\HeirloomSword\\settings.gradle": {
     "mtime": 1781000500.3479288,
     "ast_hash": "58a5df05c6546d7d2671a516793e02e7",
-    "semantic_hash": ""
+    "semantic_hash": "58a5df05c6546d7d2671a516793e02e7"
   },
   "C:\\Users\\xycra\\Coding\\MC\\HeirloomSword\\src\\main\\java\\com\\alucard\\heirloomsword\\Config.java": {
-    "mtime": 1781014075.0189905,
-    "ast_hash": "241529ac00c03346d896a8d8ca7bfd83",
-    "semantic_hash": ""
+    "mtime": 1781647260.0157993,
+    "ast_hash": "283948c34be728f95ca55797ae1c3e1c",
+    "semantic_hash": "283948c34be728f95ca55797ae1c3e1c"
   },
   "C:\\Users\\xycra\\Coding\\MC\\HeirloomSword\\src\\main\\java\\com\\alucard\\heirloomsword\\FamiliarState.java": {
     "mtime": 1781556615.3697364,
     "ast_hash": "e2ee07b576ba81a0e9c8b6cb42c1b6b5",
-    "semantic_hash": ""
+    "semantic_hash": "e2ee07b576ba81a0e9c8b6cb42c1b6b5"
   },
   "C:\\Users\\xycra\\Coding\\MC\\HeirloomSword\\src\\main\\java\\com\\alucard\\heirloomsword\\HeirloomSwordItem.java": {
-    "mtime": 1781430489.3760676,
-    "ast_hash": "13241fff2744d62f99749604617cdba3",
-    "semantic_hash": ""
+    "mtime": 1781648336.2668557,
+    "ast_hash": "4d4dc907e6d0b91bf4567e58b636978a",
+    "semantic_hash": "4d4dc907e6d0b91bf4567e58b636978a"
   },
   "C:\\Users\\xycra\\Coding\\MC\\HeirloomSword\\src\\main\\java\\com\\alucard\\heirloomsword\\HeirloomSwordMod.java": {
     "mtime": 1781430489.3760676,
     "ast_hash": "0cefdc3dae6be80fb27aa9e62ecdfd98",
-    "semantic_hash": ""
+    "semantic_hash": "0cefdc3dae6be80fb27aa9e62ecdfd98"
   },
   "C:\\Users\\xycra\\Coding\\MC\\HeirloomSword\\src\\main\\java\\com\\alucard\\heirloomsword\\HeirloomSwordModClient.java": {
-    "mtime": 1781564377.5761843,
-    "ast_hash": "8402a942c556bdec7a83b573e334d491",
-    "semantic_hash": ""
+    "mtime": 1781691871.3009582,
+    "ast_hash": "aa4e1887ec66147e38ef4d8df18ef145",
+    "semantic_hash": "aa4e1887ec66147e38ef4d8df18ef145"
   },
   "C:\\Users\\xycra\\Coding\\MC\\HeirloomSword\\src\\main\\java\\com\\alucard\\heirloomsword\\ModDataComponents.java": {
-    "mtime": 1781430489.378223,
-    "ast_hash": "1cbbe74150ce90b17efed047e85bab25",
-    "semantic_hash": ""
+    "mtime": 1781650976.643262,
+    "ast_hash": "939a715e04425981a79a3d67917b7554",
+    "semantic_hash": "939a715e04425981a79a3d67917b7554"
   },
   "C:\\Users\\xycra\\Coding\\MC\\HeirloomSword\\src\\main\\java\\com\\alucard\\heirloomsword\\ModEntities.java": {
     "mtime": 1781014833.8607123,
     "ast_hash": "eacc662570ddeddbc2f6c842d6c41760",
-    "semantic_hash": ""
+    "semantic_hash": "eacc662570ddeddbc2f6c842d6c41760"
   },
   "C:\\Users\\xycra\\Coding\\MC\\HeirloomSword\\src\\main\\java\\com\\alucard\\heirloomsword\\ModKeybinds.java": {
     "mtime": 1781430489.3794062,
     "ast_hash": "efdf191c42d7d161d23b52986cc69618",
-    "semantic_hash": ""
+    "semantic_hash": "efdf191c42d7d161d23b52986cc69618"
   },
   "C:\\Users\\xycra\\Coding\\MC\\HeirloomSword\\src\\main\\java\\com\\alucard\\heirloomsword\\SwordEventHandler.java": {
-    "mtime": 1781554159.8063097,
-    "ast_hash": "e9646cb01af2426cd90f9d3e5c49b521",
-    "semantic_hash": ""
+    "mtime": 1781691206.7617502,
+    "ast_hash": "13736a4ecf1d11af033e8201aed7bdba",
+    "semantic_hash": "13736a4ecf1d11af033e8201aed7bdba"
   },
   "C:\\Users\\xycra\\Coding\\MC\\HeirloomSword\\src\\main\\java\\com\\alucard\\heirloomsword\\SwordFamiliarEntity.java": {
-    "mtime": 1781564356.1544192,
-    "ast_hash": "fd24a181028648d6fead77a2974cdfe9",
-    "semantic_hash": ""
+    "mtime": 1781691044.2711103,
+    "ast_hash": "565d3f60b4d9c865560d4112ef33ff21",
+    "semantic_hash": "565d3f60b4d9c865560d4112ef33ff21"
   },
   "C:\\Users\\xycra\\Coding\\MC\\HeirloomSword\\src\\main\\java\\com\\alucard\\heirloomsword\\SwordMode.java": {
     "mtime": 1781013696.4606254,
     "ast_hash": "029d321fbaa0c1e732d1de0b2e160496",
-    "semantic_hash": ""
+    "semantic_hash": "029d321fbaa0c1e732d1de0b2e160496"
   },
   "C:\\Users\\xycra\\Coding\\MC\\HeirloomSword\\src\\main\\java\\com\\alucard\\heirloomsword\\client\\HeirloomSwordItemModel.java": {
     "mtime": 1781132520.704144,
     "ast_hash": "d3079ecbd1b28bd17c5f69f6e2faa4e1",
-    "semantic_hash": ""
+    "semantic_hash": "d3079ecbd1b28bd17c5f69f6e2faa4e1"
   },
   "C:\\Users\\xycra\\Coding\\MC\\HeirloomSword\\src\\main\\java\\com\\alucard\\heirloomsword\\client\\HeirloomSwordItemRenderer.java": {
-    "mtime": 1781430489.382604,
-    "ast_hash": "b31d1ae09dc7d1ed1a5b21ac64dfd116",
-    "semantic_hash": ""
+    "mtime": 1781691986.4813237,
+    "ast_hash": "b25129965194baee493a0651364e99c4",
+    "semantic_hash": "b25129965194baee493a0651364e99c4"
   },
   "C:\\Users\\xycra\\Coding\\MC\\HeirloomSword\\src\\main\\java\\com\\alucard\\heirloomsword\\client\\SwordFamiliarGeoRenderer.java": {
     "mtime": 1781430489.3836179,
     "ast_hash": "96a10aa9a9f4480f9ed39d23ae001c6e",
-    "semantic_hash": ""
+    "semantic_hash": "96a10aa9a9f4480f9ed39d23ae001c6e"
   },
   "C:\\Users\\xycra\\Coding\\MC\\HeirloomSword\\src\\main\\java\\com\\alucard\\heirloomsword\\client\\SwordFamiliarModel.java": {
     "mtime": 1781129079.4156644,
     "ast_hash": "995883f4d6ad61953bd27f4b38315f99",
-    "semantic_hash": ""
+    "semantic_hash": "995883f4d6ad61953bd27f4b38315f99"
   },
   "C:\\Users\\xycra\\Coding\\MC\\HeirloomSword\\src\\main\\java\\com\\alucard\\heirloomsword\\network\\ModNetwork.java": {
     "mtime": 1781556777.1046448,
     "ast_hash": "0a1d350bb172926d15b2c7f9b5bc003e",
-    "semantic_hash": ""
+    "semantic_hash": "0a1d350bb172926d15b2c7f9b5bc003e"
   },
   "C:\\Users\\xycra\\Coding\\MC\\HeirloomSword\\src\\main\\java\\com\\alucard\\heirloomsword\\network\\SwordChargePacket.java": {
     "mtime": 1781430489.386694,
     "ast_hash": "a73fa25463fe5415819ea61395c3fee0",
-    "semantic_hash": ""
+    "semantic_hash": "a73fa25463fe5415819ea61395c3fee0"
   },
   "C:\\Users\\xycra\\Coding\\MC\\HeirloomSword\\src\\main\\java\\com\\alucard\\heirloomsword\\network\\SwordGuardPacket.java": {
     "mtime": 1781430489.386694,
     "ast_hash": "17c481d43d662b4dfafa509b56803cec",
-    "semantic_hash": ""
+    "semantic_hash": "17c481d43d662b4dfafa509b56803cec"
   },
   "C:\\Users\\xycra\\Coding\\MC\\HeirloomSword\\src\\main\\java\\com\\alucard\\heirloomsword\\network\\SwordLaunchPacket.java": {
     "mtime": 1781430489.3877027,
     "ast_hash": "3e30845b04958b0fb286c73b35a4dc33",
-    "semantic_hash": ""
+    "semantic_hash": "3e30845b04958b0fb286c73b35a4dc33"
   },
   "C:\\Users\\xycra\\Coding\\MC\\HeirloomSword\\src\\main\\java\\com\\alucard\\heirloomsword\\network\\SwordModePacket.java": {
-    "mtime": 1781553959.9374678,
-    "ast_hash": "20575608fb43d73eb3bb9aac6c778dd4",
-    "semantic_hash": ""
+    "mtime": 1781651111.825213,
+    "ast_hash": "ad60cb01dd70eda2bbf61db3d85925cd",
+    "semantic_hash": "ad60cb01dd70eda2bbf61db3d85925cd"
   },
   "C:\\Users\\xycra\\Coding\\MC\\HeirloomSword\\src\\main\\java\\com\\alucard\\heirloomsword\\network\\SwordMomentumPacket.java": {
     "mtime": 1781037940.652734,
     "ast_hash": "5bd2ae01a9a1690e7c0336fc91d4d826",
-    "semantic_hash": ""
+    "semantic_hash": "5bd2ae01a9a1690e7c0336fc91d4d826"
   },
   "C:\\Users\\xycra\\Coding\\MC\\HeirloomSword\\src\\main\\java\\com\\alucard\\heirloomsword\\network\\SwordRecallPacket.java": {
     "mtime": 1781430489.3887026,
     "ast_hash": "ae24e4e76e55a7319213d3f712e8c574",
-    "semantic_hash": ""
+    "semantic_hash": "ae24e4e76e55a7319213d3f712e8c574"
   },
   "C:\\Users\\xycra\\Coding\\MC\\HeirloomSword\\src\\main\\java\\com\\alucard\\heirloomsword\\network\\SwordSweepPacket.java": {
     "mtime": 1781430489.3887026,
     "ast_hash": "1a1bfa09d00c88b2630cd58136909e14",
-    "semantic_hash": ""
+    "semantic_hash": "1a1bfa09d00c88b2630cd58136909e14"
   },
   "C:\\Users\\xycra\\Coding\\MC\\HeirloomSword\\src\\main\\resources\\assets\\heirloomswordmod\\animations\\alucard_sword.animation.json": {
     "mtime": 1781215884.983831,
     "ast_hash": "a68b72892b1dd096e9120a7edf3112df",
-    "semantic_hash": ""
+    "semantic_hash": "a68b72892b1dd096e9120a7edf3112df"
   },
   "C:\\Users\\xycra\\Coding\\MC\\HeirloomSword\\src\\main\\resources\\assets\\heirloomswordmod\\geo\\alucard_sword.geo.json": {
     "mtime": 1781430489.3897023,
     "ast_hash": "c5bb4bfca4e727d494d73a9e8e725825",
-    "semantic_hash": ""
+    "semantic_hash": "c5bb4bfca4e727d494d73a9e8e725825"
   },
   "C:\\Users\\xycra\\Coding\\MC\\HeirloomSword\\src\\main\\resources\\assets\\heirloomswordmod\\lang\\en_us.json": {
-    "mtime": 1781551788.2704484,
-    "ast_hash": "f2a60a7e8cc69e8e178ca9fde4936968",
-    "semantic_hash": ""
+    "mtime": 1781651093.1552508,
+    "ast_hash": "33b779ff474c063ea92f5caebe7d4666",
+    "semantic_hash": "33b779ff474c063ea92f5caebe7d4666"
   },
   "C:\\Users\\xycra\\Coding\\MC\\HeirloomSword\\src\\main\\resources\\assets\\heirloomswordmod\\models\\item\\heirloom_sword.json": {
     "mtime": 1781197431.0186918,
     "ast_hash": "47ff2cda4090040983d64cb858b0d46a",
-    "semantic_hash": ""
+    "semantic_hash": "47ff2cda4090040983d64cb858b0d46a"
   },
   "C:\\Users\\xycra\\Coding\\MC\\HeirloomSword\\README.md": {
     "mtime": 1781000500.2904775,
     "ast_hash": "6908d14d04775a3ccbc834f66671c1f7",
-    "semantic_hash": ""
+    "semantic_hash": "6908d14d04775a3ccbc834f66671c1f7"
   },
   "C:\\Users\\xycra\\Coding\\MC\\HeirloomSword\\.continue\\rules\\tooluse.md": {
     "mtime": 1781218756.0742486,
     "ast_hash": "55560f3214c39da1e2cb482f21975ac3",
-    "semantic_hash": ""
+    "semantic_hash": "55560f3214c39da1e2cb482f21975ac3"
   },
   "C:\\Users\\xycra\\Coding\\MC\\HeirloomSword\\.github\\workflows\\build.yml": {
     "mtime": 1781000500.3283918,
     "ast_hash": "4aa6a75b354ad2e42b369bcde683d0bc",
-    "semantic_hash": ""
+    "semantic_hash": "4aa6a75b354ad2e42b369bcde683d0bc"
   },
   "C:\\Users\\xycra\\Coding\\MC\\HeirloomSword\\docs\\superpowers\\plans\\2026-06-11-render-alignment-fixes.md": {
     "mtime": 1781196796.903471,
     "ast_hash": "9e9fa77f70c5f9717916e2976a0a401f",
-    "semantic_hash": ""
+    "semantic_hash": "9e9fa77f70c5f9717916e2976a0a401f"
   },
   "C:\\Users\\xycra\\Coding\\MC\\HeirloomSword\\docs\\superpowers\\plans\\2026-06-11-sword-mechanics-and-guard-fixes.md": {
     "mtime": 1781214520.2425938,
     "ast_hash": "70aae4e460860d8b822b00f5c2d9cf27",
-    "semantic_hash": ""
+    "semantic_hash": "70aae4e460860d8b822b00f5c2d9cf27"
   },
   "C:\\Users\\xycra\\Coding\\MC\\HeirloomSword\\docs\\superpowers\\specs\\2026-06-09-phase6-blocking-design.md": {
     "mtime": 1781218756.0752497,
     "ast_hash": "9c9358c8ce5525b83eec2d675cedae2e",
-    "semantic_hash": ""
+    "semantic_hash": "9c9358c8ce5525b83eec2d675cedae2e"
   },
   "C:\\Users\\xycra\\Coding\\MC\\HeirloomSword\\docs\\superpowers\\specs\\2026-06-09-phase8-geckolib-design.md": {
     "mtime": 1781218756.0762491,
     "ast_hash": "0142c9d67c7cdf319d53377c0f272e3e",
-    "semantic_hash": ""
+    "semantic_hash": "0142c9d67c7cdf319d53377c0f272e3e"
   },
   "C:\\Users\\xycra\\Coding\\MC\\HeirloomSword\\src\\main\\resources\\assets\\heirloomswordmod\\textures\\entity\\alucard_sword.png": {
     "mtime": 1781549965.2489836,
     "ast_hash": "19473d2b4ea1bf1f7914f58c357e1eeb",
-    "semantic_hash": ""
+    "semantic_hash": "19473d2b4ea1bf1f7914f58c357e1eeb"
   },
   "C:\\Users\\xycra\\Coding\\MC\\HeirloomSword\\src\\main\\resources\\assets\\heirloomswordmod\\textures\\item\\heirloom_sword.png": {
     "mtime": 1781014068.4541838,
     "ast_hash": "042a06d9b2b4ef8a35978fde7a8982ca",
-    "semantic_hash": ""
+    "semantic_hash": "042a06d9b2b4ef8a35978fde7a8982ca"
   },
   "C:\\Users\\xycra\\Coding\\MC\\HeirloomSword\\docs\\superpowers\\plans\\2026-06-12-polish-quickfire-and-feel.md": {
     "mtime": 1781251862.1402917,
     "ast_hash": "3d39ee06861c4bb030eebdadb0117b90",
-    "semantic_hash": ""
+    "semantic_hash": "3d39ee06861c4bb030eebdadb0117b90"
   },
   "C:\\Users\\xycra\\Coding\\MC\\HeirloomSword\\src\\main\\java\\com\\alucard\\heirloomsword\\client\\TelekinesisHandRenderer.java": {
     "mtime": 1781430489.3836179,
     "ast_hash": "b0f472da9b64404d54680da0ba1d594a",
-    "semantic_hash": ""
+    "semantic_hash": "b0f472da9b64404d54680da0ba1d594a"
   },
   "C:\\Users\\xycra\\Coding\\MC\\HeirloomSword\\src\\main\\java\\com\\alucard\\heirloomsword\\network\\SwordQuickFirePacket.java": {
     "mtime": 1781564394.7580173,
     "ast_hash": "53617bf4dca0500d06527ca67e6466ed",
-    "semantic_hash": ""
+    "semantic_hash": "53617bf4dca0500d06527ca67e6466ed"
   },
   "C:\\Users\\xycra\\Coding\\MC\\HeirloomSword\\src\\main\\java\\com\\alucard\\heirloomsword\\ClientManaState.java": {
     "mtime": 1781430489.3750594,
     "ast_hash": "7da546306e2bf79faa01f1af3cea2b91",
-    "semantic_hash": ""
+    "semantic_hash": "7da546306e2bf79faa01f1af3cea2b91"
   },
   "C:\\Users\\xycra\\Coding\\MC\\HeirloomSword\\src\\main\\java\\com\\alucard\\heirloomsword\\ManaAttachments.java": {
     "mtime": 1781430489.3771262,
     "ast_hash": "eda1b2a2d397f36c6586838f66bda33f",
-    "semantic_hash": ""
+    "semantic_hash": "eda1b2a2d397f36c6586838f66bda33f"
   },
   "C:\\Users\\xycra\\Coding\\MC\\HeirloomSword\\src\\main\\java\\com\\alucard\\heirloomsword\\ManaService.java": {
-    "mtime": 1781430489.378223,
-    "ast_hash": "140131b28efda3ab3c8a301a42babeed",
-    "semantic_hash": ""
+    "mtime": 1781688699.119495,
+    "ast_hash": "65233528be9317bbcf291d4df4fc34a0",
+    "semantic_hash": "65233528be9317bbcf291d4df4fc34a0"
   },
   "C:\\Users\\xycra\\Coding\\MC\\HeirloomSword\\src\\main\\java\\com\\alucard\\heirloomsword\\SwordSounds.java": {
     "mtime": 1781556497.4607625,
     "ast_hash": "454bea5d80b6ac296ad56867476383fd",
-    "semantic_hash": ""
+    "semantic_hash": "454bea5d80b6ac296ad56867476383fd"
   },
   "C:\\Users\\xycra\\Coding\\MC\\HeirloomSword\\src\\main\\java\\com\\alucard\\heirloomsword\\network\\ManaSyncPacket.java": {
     "mtime": 1781430489.384625,
     "ast_hash": "5fb279d073ac4c8af0d214e1ca62de9f",
-    "semantic_hash": ""
+    "semantic_hash": "5fb279d073ac4c8af0d214e1ca62de9f"
   },
   "C:\\Users\\xycra\\Coding\\MC\\HeirloomSword\\src\\main\\java\\com\\alucard\\heirloomsword\\network\\SwordCancelChargePacket.java": {
     "mtime": 1781430489.385691,
     "ast_hash": "35bb178b837d1e49846fa6c83e828381",
-    "semantic_hash": ""
+    "semantic_hash": "35bb178b837d1e49846fa6c83e828381"
   },
   "C:\\Users\\xycra\\Coding\\MC\\HeirloomSword\\docs\\superpowers\\plans\\2026-06-13-mana-system.md": {
     "mtime": 1781430489.3728073,
     "ast_hash": "b84a951a3221a26b705b6921d5c1f928",
-    "semantic_hash": ""
+    "semantic_hash": "b84a951a3221a26b705b6921d5c1f928"
   },
   "C:\\Users\\xycra\\Coding\\MC\\HeirloomSword\\docs\\superpowers\\plans\\2026-06-13-runes-and-blood.md": {
     "mtime": 1781430489.3728073,
     "ast_hash": "9a22a269a4a7750f73d64c765d794109",
-    "semantic_hash": ""
+    "semantic_hash": "9a22a269a4a7750f73d64c765d794109"
   },
   "C:\\Users\\xycra\\Coding\\MC\\HeirloomSword\\docs\\superpowers\\plans\\2026-06-13-warp.md": {
     "mtime": 1781430489.3740232,
     "ast_hash": "41584617abeef344eff6957f53f74a46",
-    "semantic_hash": ""
+    "semantic_hash": "41584617abeef344eff6957f53f74a46"
   },
   "C:\\Users\\xycra\\Coding\\MC\\HeirloomSword\\docs\\superpowers\\specs\\2026-06-13-mana-textures-warp-design.md": {
     "mtime": 1781430489.3740232,
     "ast_hash": "488d6c582514b8c1b255465077fbe003",
-    "semantic_hash": ""
+    "semantic_hash": "488d6c582514b8c1b255465077fbe003"
   },
   "C:\\Users\\xycra\\Coding\\MC\\HeirloomSword\\src\\main\\resources\\assets\\heirloomswordmod\\textures\\entity\\alucard_sword_bloodied.png": {
     "mtime": 1781430489.3919218,
     "ast_hash": "1df8162398c8db6de74d15499a698f82",
-    "semantic_hash": ""
+    "semantic_hash": "1df8162398c8db6de74d15499a698f82"
   },
   "C:\\Users\\xycra\\Coding\\MC\\HeirloomSword\\src\\main\\resources\\assets\\heirloomswordmod\\textures\\entity\\alucard_sword_runes.png": {
     "mtime": 1781430489.3919218,
     "ast_hash": "b289603727100a809961bb40b7dcd5e2",
-    "semantic_hash": ""
+    "semantic_hash": "b289603727100a809961bb40b7dcd5e2"
   },
   "C:\\Users\\xycra\\Coding\\MC\\HeirloomSword\\src\\main\\java\\com\\alucard\\heirloomsword\\WarpHandler.java": {
     "mtime": 1781430489.3814278,
     "ast_hash": "6a8098d5a7936443577e5c391161515d",
-    "semantic_hash": ""
+    "semantic_hash": "6a8098d5a7936443577e5c391161515d"
   },
   "C:\\Users\\xycra\\Coding\\MC\\HeirloomSword\\src\\main\\java\\com\\alucard\\heirloomsword\\client\\FadingOverlayLayer.java": {
     "mtime": 1781430489.382604,
     "ast_hash": "e00f3b42a121f6d3ac4f0d6743427b9e",
-    "semantic_hash": ""
+    "semantic_hash": "e00f3b42a121f6d3ac4f0d6743427b9e"
   },
   "C:\\Users\\xycra\\Coding\\MC\\HeirloomSword\\src\\main\\java\\com\\alucard\\heirloomsword\\client\\SwordTextures.java": {
     "mtime": 1781430489.3836179,
     "ast_hash": "2ad48d4c3172d850c361cdf2a30006b5",
-    "semantic_hash": ""
+    "semantic_hash": "2ad48d4c3172d850c361cdf2a30006b5"
   },
   "C:\\Users\\xycra\\Coding\\MC\\HeirloomSword\\src\\main\\java\\com\\alucard\\heirloomsword\\network\\SwordTetherPacket.java": {
     "mtime": 1781556769.5632367,
     "ast_hash": "c02c69c3d5a8e20021f9865471d04d02",
-    "semantic_hash": ""
+    "semantic_hash": "c02c69c3d5a8e20021f9865471d04d02"
   },
   "C:\\Users\\xycra\\Coding\\MC\\HeirloomSword\\src\\main\\java\\com\\alucard\\heirloomsword\\network\\SwordWarpPacket.java": {
     "mtime": 1781430489.3897023,
     "ast_hash": "5d8169d9bde7050f72afc8abb5419e70",
-    "semantic_hash": ""
+    "semantic_hash": "5d8169d9bde7050f72afc8abb5419e70"
   },
   "C:\\Users\\xycra\\Coding\\MC\\HeirloomSword\\src\\main\\resources\\data\\heirloomswordmod\\capabilities\\weapons\\heirloom_sword.json": {
     "mtime": 1781551512.6513486,
     "ast_hash": "dc4e66830d2c4bceb80e2d7e1805684b",
-    "semantic_hash": ""
+    "semantic_hash": "dc4e66830d2c4bceb80e2d7e1805684b"
   },
   "C:\\Users\\xycra\\Coding\\MC\\HeirloomSword\\src\\main\\resources\\data\\heirloomswordmod\\tags\\block\\pierceable.json": {
     "mtime": 1781040668.732118,
     "ast_hash": "75ded1bbb0830b076f2422f284d5a5d5",
-    "semantic_hash": ""
+    "semantic_hash": "75ded1bbb0830b076f2422f284d5a5d5"
   },
   "C:\\Users\\xycra\\Coding\\MC\\HeirloomSword\\docs\\superpowers\\plans\\2026-06-13-mana-system-addendum.md": {
     "mtime": 1781430489.3716502,
     "ast_hash": "92b0335fbb8698cb06dd24c9fafb36b6",
-    "semantic_hash": ""
+    "semantic_hash": "92b0335fbb8698cb06dd24c9fafb36b6"
   },
   "C:\\Users\\xycra\\Coding\\MC\\HeirloomSword\\docs\\superpowers\\plans\\2026-06-14-phase9-epicfight-compat.md": {
     "mtime": 1781432446.8060539,
     "ast_hash": "85112c86f641dbeaa5a4bca8604bab08",
-    "semantic_hash": ""
+    "semantic_hash": "85112c86f641dbeaa5a4bca8604bab08"
   },
   "C:\\Users\\xycra\\Coding\\MC\\HeirloomSword\\docs\\superpowers\\plans\\2026-06-15-phase10-audio-and-particles.md": {
     "mtime": 1781553244.3300667,
     "ast_hash": "3613cce60a2e427f5a79527fc825b016",
-    "semantic_hash": ""
+    "semantic_hash": "3613cce60a2e427f5a79527fc825b016"
   },
   "C:\\Users\\xycra\\Coding\\MC\\HeirloomSword\\docs\\superpowers\\plans\\2026-06-15-phase11-tether-pull.md": {
     "mtime": 1781556229.0421128,
     "ast_hash": "58fe827cea591454f2fb991bbf3688c4",
-    "semantic_hash": ""
+    "semantic_hash": "58fe827cea591454f2fb991bbf3688c4"
   },
   "C:\\Users\\xycra\\Coding\\MC\\HeirloomSword\\src\\main\\java\\com\\alucard\\heirloomsword\\IdlePersonality.java": {
     "mtime": 1781563865.090139,
     "ast_hash": "b621b295bd76473cfdf8c1b07c948b4a",
-    "semantic_hash": ""
+    "semantic_hash": "b621b295bd76473cfdf8c1b07c948b4a"
   },
   "C:\\Users\\xycra\\Coding\\MC\\HeirloomSword\\src\\main\\resources\\data\\heirloomswordmod\\tags\\block\\curiosities.json": {
     "mtime": 1781563865.0913618,
     "ast_hash": "ec4752b79824d05736b9df9441b20724",
-    "semantic_hash": ""
+    "semantic_hash": "ec4752b79824d05736b9df9441b20724"
   },
   "C:\\Users\\xycra\\Coding\\MC\\HeirloomSword\\docs\\superpowers\\plans\\2026-06-16-phase12-idle-personality.md": {
     "mtime": 1781561967.9918303,
     "ast_hash": "b2d09ad5d1d641b24e5a1655aaa759ba",
-    "semantic_hash": ""
+    "semantic_hash": "b2d09ad5d1d641b24e5a1655aaa759ba"
   },
   "C:\\Users\\xycra\\Coding\\MC\\HeirloomSword\\docs\\superpowers\\specs\\2026-06-16-phase12-idle-personality-design.md": {
     "mtime": 1781561465.5740194,
     "ast_hash": "88920d2c3b98237b7d2840628f4d7a42",
-    "semantic_hash": ""
+    "semantic_hash": "88920d2c3b98237b7d2840628f4d7a42"
+  },
+  "C:\\Users\\xycra\\Coding\\MC\\HeirloomSword\\src\\main\\resources\\data\\heirloomswordmod\\advancement\\a_will_of_its_own.json": {
+    "mtime": 1781651102.9927032,
+    "ast_hash": "89a9c407df6010e4234e309a37dbb36e",
+    "semantic_hash": "89a9c407df6010e4234e309a37dbb36e"
+  },
+  "C:\\Users\\xycra\\Coding\\MC\\HeirloomSword\\src\\main\\resources\\data\\heirloomswordmod\\advancement\\soul_bound.json": {
+    "mtime": 1781651101.148835,
+    "ast_hash": "cdb7dc91e962f1dda3fb193c1c23a0bb",
+    "semantic_hash": "cdb7dc91e962f1dda3fb193c1c23a0bb"
+  },
+  "C:\\Users\\xycra\\Coding\\MC\\HeirloomSword\\Map.md": {
+    "mtime": 1781691510.5503945,
+    "ast_hash": "5fe004f9032038eb6adcc5ddd0481cb6",
+    "semantic_hash": "5fe004f9032038eb6adcc5ddd0481cb6"
+  },
+  "C:\\Users\\xycra\\Coding\\MC\\HeirloomSword\\docs\\superpowers\\plans\\2026-06-16-phase13-polish-protection-soul.md": {
+    "mtime": 1781646882.5555916,
+    "ast_hash": "3cc0a85f496a97276bce19067dd51bf6",
+    "semantic_hash": "3cc0a85f496a97276bce19067dd51bf6"
   }
 }

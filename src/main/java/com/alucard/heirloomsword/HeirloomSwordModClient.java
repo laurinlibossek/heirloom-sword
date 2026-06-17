@@ -57,7 +57,7 @@ public class HeirloomSwordModClient {
             event.register(ModKeybinds.QUICK_FIRE);
         }
 
-                @SubscribeEvent
+        @SubscribeEvent
         public static void onRegisterRenderers(EntityRenderersEvent.RegisterRenderers event) {
             event.registerEntityRenderer(ModEntities.SWORD_FAMILIAR.get(), SwordFamiliarGeoRenderer::new);
         }
@@ -72,22 +72,24 @@ public class HeirloomSwordModClient {
     public static class ClientEvents {
         private static boolean isCharging = false;
         private static int clientChargeTimer = 0;
-        private static boolean chargeConfirmed = false;  // server-confirmed CHARGING seen at least once
+        private static boolean chargeConfirmed = false; // server-confirmed CHARGING seen at least once
 
         private static boolean isSweeping = false;
         private static float lastYaw = 0;
         private static float lastPitch = 0;
-        private static boolean sweepConfirmed = false;   // server-confirmed SWEEPING_HOLD seen at least once
+        private static boolean sweepConfirmed = false; // server-confirmed SWEEPING_HOLD seen at least once
 
         private static boolean isBlocking = false;
 
-        // Tether: hold left-click for 300 ms (6 ticks) to yank to the sword midpoint from STUCK.
+        // Tether: hold left-click for 300 ms (6 ticks) to yank to the sword midpoint
+        // from STUCK.
         // Rising-edge resets the counter so only a fresh hold counts.
         private static boolean wasAttacking = false;
         private static int attackHoldTicks = 0;
         private static final int TETHER_HOLD_TICKS = 6; // 300 ms at 20 TPS [TUNE]
 
-        // Hand shimmer is a rare ambient cue: at most one particle per interval while flying.
+        // Hand shimmer is a rare ambient cue: at most one particle per interval while
+        // flying.
         private static final int HAND_PARTICLE_INTERVAL = 50; // 2.5 s at 20 tps
         private static int handParticleCooldown = 0;
 
@@ -96,10 +98,16 @@ public class HeirloomSwordModClient {
             Minecraft mc = Minecraft.getInstance();
             if (mc.player == null || mc.screen != null) {
                 if (isCharging) {
-                    if (mc.player != null) cancelCharging(); else resetChargeState();
+                    if (mc.player != null)
+                        cancelCharging();
+                    else
+                        resetChargeState();
                 }
                 if (isBlocking) {
-                    if (mc.player != null) cancelBlocking(); else resetBlockState();
+                    if (mc.player != null)
+                        cancelBlocking();
+                    else
+                        resetBlockState();
                 }
                 return;
             }
@@ -107,17 +115,26 @@ public class HeirloomSwordModClient {
             LocalPlayer player = mc.player;
             ItemStack held = player.getMainHandItem();
 
-            // V quick-fire is drained here — above the held-item gate — so the familiar can be
-            // loosed even when the sword isn't the selected item (e.g. a quick defense while
-            // eating), and so presses never queue up to fire the instant the sword is reselected.
-            // The familiar only exists in flying mode, so its presence is the flying-mode signal;
+            // V quick-fire is drained here — above the held-item gate — so the familiar can
+            // be
+            // loosed even when the sword isn't the selected item (e.g. a quick defense
+            // while
+            // eating), and so presses never queue up to fire the instant the sword is
+            // reselected.
+            // The familiar only exists in flying mode, so its presence is the flying-mode
+            // signal;
             // normal-mode warp still requires the sword in hand.
             while (ModKeybinds.QUICK_FIRE.consumeClick()) {
                 SwordFamiliarEntity familiar = findClientFamiliar(player);
                 if (familiar != null) {
-                    if (!isManaExempt(player) && ClientManaState.lockoutTicks > 0) { playDeniedClient(player); continue; }
-                    if (familiar.getState() != FamiliarState.HOVERING) continue;
-                    if (familiar.getAwarenessTarget() == null) continue; // needs a lock-on
+                    if (!isManaExempt(player) && ClientManaState.lockoutTicks > 0) {
+                        playDeniedClient(player);
+                        continue;
+                    }
+                    if (familiar.getState() != FamiliarState.HOVERING)
+                        continue;
+                    if (familiar.getAwarenessTarget() == null)
+                        continue; // needs a lock-on
                     PacketDistributor.sendToServer(new SwordQuickFirePacket());
                 } else if (held.getItem() instanceof HeirloomSwordItem && !HeirloomSwordItem.isFlying(held)) {
                     // Normal mode: server validates target / mana / cooldown and gives feedback.
@@ -126,56 +143,71 @@ public class HeirloomSwordModClient {
             }
 
             if (!(held.getItem() instanceof HeirloomSwordItem)) {
-                if (isCharging) resetChargeState();
-                if (isSweeping) resetSweepState();
-                if (isBlocking) cancelBlocking();
+                if (isCharging)
+                    resetChargeState();
+                if (isSweeping)
+                    resetSweepState();
+                if (isBlocking)
+                    cancelBlocking();
                 return;
             }
 
-            // Count down the depletion lockout locally (mirrors the server; re-synced on its
-            // final tick). While > 0, every sword input below except the F mode toggle is blocked.
+            // Count down the depletion lockout locally (mirrors the server; re-synced on
+            // its
+            // final tick). While > 0, every sword input below except the F mode toggle is
+            // blocked.
             if (ClientManaState.lockoutTicks > 0) {
                 ClientManaState.lockoutTicks--;
             }
 
-                        // Handle F key (toggle mode)
-                        while (ModKeybinds.TOGGLE_MODE.consumeClick()) {
-                            SwordMode toggledCurrent = HeirloomSwordItem.getMode(held);
-                            if (toggledCurrent == SwordMode.NORMAL) {
-                                if (player.isSwimming() || player.isFallFlying() || player.isPassenger()) {
-                                    continue;
-                                }
-                            }
-                
-                            if (HeirloomSwordItem.isFlying(held)) {
-                                SwordFamiliarEntity familiar = findClientFamiliar(player);
-                                if (familiar != null
-                                        && familiar.getState() != FamiliarState.HOVERING
-                                        && familiar.getState() != FamiliarState.SWEEPING_HOLD
-                                        && familiar.getState() != FamiliarState.BLOCKING) {
-                                    continue; // F is locked during other active states
-                                }
-                            }
-                            if (isSweeping) resetSweepState();
-                            if (isBlocking) resetBlockState();
-                            PacketDistributor.sendToServer(new SwordModePacket());
-                            SwordMode next = toggledCurrent == SwordMode.NORMAL ? SwordMode.FLYING : SwordMode.NORMAL;
-                            HeirloomSwordItem.setMode(held, next);
-                        }
+            // Handle F key (toggle mode)
+            while (ModKeybinds.TOGGLE_MODE.consumeClick()) {
+                SwordMode toggledCurrent = HeirloomSwordItem.getMode(held);
+                if (toggledCurrent == SwordMode.NORMAL) {
+                    if (player.isSwimming() || player.isFallFlying() || player.isPassenger()) {
+                        continue;
+                    }
+                }
+
+                if (HeirloomSwordItem.isFlying(held)) {
+                    SwordFamiliarEntity familiar = findClientFamiliar(player);
+                    if (familiar != null
+                            && familiar.getState() != FamiliarState.HOVERING
+                            && familiar.getState() != FamiliarState.SWEEPING_HOLD
+                            && familiar.getState() != FamiliarState.BLOCKING) {
+                        continue; // F is locked during other active states
+                    }
+                }
+                if (isSweeping)
+                    resetSweepState();
+                if (isBlocking)
+                    resetBlockState();
+                PacketDistributor.sendToServer(new SwordModePacket());
+                SwordMode next = toggledCurrent == SwordMode.NORMAL ? SwordMode.FLYING : SwordMode.NORMAL;
+                HeirloomSwordItem.setMode(held, next);
+            }
 
             // Handle R key (recall) — ignored during sweep states
             while (ModKeybinds.RECALL.consumeClick()) {
-                if (!HeirloomSwordItem.isFlying(held)) continue;
-                if (!isManaExempt(player) && ClientManaState.lockoutTicks > 0) { playDeniedClient(player); continue; }
+                if (!HeirloomSwordItem.isFlying(held))
+                    continue;
+                if (!isManaExempt(player) && ClientManaState.lockoutTicks > 0) {
+                    playDeniedClient(player);
+                    continue;
+                }
                 SwordFamiliarEntity familiar = findClientFamiliar(player);
                 if (familiar != null && (familiar.getState() == FamiliarState.SWEEPING_HOLD
-                        || familiar.getState() == FamiliarState.SWEEPING_RELEASE)) continue;
+                        || familiar.getState() == FamiliarState.SWEEPING_RELEASE))
+                    continue;
                 PacketDistributor.sendToServer(new SwordRecallPacket());
             }
 
-            // Tether: hold left-click for TETHER_HOLD_TICKS while in flying mode to yank to the
-            // sword midpoint from STUCK. Rising-edge resets the counter so only a fresh hold counts.
-            // Gate is at threshold — counting happens regardless of state, packet only fires if STUCK.
+            // Tether: hold left-click for TETHER_HOLD_TICKS while in flying mode to yank to
+            // the
+            // sword midpoint from STUCK. Rising-edge resets the counter so only a fresh
+            // hold counts.
+            // Gate is at threshold — counting happens regardless of state, packet only
+            // fires if STUCK.
             boolean attackingNow = mc.options.keyAttack.isDown();
             if (!attackingNow) {
                 attackHoldTicks = 0;
@@ -236,8 +268,10 @@ public class HeirloomSwordModClient {
                             if (!isManaExempt(player) && ClientManaState.current < ManaService.MIN_BLOCK) {
                                 playDeniedClient(player);
                             } else {
-                                if (isCharging) resetChargeState();   // G cancels the charge — no launch packet
-                                if (isSweeping) resetSweepState();    // G arrests the sweep — no release packet
+                                if (isCharging)
+                                    resetChargeState(); // G cancels the charge — no launch packet
+                                if (isSweeping)
+                                    resetSweepState(); // G arrests the sweep — no release packet
                                 PacketDistributor.sendToServer(new SwordGuardPacket(true));
                                 isBlocking = true;
                             }
@@ -250,7 +284,7 @@ public class HeirloomSwordModClient {
                 }
             }
 
-                        // Handle sweep hold state
+            // Handle sweep hold state
             if (isSweeping) {
                 if (!HeirloomSwordItem.isFlying(held)) {
                     resetSweepState();
@@ -294,9 +328,11 @@ public class HeirloomSwordModClient {
                     lastPitch = currentPitch;
                 }
             }
-            
-                        // Telekinetic shimmer at the hand while flying mode is active — throttled to a single
-            // particle every HAND_PARTICLE_INTERVAL ticks so it reads as a faint occasional glint.
+
+            // Telekinetic shimmer at the hand while flying mode is active — throttled to a
+            // single
+            // particle every HAND_PARTICLE_INTERVAL ticks so it reads as a faint occasional
+            // glint.
             if (HeirloomSwordItem.isFlying(held) && mc.level != null && --handParticleCooldown <= 0) {
                 handParticleCooldown = HAND_PARTICLE_INTERVAL;
                 double dx = (player.getRandom().nextDouble() - 0.5) * 0.2;
@@ -321,12 +357,15 @@ public class HeirloomSwordModClient {
         @SubscribeEvent
         public static void onMouseClick(InputEvent.InteractionKeyMappingTriggered event) {
             Minecraft mc = Minecraft.getInstance();
-            if (mc.player == null || mc.screen != null) return;
+            if (mc.player == null || mc.screen != null)
+                return;
 
             LocalPlayer player = mc.player;
             ItemStack held = player.getMainHandItem();
-            if (!(held.getItem() instanceof HeirloomSwordItem)) return;
-            if (!HeirloomSwordItem.isFlying(held)) return;
+            if (!(held.getItem() instanceof HeirloomSwordItem))
+                return;
+            if (!HeirloomSwordItem.isFlying(held))
+                return;
 
             // Left click (attack) — begin charging or suppress during active states
             if (event.isAttack()) {
@@ -386,11 +425,15 @@ public class HeirloomSwordModClient {
         }
 
         private static void playDeniedClient(LocalPlayer player) {
-            // Mirror of SwordSounds.playDenied, played locally for client-predicted denials.
+            // Mirror of SwordSounds.playDenied, played locally for client-predicted
+            // denials.
             player.playSound(net.minecraft.sounds.SoundEvents.DISPENSER_FAIL, 0.5f, 1.2f);
         }
 
-        /** Creative/spectator players have infinite mana — client prediction mirrors the server exemption. */
+        /**
+         * Creative/spectator players have infinite mana — client prediction mirrors the
+         * server exemption.
+         */
         private static boolean isManaExempt(LocalPlayer player) {
             return player.getAbilities().instabuild || player.isSpectator();
         }
@@ -418,18 +461,21 @@ public class HeirloomSwordModClient {
         }
 
         private static void cancelCharging() {
-            // Abort the charge server-side (no launch) so it can't get stuck in CHARGING limbo
+            // Abort the charge server-side (no launch) so it can't get stuck in CHARGING
+            // limbo
             // when the player opens a screen / pauses mid-charge.
             PacketDistributor.sendToServer(new SwordCancelChargePacket());
             resetChargeState();
         }
 
-                @SubscribeEvent
+        @SubscribeEvent
         public static void onRenderHand(RenderHandEvent event) {
-            if (event.getHand() != net.minecraft.world.InteractionHand.MAIN_HAND) return;
+            if (event.getHand() != net.minecraft.world.InteractionHand.MAIN_HAND)
+                return;
 
             Minecraft mc = Minecraft.getInstance();
-            if (mc.player == null) return;
+            if (mc.player == null)
+                return;
             ItemStack stack = mc.player.getMainHandItem();
             if (stack.getItem() instanceof HeirloomSwordItem && HeirloomSwordItem.isFlying(stack)) {
                 event.setCanceled(true);
@@ -441,15 +487,17 @@ public class HeirloomSwordModClient {
         @SubscribeEvent
         public static void onRenderGuiPost(RenderGuiLayerEvent.Post event) {
             Minecraft mc = Minecraft.getInstance();
-            if (mc.player == null) return;
+            if (mc.player == null)
+                return;
 
             LocalPlayer player = mc.player;
 
             // Mana bar: shown whenever the sword is in hand (normal or flying) or the
-            // familiar is present. Hidden in creative — mana is infinite, so it conveys nothing.
+            // familiar is present. Hidden in creative — mana is infinite, so it conveys
+            // nothing.
             boolean showMana = !isManaExempt(player)
                     && (player.getMainHandItem().getItem() instanceof HeirloomSwordItem
-                        || findClientFamiliar(player) != null);
+                            || findClientFamiliar(player) != null);
             if (showMana) {
                 renderManaBar(event.getGuiGraphics(),
                         mc.getWindow().getGuiScaledWidth(), mc.getWindow().getGuiScaledHeight());
@@ -482,10 +530,10 @@ public class HeirloomSwordModClient {
         private static void renderManaBar(GuiGraphics guiGraphics, int screenWidth, int screenHeight) {
             float ratio = Mth.clamp(ClientManaState.current / ManaService.MAX_MANA, 0f, 1f);
 
-            int barWidth = 81;  // [TUNE] matches hunger-bar span (10 icons × 9px, right-aligned)
+            int barWidth = 81; // [TUNE] matches hunger-bar span (10 icons × 9px, right-aligned)
             int barHeight = 4;
-            int barX = screenWidth / 2 + 10;  // left edge of hunger bar
-            int barY = screenHeight - 47;      // just above the hunger icon row
+            int barX = screenWidth / 2 + 10; // left edge of hunger bar
+            int barY = screenHeight - 47; // just above the hunger icon row
             int fillWidth = (int) (barWidth * ratio);
 
             // Slot-gray outline + dark interior track + a conventional mana-blue fill.
@@ -516,7 +564,8 @@ public class HeirloomSwordModClient {
         private static void renderPurpleGlow(GuiGraphics guiGraphics, int x, int y, boolean stuck) {
             // Subtle 1px purple outline around the slot's item area
             guiGraphics.renderOutline(x + 2, y + 2, 18, 18, 0x669933FF);
-            // While the blade is embedded in a block (STUCK), nest a red alert ring just inside
+            // While the blade is embedded in a block (STUCK), nest a red alert ring just
+            // inside
             // the purple one so the player knows at a glance even when far from the impact.
             if (stuck) {
                 guiGraphics.renderOutline(x + 3, y + 3, 16, 16, 0xCCFF2A2A);

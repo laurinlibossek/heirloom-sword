@@ -47,7 +47,7 @@ public class HeirloomSwordItemRenderer extends GeoItemRenderer<HeirloomSwordItem
             poseStack.mulPose(com.mojang.math.Axis.YP.rotationDegrees(90f));
             // Please for the love of God dont touch these values 
             poseStack.scale(2.5f, 2.5f, 2.5f);
-            poseStack.translate(-0.2, -3.45, -0.3);
+            poseStack.translate(-0.2, -3.4, -0.3);
         }
 
         super.renderByItem(stack, displayContext, poseStack, bufferSource, packedLight, packedOverlay);
