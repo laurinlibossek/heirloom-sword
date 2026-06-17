@@ -462,14 +462,6 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
         if (to == FamiliarState.SWEEPING_HOLD) {
             spinRampTicks = 0; // rev the sawblade up from rest
         }
-        if (from == FamiliarState.ARRIVING && to == FamiliarState.HOVERING) {
-            for (int i = 0; i < 24; i++) {
-                double angle = (Math.PI * 2 * i) / 24;
-                this.level().addParticle(ParticleTypes.WITCH,
-                        getX() + Math.cos(angle) * 0.8, getY(), getZ() + Math.sin(angle) * 0.8,
-                        Math.cos(angle) * 0.15, 0.05, Math.sin(angle) * 0.15);
-            }
-        }
     }
 
     // === HOVERING ===
@@ -481,7 +473,7 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
         idle.tick(owner);          // adds idle offset to targetPosition (no-op when not idle)
         applySpringPhysics();
         updateMobAwareness(owner);
-        if (this.tickCount % 80 == 0) {
+        if (this.tickCount % 300 == 0) {
             SwordSounds.playHoverAmbient(this.level(), getX(), getY(), getZ());
         }
     }
@@ -850,6 +842,7 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
 
         if (!this.level().isClientSide) {
             SwordSounds.playTetherStart(this.level(), getX(), getY(), getZ());
+            SwordSounds.playTetherStart(this.level(), owner.getX(), owner.getY(), owner.getZ());
         }
     }
 
@@ -860,10 +853,7 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
         // No velocity is set here, so the flight stays smooth instead of stuttering against a
         // per-tick re-aim.
 
-        // Throttled reel-in loop (one-shot every 4 ticks while in flight).
-        if (!this.level().isClientSide && tetherTimer % 4 == 0) {
-            SwordSounds.playTetherLoop(this.level(), getX(), getY(), getZ());
-        }
+        // Throttled reel-in loop (disabled)
 
         // Arrival: player within range of the snapshot midpoint.
         if (owner.position().distanceToSqr(tetherMidpoint) <= TETHER_ARRIVAL_RANGE * TETHER_ARRIVAL_RANGE) {
@@ -898,7 +888,6 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
 
     private void endTether() {
         if (!this.level().isClientSide) {
-            SwordSounds.playTetherArrival(this.level(), getX(), getY(), getZ());
             ((net.minecraft.server.level.ServerLevel) this.level()).sendParticles(ParticleTypes.POOF,
                     getX(), getY() + getBbHeight() * 0.5, getZ(), 16, 0.25, 0.3, 0.25, 0.03);
         }
@@ -1332,7 +1321,17 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
             crystal.hurt(source, damage);
         }
 
-        boolean anyHit = !entities.isEmpty() || !crystals.isEmpty();
+        // Boats and Minecarts are Entity, not LivingEntity — third pass so the sword can destroy them like arrows do.
+        List<Entity> vehicles = this.level().getEntitiesOfClass(Entity.class, sweepBox,
+                e -> (e instanceof net.minecraft.world.entity.vehicle.Boat || e instanceof net.minecraft.world.entity.vehicle.AbstractMinecart)
+                        && e.isAlive() && e != owner.getVehicle() && !hitSet.contains(e.getId()));
+        DamageSource projectileSource = this.level().damageSources().thrown(this, owner);
+        for (Entity vehicle : vehicles) {
+            hitSet.add(vehicle.getId());
+            vehicle.hurt(projectileSource, 100.0f);
+        }
+
+        boolean anyHit = !entities.isEmpty() || !crystals.isEmpty() || !vehicles.isEmpty();
         if (anyHit && this.level() instanceof net.minecraft.server.level.ServerLevel sl) {
             SwordSounds.playImpact(this.level(), getX(), getY(), getZ());
             sl.sendParticles(ParticleTypes.CRIT,
@@ -1579,9 +1578,7 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
                 this.smoothedAnchorY = Double.NaN;
                 this.awakening = false;
                 setState(FamiliarState.HOVERING);
-                this.level().playSound(null, this.blockPosition(),
-                        net.minecraft.sounds.SoundEvents.AMETHYST_CLUSTER_BREAK,
-                        net.minecraft.sounds.SoundSource.PLAYERS, 1.0f, 0.7f);
+                SwordSounds.playLandingTouchdown(this.level(), this.getX(), this.getY(), this.getZ());
             }
             return;
         }
@@ -1594,9 +1591,7 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
             this.velocity = Vec3.ZERO;
             this.smoothedAnchorY = Double.NaN;
             setState(FamiliarState.HOVERING);
-            this.level().playSound(null, this.blockPosition(),
-                    net.minecraft.sounds.SoundEvents.AMETHYST_CLUSTER_BREAK,
-                    net.minecraft.sounds.SoundSource.PLAYERS, 1.0f, 0.7f);
+            SwordSounds.playLandingTouchdown(this.level(), this.getX(), this.getY(), this.getZ());
             // Landing impact: 4 damage + knockback in a 3-block radius (not the owner)
             for (LivingEntity target : this.level().getEntitiesOfClass(LivingEntity.class,
                     this.getBoundingBox().inflate(3.0), e -> e != owner && e.isAlive())) {

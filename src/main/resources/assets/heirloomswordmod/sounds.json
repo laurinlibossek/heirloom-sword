@@ -1,0 +1,41 @@
+{
+  "sword_mode_exit": {
+    "subtitle": "subtitles.heirloomswordmod.sword_mode_exit",
+    "sounds": [
+      "heirloomswordmod:sword_mode_exit"
+    ]
+  },
+  "sword_ambient": {
+    "subtitle": "subtitles.heirloomswordmod.sword_ambient",
+    "sounds": [
+      "heirloomswordmod:sword_ambient",
+      "heirloomswordmod:sword_ambient_1",
+      "heirloomswordmod:sword_ambient_2",
+      "heirloomswordmod:sword_ambient_3"
+    ]
+  },
+  "sword_arrives": {
+    "subtitle": "subtitles.heirloomswordmod.sword_arrives",
+    "sounds": [
+      "heirloomswordmod:sword_arrives"
+    ]
+  },
+  "sword_block_arrow": {
+    "subtitle": "subtitles.heirloomswordmod.sword_block_arrow",
+    "sounds": [
+      "heirloomswordmod:sword_block_arrow"
+    ]
+  },
+  "sword_charging": {
+    "subtitle": "subtitles.heirloomswordmod.sword_charging",
+    "sounds": [
+      "heirloomswordmod:sword_charging"
+    ]
+  },
+  "sword_guarding_start": {
+    "subtitle": "subtitles.heirloomswordmod.sword_guarding_start",
+    "sounds": [
+      "heirloomswordmod:sword_guarding_start"
+    ]
+  }
+}

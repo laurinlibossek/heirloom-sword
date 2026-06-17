@@ -444,6 +444,10 @@ public class HeirloomSwordModClient {
             isCharging = false;
             clientChargeTimer = 0;
             chargeConfirmed = false;
+            Minecraft mc = Minecraft.getInstance();
+            if (mc.getSoundManager() != null) {
+                mc.getSoundManager().stop(ModSounds.SWORD_CHARGING.value().getLocation(), net.minecraft.sounds.SoundSource.PLAYERS);
+            }
         }
 
         private static void resetSweepState() {

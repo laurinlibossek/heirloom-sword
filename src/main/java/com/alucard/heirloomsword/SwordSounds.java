@@ -31,20 +31,20 @@ public final class SwordSounds {
 
     // === Phase 10 placeholder cues (vanilla sounds; swap to custom SoundEvents in the audio pass) ===
 
-    /** Flying mode entered (F). */
+    /** Flying mode entered (F). (Disabled) */
     public static void playModeEnter(Level level, double x, double y, double z) {
-        level.playSound(null, x, y, z, SoundEvents.EXPERIENCE_ORB_PICKUP, SoundSource.PLAYERS, 0.6f, 1.0f);
+        // Removed altogether
     }
 
-    /** Flying mode exited to normal (F toggle). Pitched down vs enter. */
+    /** Flying mode exited to normal (F toggle). Pitched down vs enter. Quite quiet. */
     public static void playModeExit(Level level, double x, double y, double z) {
-        level.playSound(null, x, y, z, SoundEvents.EXPERIENCE_ORB_PICKUP, SoundSource.PLAYERS, 0.6f, 0.7f);
+        level.playSound(null, x, y, z, ModSounds.SWORD_MODE_EXIT.value(), SoundSource.PLAYERS, 0.08f, 1.0f);
     }
 
-    /** Familiar launch. Charged launch is louder and pitched down. */
+    /** Familiar launch. Charged launch is louder and pitched down. Pitch way down, quieter. */
     public static void playLaunch(Level level, double x, double y, double z, boolean charged) {
         level.playSound(null, x, y, z, SoundEvents.TRIDENT_THROW, SoundSource.PLAYERS,
-                charged ? 1.2f : 0.9f, charged ? 0.8f : 1.0f);
+                charged ? 0.7f : 0.5f, charged ? 0.4f : 0.6f);
     }
 
     /** Familiar strikes an entity (launch / return / quick-fire contact). */
@@ -52,35 +52,49 @@ public final class SwordSounds {
         level.playSound(null, x, y, z, SoundEvents.PLAYER_ATTACK_SWEEP, SoundSource.PLAYERS, 0.9f, 1.0f);
     }
 
-    /** Familiar reaches the player at the end of RETURNING. */
+    /** Familiar reaches the player at the end of RETURNING. Reuses old experience point pickup sound, very quiet. */
     public static void playReturnArrival(Level level, double x, double y, double z) {
-        level.playSound(null, x, y, z, SoundEvents.EXPERIENCE_ORB_PICKUP, SoundSource.PLAYERS, 0.5f, 1.3f);
+        level.playSound(null, x, y, z, SoundEvents.EXPERIENCE_ORB_PICKUP, SoundSource.PLAYERS, 0.15f, 1.3f);
     }
 
-    /** SWEEPING_HOLD contact with an entity. */
+    /** Familiar touchdown landing (arriving state). Quieter than before. */
+    public static void playLandingTouchdown(Level level, double x, double y, double z) {
+        level.playSound(null, x, y, z, ModSounds.SWORD_ARRIVES.value(), SoundSource.PLAYERS, 0.15f, 1.0f);
+    }
+
+    /** SWEEPING_HOLD contact with an entity. Quieter, pitched up. */
     public static void playSweepContact(Level level, double x, double y, double z) {
-        level.playSound(null, x, y, z, SoundEvents.PLAYER_ATTACK_KNOCKBACK, SoundSource.PLAYERS, 0.8f, 1.0f);
+        level.playSound(null, x, y, z, SoundEvents.PLAYER_ATTACK_KNOCKBACK, SoundSource.PLAYERS, 0.4f, 1.3f);
     }
 
-    /** Guard raised (entering BLOCKING). Quieter/higher than the block-hit cue. */
+    /** Guard raised (entering BLOCKING). */
     public static void playGuardRaised(Level level, double x, double y, double z) {
-        level.playSound(null, x, y, z, SoundEvents.SHIELD_BLOCK, SoundSource.PLAYERS, 0.7f, 1.1f);
+        level.playSound(null, x, y, z, ModSounds.SWORD_GUARDING_START.value(), SoundSource.PLAYERS, 0.7f, 1.0f);
     }
 
-    /** Guard broken (mana exhausted while BLOCKING). */
+    /** Frontal shield block melee hits. Uses same custom deflect arrow sound. */
+    public static void playShieldBlockMelee(Level level, double x, double y, double z) {
+        level.playSound(null, x, y, z, ModSounds.SWORD_BLOCK_ARROW.value(), SoundSource.PLAYERS, 1.0f, 1.0f);
+    }
+
+    /** Projectile deflection off the blade plane. Uses custom block/deflect arrow sound. */
+    public static void playShieldDeflectArrow(Level level, double x, double y, double z) {
+        level.playSound(null, x, y, z, ModSounds.SWORD_BLOCK_ARROW.value(), SoundSource.PLAYERS, 1.0f, 1.0f);
+    }
+
+    /** Guard broken (mana exhausted while BLOCKING). Uses chain break. */
     public static void playGuardBreak(Level level, double x, double y, double z) {
-        level.playSound(null, x, y, z, SoundEvents.SHIELD_BREAK, SoundSource.PLAYERS, 1.0f, 1.0f);
+        level.playSound(null, x, y, z, SoundEvents.CHAIN_BREAK, SoundSource.PLAYERS, 1.0f, 1.0f);
     }
 
-    /** Charge building loop (throttled one-shot). progress 0..1 raises the pitch. */
+    /** Charge building loop (throttled one-shot). Quieter than before, played at native pitch. */
     public static void playChargeLoop(Level level, double x, double y, double z, float progress) {
-        level.playSound(null, x, y, z, SoundEvents.AMETHYST_BLOCK_RESONATE, SoundSource.PLAYERS,
-                0.5f, 0.6f + progress * 0.8f);
+        level.playSound(null, x, y, z, ModSounds.SWORD_CHARGING.value(), SoundSource.PLAYERS, 0.15f, 1.0f);
     }
 
-    /** Hovering ambient (throttled one-shot, very quiet) [TUNE: most likely to annoy — easy to disable]. */
+    /** Hovering ambient (throttled one-shot). */
     public static void playHoverAmbient(Level level, double x, double y, double z) {
-        level.playSound(null, x, y, z, SoundEvents.ENCHANTMENT_TABLE_USE, SoundSource.PLAYERS, 0.2f, 1.4f);
+        level.playSound(null, x, y, z, ModSounds.SWORD_AMBIENT.value(), SoundSource.PLAYERS, 0.05f, 1.0f);
     }
 
     /** Familiar death-fall (owner death / despawn). */
@@ -95,13 +109,13 @@ public final class SwordSounds {
         level.playSound(null, x, y, z, SoundEvents.CHAIN_BREAK, SoundSource.PLAYERS, 0.9f, 1.0f);
     }
 
-    /** Tether pull loop (throttled one-shot while TETHERING). Pitched up reel-in whir. */
+    /** Tether pull loop (disabled, empty placeholder). */
     public static void playTetherLoop(Level level, double x, double y, double z) {
-        level.playSound(null, x, y, z, SoundEvents.FISHING_BOBBER_RETRIEVE, SoundSource.PLAYERS, 0.5f, 1.6f);
+        // No longer necessary
     }
 
-    /** Tether ends — sword wrenches free into RETURNING. Quieter, pitched-up teleport-like pop. */
+    /** Tether ends (disabled, empty placeholder). */
     public static void playTetherArrival(Level level, double x, double y, double z) {
-        level.playSound(null, x, y, z, SoundEvents.ENDERMAN_TELEPORT, SoundSource.PLAYERS, 0.6f, 1.3f);
+        // Removed altogether
     }
 }

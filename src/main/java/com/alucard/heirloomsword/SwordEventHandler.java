@@ -56,9 +56,8 @@ public class SwordEventHandler {
         if (familiar == null || familiar.getState() != FamiliarState.BLOCKING) return;
 
         DamageSource source = event.getSource();
-        // Shield-equivalent: frontal physical damage only — no explosions, magic, or AoE.
+        // Shield-equivalent: frontal physical damage/explosions — no magic or bypass shield.
         if (source.is(DamageTypeTags.BYPASSES_SHIELD)
-                || source.is(DamageTypeTags.IS_EXPLOSION)
                 || source.is(DamageTypeTags.BYPASSES_ARMOR)) {
             return;
         }
@@ -74,8 +73,7 @@ public class SwordEventHandler {
         if (toPlayer.dot(look) >= 0.0) return; // attack came from the side/behind
 
         event.setCanceled(true);
-        player.level().playSound(null, player.blockPosition(),
-                SoundEvents.SHIELD_BLOCK, SoundSource.PLAYERS, 1.0f, 0.9f);
+        SwordSounds.playShieldBlockMelee(player.level(), player.getX(), player.getY(), player.getZ());
     }
 
     @SubscribeEvent
@@ -117,8 +115,7 @@ public class SwordEventHandler {
             arrow.setOwner(player); // a deflected arrow belongs to the blocker now
         }
 
-        player.level().playSound(null, player.blockPosition(),
-                SoundEvents.SHIELD_BLOCK, SoundSource.PLAYERS, 1.0f, 1.3f);
+        SwordSounds.playShieldDeflectArrow(player.level(), player.getX(), player.getY(), player.getZ());
     }
 
     @SubscribeEvent
