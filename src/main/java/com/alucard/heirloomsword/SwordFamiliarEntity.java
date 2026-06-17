@@ -145,7 +145,7 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
     }
 
     // SWEEPING constants
-    private static final double SWEEP_HOLD_DISTANCE = 1.8;
+    private static final double SWEEP_HOLD_DISTANCE = 2.7; // [TUNE] was 1.8, +50% per §25 feedback
     private static final int SWEEP_IFRAME_TICKS = 6;
     private static final double SWEEP_MOMENTUM_SCALE = 0.08;
     private static final double SWEEP_DAMPING = 0.72;
@@ -364,6 +364,23 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
     private void serverTick() {
         Player owner = getOwner();
         if (owner == null || owner.isRemoved() || !owner.isAlive()) {
+            removeChargeSlowdown();
+            this.discard();
+            return;
+        }
+
+        // If the sword item left the owner's inventory (moved to chest, traded, etc.) while
+        // the familiar was active, orphan-discard so the entity doesn't keep running forever.
+        // onPlayerTick in SwordEventHandler will reset the mode flag when the item is next seen.
+        boolean hasFlyingSword = false;
+        for (int i = 0; i < owner.getInventory().getContainerSize(); i++) {
+            ItemStack s = owner.getInventory().getItem(i);
+            if (s.getItem() instanceof HeirloomSwordItem && HeirloomSwordItem.isFlying(s)) {
+                hasFlyingSword = true;
+                break;
+            }
+        }
+        if (!hasFlyingSword) {
             removeChargeSlowdown();
             this.discard();
             return;
@@ -1196,8 +1213,8 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
                 if (canDamage(owner, living)) {
                     living.hurt(this.level().damageSources().playerAttack(owner), quickFireDamage());
                     igniteIfUndead(living);
+                    living.knockback(0.3, this.getX() - living.getX(), this.getZ() - living.getZ());
                 }
-                living.knockback(0.3, this.getX() - living.getX(), this.getZ() - living.getZ());
                 bloodyOwnerBlade(living);
                 if (this.level() instanceof net.minecraft.server.level.ServerLevel sl) {
                     SwordSounds.playImpact(this.level(), getX(), getY(), getZ());
@@ -1719,6 +1736,21 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
             targetYaw = (float) Math.toDegrees(Math.atan2(-toTarget.x, toTarget.z));
             double horizDist = Math.sqrt(toTarget.x * toTarget.x + toTarget.z * toTarget.z);
             targetPitch = (float) -Math.toDegrees(Math.atan2(toTarget.y, horizDist));
+        } else if (getState() == FamiliarState.HOVERING) {
+            // During elytra flight the sword aims at the player (blade points toward them).
+            // In all other hovering situations it mirrors the player's facing.
+            Player owner = getOwner();
+            if (owner != null && owner.isFallFlying()) {
+                Vec3 toOwner = owner.position().add(0, owner.getBbHeight() * 0.5, 0).subtract(this.position());
+                if (toOwner.lengthSqr() > 0.01) {
+                    targetYaw = (float) Math.toDegrees(Math.atan2(-toOwner.x, toOwner.z));
+                    double hd = Math.sqrt(toOwner.x * toOwner.x + toOwner.z * toOwner.z);
+                    targetPitch = (float) -Math.toDegrees(Math.atan2(toOwner.y, hd));
+                }
+            } else if (owner != null) {
+                targetYaw = owner.getYRot();
+                targetPitch = 0;
+            }
         } else if (getState() == FamiliarState.LAUNCHING) {
             Vec3 dir = getLaunchDirection();
             if (dir.lengthSqr() > 1.0e-4) {

@@ -204,11 +204,12 @@ public class SwordEventHandler {
                 && item.getItem().getItem() instanceof HeirloomSwordItem) {
             item.setUnlimitedLifetime();  // never despawns from age (persists via Age NBT)
             item.setExtendedLifetime();   // also exempt from merge-despawn shortcuts
+            item.setInvulnerable(true);   // immune to cactus, fire, lava, explosions (void bypasses this via BYPASSES_INVULNERABILITY, handled below)
         }
     }
 
     @SubscribeEvent
-    public void onItemEntityTick(EntityTickEvent.Post event) {
+    public void onItemEntityTick(EntityTickEvent.Pre event) {
         if (!(event.getEntity() instanceof ItemEntity item)) return;
         if (!(item.getItem().getItem() instanceof HeirloomSwordItem)) return;
         Level level = item.level();

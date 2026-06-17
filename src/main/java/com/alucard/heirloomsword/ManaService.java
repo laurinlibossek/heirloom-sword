@@ -37,7 +37,7 @@ public final class ManaService {
      * the depletion lockout.
      */
     public static boolean isExempt(Player player) {
-        return !Config.CONSUME_MANA.getAsBoolean() || player.getAbilities().instabuild;
+        return !Config.CONSUME_MANA.getAsBoolean() || player.getAbilities().instabuild || player.isSpectator();
     }
 
     public static float get(Player player) {
