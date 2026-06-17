@@ -1323,7 +1323,17 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
             // Return flight passes through mobs without re-bloodying; outbound strike already did.
             if (!returning) bloodyOwnerBlade(entity);
         }
-        if (!entities.isEmpty() && this.level() instanceof net.minecraft.server.level.ServerLevel sl) {
+        // End Crystals are plain Entity, not LivingEntity — second pass so the sword can destroy them.
+        List<net.minecraft.world.entity.boss.enderdragon.EndCrystal> crystals =
+                this.level().getEntitiesOfClass(net.minecraft.world.entity.boss.enderdragon.EndCrystal.class,
+                        sweepBox, e -> e.isAlive() && !hitSet.contains(e.getId()));
+        for (var crystal : crystals) {
+            hitSet.add(crystal.getId());
+            crystal.hurt(source, damage);
+        }
+
+        boolean anyHit = !entities.isEmpty() || !crystals.isEmpty();
+        if (anyHit && this.level() instanceof net.minecraft.server.level.ServerLevel sl) {
             SwordSounds.playImpact(this.level(), getX(), getY(), getZ());
             sl.sendParticles(ParticleTypes.CRIT,
                     getX(), getY() + getBbHeight() * 0.5, getZ(), 8, 0.2, 0.2, 0.2, 0.0);
