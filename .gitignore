@@ -43,6 +43,10 @@ repo/
 .claude/
 .mcp.json
 CLAUDE.md
-docs/alucard_sword_design_*.md
 Map.md
+
+### Local-only (not published) ###
+docs/
+graphify-out/
+.continue/
 
