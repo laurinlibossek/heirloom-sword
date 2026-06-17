@@ -390,9 +390,9 @@ public class HeirloomSwordModClient {
             player.playSound(net.minecraft.sounds.SoundEvents.DISPENSER_FAIL, 0.5f, 1.2f);
         }
 
-        /** Creative players have infinite mana — client prediction mirrors the server exemption. */
+        /** Creative/spectator players have infinite mana — client prediction mirrors the server exemption. */
         private static boolean isManaExempt(LocalPlayer player) {
-            return player.getAbilities().instabuild;
+            return player.getAbilities().instabuild || player.isSpectator();
         }
 
         private static void resetChargeState() {

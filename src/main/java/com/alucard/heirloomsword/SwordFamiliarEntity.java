@@ -1449,7 +1449,11 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
         velocity = displacement.scale(lerpFactor);
         velocity = velocity.scale(1.0 - SPRING_DAMPING);
 
-        double maxSpeed = 0.6;
+        // Speed cap grows with distance so the sword "tries harder" to catch up. [TUNE]
+        // 0.6 at ≤ MAX_LAG_DISTANCE, ramps to 2.5 at ~12 blocks out.
+        double maxSpeed = distance > MAX_LAG_DISTANCE
+                ? Math.min(0.6 + (distance - MAX_LAG_DISTANCE) * 0.28, 2.5)
+                : 0.6;
         if (velocity.length() > maxSpeed) {
             velocity = velocity.normalize().scale(maxSpeed);
         }
@@ -1696,8 +1700,10 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
 
     private void updateOrientation() {
         FamiliarState currentState = getState();
+        Player _orientOwner = getOwner();
+        boolean _elytra = currentState == FamiliarState.HOVERING && _orientOwner != null && _orientOwner.isFallFlying();
         boolean shouldBeHorizontal = switch (currentState) {
-            case HOVERING -> awarenessTarget != null || slashVisualTicks > 0;
+            case HOVERING -> awarenessTarget != null || slashVisualTicks > 0 || _elytra;
             case DYING -> false;
             case ARRIVING -> false;
             default -> true;
