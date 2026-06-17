@@ -162,6 +162,8 @@ public class HeirloomSwordModClient {
 
             // Handle F key (toggle mode)
             while (ModKeybinds.TOGGLE_MODE.consumeClick()) {
+                if (player.isSpectator()) continue;
+                
                 SwordMode toggledCurrent = HeirloomSwordItem.getMode(held);
                 if (toggledCurrent == SwordMode.NORMAL) {
                     if (player.isSwimming() || player.isFallFlying() || player.isPassenger()) {
@@ -519,7 +521,9 @@ public class HeirloomSwordModClient {
 
             SwordFamiliarEntity familiar = findClientFamiliar(player);
             boolean stuck = familiar != null && familiar.getState() == FamiliarState.STUCK;
-            renderPurpleGlow(guiGraphics, hotbarX, hotbarY, stuck);
+            if (!player.isSpectator()) {
+                renderPurpleGlow(guiGraphics, hotbarX, hotbarY, stuck);
+            }
 
             // Render charge bar when charging (only after 1 second hold)
             if (isCharging && clientChargeTimer >= 20) {
