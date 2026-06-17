@@ -1,6 +1,5 @@
 package com.alucard.heirloomsword;
 
-import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
@@ -18,7 +17,6 @@ import net.minecraft.world.entity.projectile.Fireball;
 import net.minecraft.world.entity.projectile.Projectile;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.level.storage.loot.LootPool;
 import net.minecraft.world.level.storage.loot.entries.LootItem;
 import net.minecraft.world.level.storage.loot.predicates.LootItemRandomChanceCondition;
@@ -215,11 +213,10 @@ public class SwordEventHandler {
         Level level = item.level();
         if (level.isClientSide) return;
         // Rescue before vanilla void-destruction at minBuildHeight - 64.
+        // Re-enter at the top of the build limit directly above where it fell — as if it
+        // looped through the void and dropped back from the sky at the same X/Z.
         if (item.getY() < level.getMinBuildHeight() - 32) {
-            BlockPos spawn = level.getSharedSpawnPos();
-            int safeY = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
-                    spawn.getX(), spawn.getZ());
-            item.setPos(spawn.getX() + 0.5, safeY + 1.0, spawn.getZ() + 0.5);
+            item.setPos(item.getX(), level.getMaxBuildHeight() - 1, item.getZ());
             item.setDeltaMovement(Vec3.ZERO);
             item.fallDistance = 0.0f;
         }
