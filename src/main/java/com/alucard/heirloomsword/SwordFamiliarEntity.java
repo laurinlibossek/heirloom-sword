@@ -14,6 +14,8 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityDimensions;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.NeutralMob;
 import net.minecraft.world.entity.Pose;
 import net.minecraft.world.entity.ai.attributes.AttributeInstance;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
@@ -68,6 +70,8 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
             SynchedEntityData.defineId(SwordFamiliarEntity.class, EntityDataSerializers.INT);
     private static final EntityDataAccessor<Optional<BlockPos>> DATA_CURIOSITY_POS =
             SynchedEntityData.defineId(SwordFamiliarEntity.class, EntityDataSerializers.OPTIONAL_BLOCK_POS);
+    private static final EntityDataAccessor<Integer> DATA_AWARENESS_TARGET =
+            SynchedEntityData.defineId(SwordFamiliarEntity.class, EntityDataSerializers.INT);
 
     private static final double HOVER_RADIUS = 1.65; // [TUNE] 1.5 felt too close, 1.8 too far
     private static final double HORIZONTAL_LOCK_LIFT = 0.5; // [TUNE] extra hover height while horizontal/locked-on
@@ -131,6 +135,35 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
         return owner.canHarmPlayer(victim); // honors scoreboard team friendly-fire
     }
 
+    private boolean isValidAwarenessTarget(Player owner, LivingEntity target) {
+        if (target == null || !target.isAlive() || target.getUUID().equals(owner.getUUID())) {
+            return false;
+        }
+        if (!canDamage(owner, target)) {
+            return false;
+        }
+        if (target instanceof Enemy) {
+            return true;
+        }
+        if (target instanceof Player) {
+            return true;
+        }
+        
+        UUID ownerId = owner.getUUID();
+        if (target instanceof NeutralMob neutral && ownerId.equals(neutral.getPersistentAngerTarget())) {
+            return true;
+        }
+        if (target instanceof Mob mob) {
+            if (mob.getTarget() != null && ownerId.equals(mob.getTarget().getUUID())) {
+                return true;
+            }
+            if (mob.getLastHurtByMob() != null && ownerId.equals(mob.getLastHurtByMob().getUUID())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     /**
      * Emits a vibration game-event at the sword's position, attributed to the owner, so sculk
      * sensors / shriekers / the Warden respond as if a real projectile was fired or landed.
@@ -164,10 +197,7 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
     private boolean skyDropSpawn = false;
 
     private boolean awakening = false;
-    private int awakeningOrbitTicks = 0;
     private static final double AWAKENING_DESCENT_SPEED = 0.32; // [TUNE] ~2.5s over a ~16-block drop
-    private static final int    AWAKENING_ORBIT_TICKS  = 40;    // [TUNE] one slow orbit (~2s)
-    private static final double AWAKENING_ORBIT_RADIUS = 1.6;   // [TUNE] blocks from the owner
 
     public void setAwakening(boolean value) { this.awakening = value; }
 
@@ -251,7 +281,7 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
     }
 
     @Nullable
-    private Entity awarenessTarget = null;
+    private Entity serverAwarenessTarget = null;
     private boolean horizontal = false;
     private float horizontalProgress = 0.0f;
     private float horizontalProgressO = 0.0f;
@@ -300,6 +330,7 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
         builder.define(DATA_QUICKFIRE_TARGET, 0);
         builder.define(DATA_IDLE_ANIM, 0);
         builder.define(DATA_CURIOSITY_POS, Optional.empty());
+        builder.define(DATA_AWARENESS_TARGET, 0);
     }
 
     @Override
@@ -532,7 +563,7 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
         Vec3 lookFlat = new Vec3(owner.getLookAngle().x, 0, owner.getLookAngle().z).normalize();
 
         return !this.level().getEntitiesOfClass(LivingEntity.class, arc, e -> {
-            if (!(e instanceof Enemy) || !e.isAlive()) return false;
+            if (!isValidAwarenessTarget(owner, e)) return false;
             Vec3 toEntity = e.position().subtract(owner.position());
             Vec3 toEntityFlat = new Vec3(toEntity.x, 0, toEntity.z).normalize();
             return toEntityFlat.dot(lookFlat) > 0.1;
@@ -1075,6 +1106,9 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
             enterHoveringFromSweep();
             return;
         }
+        if (!this.level().isClientSide) {
+            SwordSounds.playSweepRelease(this.level(), this.getX(), this.getY(), this.getZ());
+        }
         this.sweepReturning = false;
         this.sweepReleaseHitSet.clear();
         this.sweepReturnHitSet.clear();
@@ -1172,7 +1206,7 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
 
     public void quickFire() {
         if (quickFireCooldown > 0) return;
-        Entity target = this.awarenessTarget; // server's own lock-on; never client-supplied
+        Entity target = this.serverAwarenessTarget; // server's own lock-on; never client-supplied
         if (target == null || !target.isAlive()) return;
         this.entityData.set(DATA_QUICKFIRE_TARGET, target.getId());
         this.quickFireCooldown = quickFireCooldownTicks();
@@ -1483,19 +1517,25 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
         );
 
         List<LivingEntity> hostiles = this.level().getEntitiesOfClass(LivingEntity.class, scanBox,
-                mob -> mob instanceof Enemy && mob.isAlive() && mob.distanceTo(owner) <= MOB_AWARENESS_RADIUS);
+                mob -> isValidAwarenessTarget(owner, mob) && mob.distanceTo(owner) <= MOB_AWARENESS_RADIUS);
 
         if (hostiles.isEmpty()) {
-            awarenessTarget = null;
+            this.serverAwarenessTarget = null;
+            this.entityData.set(DATA_AWARENESS_TARGET, 0);
         } else {
             hostiles.sort((a, b) -> Double.compare(a.distanceTo(owner), b.distanceTo(owner)));
-            awarenessTarget = hostiles.get(0);
+            this.serverAwarenessTarget = hostiles.get(0);
+            this.entityData.set(DATA_AWARENESS_TARGET, this.serverAwarenessTarget.getId());
         }
     }
 
     @Nullable
     public Entity getAwarenessTarget() {
-        return awarenessTarget;
+        if (this.level().isClientSide()) {
+            int id = this.entityData.get(DATA_AWARENESS_TARGET);
+            return id == 0 ? null : this.level().getEntity(id);
+        }
+        return this.serverAwarenessTarget;
     }
 
     // === Idle personality hooks (used by IdlePersonality) ===
@@ -1559,27 +1599,20 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
         Vec3 hoverPos = computeCandidatePosition(owner, 0);
 
         if (awakening) {
-            // Phase 1: ceremonial slow descent.
+            // Ceremonial slow descent.
             Vec3 toTarget = hoverPos.subtract(this.position());
-            if (toTarget.length() > AWAKENING_DESCENT_SPEED && awakeningOrbitTicks == 0) {
+            if (toTarget.length() > AWAKENING_DESCENT_SPEED) {
                 this.setPos(this.position().add(toTarget.normalize().scale(AWAKENING_DESCENT_SPEED)));
                 return;
             }
-            // Phase 2: one slow orbit around the owner, then settle. No landing impact.
-            awakeningOrbitTicks++;
-            double angle = (awakeningOrbitTicks / (double) AWAKENING_ORBIT_TICKS) * (Math.PI * 2.0);
-            Vec3 orbit = hoverPos.add(Math.cos(angle) * AWAKENING_ORBIT_RADIUS, 0,
-                    Math.sin(angle) * AWAKENING_ORBIT_RADIUS);
-            this.setPos(orbit);
-            if (awakeningOrbitTicks >= AWAKENING_ORBIT_TICKS) {
-                this.setPos(hoverPos);
-                this.targetPosition = hoverPos;
-                this.velocity = Vec3.ZERO;
-                this.smoothedAnchorY = Double.NaN;
-                this.awakening = false;
-                setState(FamiliarState.HOVERING);
-                SwordSounds.playLandingTouchdown(this.level(), this.getX(), this.getY(), this.getZ());
-            }
+            // Settle immediately upon landing. No landing impact.
+            this.setPos(hoverPos);
+            this.targetPosition = hoverPos;
+            this.velocity = Vec3.ZERO;
+            this.smoothedAnchorY = Double.NaN;
+            this.awakening = false;
+            setState(FamiliarState.HOVERING);
+            SwordSounds.playLandingTouchdown(this.level(), this.getX(), this.getY(), this.getZ());
             return;
         }
 
@@ -1708,7 +1741,7 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
         Player _orientOwner = getOwner();
         boolean _elytra = currentState == FamiliarState.HOVERING && _orientOwner != null && _orientOwner.isFallFlying();
         boolean shouldBeHorizontal = switch (currentState) {
-            case HOVERING -> awarenessTarget != null || slashVisualTicks > 0 || _elytra;
+            case HOVERING -> getAwarenessTarget() != null || slashVisualTicks > 0 || _elytra;
             case DYING -> false;
             case ARRIVING -> false;
             default -> true;
@@ -1740,7 +1773,8 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
                 targetYaw = (float) Math.toDegrees(Math.atan2(-look.x, look.z));
                 targetPitch = 0;
             }
-        } else if (getState() == FamiliarState.HOVERING && awarenessTarget != null) {
+        } else if (getState() == FamiliarState.HOVERING && getAwarenessTarget() != null) {
+            Entity awarenessTarget = getAwarenessTarget();
             Vec3 toTarget = awarenessTarget.position()
                     .add(0, awarenessTarget.getBbHeight() * 0.5, 0)
                     .subtract(this.position());
@@ -1867,7 +1901,7 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
 
         switch (familiarState) {
             case HOVERING -> {
-                if (awarenessTarget != null) {
+                if (getAwarenessTarget() != null) {
                     anim = "alert";
                 } else {
                     anim = switch (getIdleAnim()) {

@@ -3,6 +3,7 @@ package com.alucard.heirloomsword;
 import com.alucard.heirloomsword.ClientManaState;
 import com.alucard.heirloomsword.ManaService;
 import com.alucard.heirloomsword.client.SwordFamiliarGeoRenderer;
+import com.alucard.heirloomsword.client.SweepHoldSoundInstance;
 import net.minecraft.util.Mth;
 import com.alucard.heirloomsword.network.SwordCancelChargePacket;
 import com.alucard.heirloomsword.network.SwordChargePacket;
@@ -78,6 +79,8 @@ public class HeirloomSwordModClient {
         private static float lastYaw = 0;
         private static float lastPitch = 0;
         private static boolean sweepConfirmed = false; // server-confirmed SWEEPING_HOLD seen at least once
+        private static int sweepTicks = 0;
+        private static SweepHoldSoundInstance sweepHoldSound = null;
 
         private static boolean isBlocking = false;
 
@@ -167,6 +170,17 @@ public class HeirloomSwordModClient {
                 SwordMode toggledCurrent = HeirloomSwordItem.getMode(held);
                 if (toggledCurrent == SwordMode.NORMAL) {
                     if (player.isSwimming() || player.isFallFlying() || player.isPassenger()) {
+                        continue;
+                    }
+                    boolean alreadyFlying = false;
+                    for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
+                        ItemStack stack = player.getInventory().getItem(i);
+                        if (stack.getItem() instanceof HeirloomSwordItem && HeirloomSwordItem.isFlying(stack)) {
+                            alreadyFlying = true;
+                            break;
+                        }
+                    }
+                    if (alreadyFlying || findClientFamiliar(player) != null) {
                         continue;
                     }
                 }
@@ -300,6 +314,11 @@ public class HeirloomSwordModClient {
                 if (sweepFamiliar != null) {
                     if (sweepFamiliar.getState() == FamiliarState.SWEEPING_HOLD) {
                         sweepConfirmed = true;
+                        sweepTicks++;
+                        if (sweepTicks == 3 && sweepHoldSound == null) {
+                            sweepHoldSound = new SweepHoldSoundInstance(sweepFamiliar);
+                            mc.getSoundManager().play(sweepHoldSound);
+                        }
                     } else if (sweepConfirmed) {
                         resetSweepState();
                         return;
@@ -455,6 +474,11 @@ public class HeirloomSwordModClient {
             lastYaw = 0;
             lastPitch = 0;
             sweepConfirmed = false;
+            sweepTicks = 0;
+            if (sweepHoldSound != null) {
+                sweepHoldSound.stopPlaying();
+                sweepHoldSound = null;
+            }
         }
 
         private static void resetBlockState() {

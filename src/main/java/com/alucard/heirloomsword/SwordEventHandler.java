@@ -44,7 +44,7 @@ public class SwordEventHandler {
 
         event.getTable().addPool(LootPool.lootPool()
                 .add(LootItem.lootTableItem(HeirloomSwordMod.HEIRLOOM_SWORD.get())
-                        .when(LootItemRandomChanceCondition.randomChance(0.05f)))
+                        .when(LootItemRandomChanceCondition.randomChance(0.025f))) // 2.5% chance
                 .build());
     }
 

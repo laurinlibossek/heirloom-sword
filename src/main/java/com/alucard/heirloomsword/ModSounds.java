@@ -26,4 +26,10 @@ public final class ModSounds {
 
     public static final DeferredHolder<SoundEvent, SoundEvent> SWORD_GUARDING_START = SOUNDS.register("sword_guarding_start",
             () -> SoundEvent.createVariableRangeEvent(ResourceLocation.fromNamespaceAndPath(HeirloomSwordMod.MODID, "sword_guarding_start")));
+
+    public static final DeferredHolder<SoundEvent, SoundEvent> SWORD_SWEEP_HOLD = SOUNDS.register("sword_sweep_hold",
+            () -> SoundEvent.createVariableRangeEvent(ResourceLocation.fromNamespaceAndPath(HeirloomSwordMod.MODID, "sword_sweep_hold")));
+
+    public static final DeferredHolder<SoundEvent, SoundEvent> SWORD_SWEEP_RELEASE = SOUNDS.register("sword_sweep_release",
+            () -> SoundEvent.createVariableRangeEvent(ResourceLocation.fromNamespaceAndPath(HeirloomSwordMod.MODID, "sword_sweep_release")));
 }

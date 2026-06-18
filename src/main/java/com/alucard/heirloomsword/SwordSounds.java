@@ -67,6 +67,11 @@ public final class SwordSounds {
         level.playSound(null, x, y, z, SoundEvents.PLAYER_ATTACK_KNOCKBACK, SoundSource.PLAYERS, 0.4f, 1.3f);
     }
 
+    /** Sword tossed during sweep release. */
+    public static void playSweepRelease(Level level, double x, double y, double z) {
+        level.playSound(null, x, y, z, ModSounds.SWORD_SWEEP_RELEASE.value(), SoundSource.PLAYERS, 0.15f, 1.0f);
+    }
+
     /** Guard raised (entering BLOCKING). */
     public static void playGuardRaised(Level level, double x, double y, double z) {
         level.playSound(null, x, y, z, ModSounds.SWORD_GUARDING_START.value(), SoundSource.PLAYERS, 0.7f, 1.0f);
@@ -89,12 +94,12 @@ public final class SwordSounds {
 
     /** Charge building loop (throttled one-shot). Quieter than before, played at native pitch. */
     public static void playChargeLoop(Level level, double x, double y, double z, float progress) {
-        level.playSound(null, x, y, z, ModSounds.SWORD_CHARGING.value(), SoundSource.PLAYERS, 0.15f, 1.0f);
+        level.playSound(null, x, y, z, ModSounds.SWORD_CHARGING.value(), SoundSource.PLAYERS, 0.035f, 1.0f);
     }
 
     /** Hovering ambient (throttled one-shot). */
     public static void playHoverAmbient(Level level, double x, double y, double z) {
-        level.playSound(null, x, y, z, ModSounds.SWORD_AMBIENT.value(), SoundSource.PLAYERS, 0.05f, 1.0f);
+        level.playSound(null, x, y, z, ModSounds.SWORD_AMBIENT.value(), SoundSource.PLAYERS, 0.035f, 1.0f);
     }
 
     /** Familiar death-fall (owner death / despawn). */

@@ -63,6 +63,17 @@ public record SwordModePacket() implements CustomPacketPayload {
                             Component.translatable("msg.heirloomswordmod.no_enter_swimming"), true);
                     return;
                 }
+                boolean alreadyFlying = false;
+                for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
+                    ItemStack stack = player.getInventory().getItem(i);
+                    if (stack.getItem() instanceof HeirloomSwordItem && HeirloomSwordItem.isFlying(stack)) {
+                        alreadyFlying = true;
+                        break;
+                    }
+                }
+                if (alreadyFlying || SwordFamiliarEntity.findForOwner(level, player.getUUID()) != null) {
+                    return;
+                }
                 HeirloomSwordItem.setMode(held, SwordMode.FLYING);
                 boolean firstAwakening = !held.getOrDefault(ModDataComponents.AWAKENED.get(), false);
                 SwordFamiliarEntity familiar = new SwordFamiliarEntity(level, player);

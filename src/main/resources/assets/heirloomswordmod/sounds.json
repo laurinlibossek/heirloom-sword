@@ -37,5 +37,20 @@
     "sounds": [
       "heirloomswordmod:sword_guarding_start"
     ]
+  },
+  "sword_sweep_hold": {
+    "subtitle": "subtitles.heirloomswordmod.sword_sweep_hold",
+    "sounds": [
+      {
+        "name": "heirloomswordmod:sword_sweep_hold",
+        "stream": true
+      }
+    ]
+  },
+  "sword_sweep_release": {
+    "subtitle": "subtitles.heirloomswordmod.sword_sweep_release",
+    "sounds": [
+      "heirloomswordmod:sword_sweep_release"
+    ]
   }
 }
