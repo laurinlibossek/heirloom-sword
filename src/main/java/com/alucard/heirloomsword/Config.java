@@ -27,21 +27,21 @@ public class Config {
         BUILDER.comment("Combat balance — damage values, cooldowns, and the mana master switch.")
                 .push("combat");
         LAUNCH_DAMAGE_NORMAL = BUILDER.comment("Damage from an uncharged launched sword (outbound).")
-                .defineInRange("launchDamageNormal", 16.0, 0.0, 1024.0);
+                .defineInRange("launchDamageNormal", 14.0, 0.0, 1024.0);
         LAUNCH_DAMAGE_CHARGED = BUILDER.comment("Damage from a fully charged launched sword (outbound).")
                 .defineInRange("launchDamageCharged", 32.0, 0.0, 1024.0);
         RETURN_DAMAGE = BUILDER.comment("Damage from the returning sword (inbound).")
-                .defineInRange("returnDamage", 8.0, 0.0, 1024.0);
+                .defineInRange("returnDamage", 6.0, 0.0, 1024.0);
         QUICK_FIRE_DAMAGE = BUILDER.comment("Quick-fire (V) dart contact damage.")
-                .defineInRange("quickFireDamage", 12.0, 0.0, 1024.0);
+                .defineInRange("quickFireDamage", 8.0, 0.0, 1024.0);
         SWEEP_CONTACT_DAMAGE = BUILDER.comment("Per-contact damage while the sword sweeps around the player.")
                 .defineInRange("sweepContactDamage", 4.0, 0.0, 1024.0);
         SWEEP_RELEASE_DAMAGE = BUILDER.comment("Damage from the sweep release fling.")
-                .defineInRange("sweepReleaseDamage", 8.0, 0.0, 1024.0);
+                .defineInRange("sweepReleaseDamage", 14.0, 0.0, 1024.0);
         BLOCK_SLASH_DAMAGE = BUILDER.comment("Counter-slash damage from a successful guard.")
-                .defineInRange("blockSlashDamage", 13.0, 0.0, 1024.0);
+                .defineInRange("blockSlashDamage", 12.0, 0.0, 1024.0);
         LANDING_IMPACT_DAMAGE = BUILDER.comment("Sky-drop landing impact AoE damage on spawn.")
-                .defineInRange("landingImpactDamage", 4.0, 0.0, 1024.0);
+                .defineInRange("landingImpactDamage", 14.0, 0.0, 1024.0);
         QUICK_FIRE_COOLDOWN_TICKS = BUILDER.comment("Minimum ticks between quick-fires (20 = 1s).")
                 .defineInRange("quickFireCooldownTicks", 20, 0, 1200);
         GUARD_BREAK_COOLDOWN_TICKS = BUILDER.comment("Guard lockout ticks after a guard break (60 = 3s).")

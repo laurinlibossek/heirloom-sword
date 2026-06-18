@@ -90,7 +90,6 @@ public record SwordModePacket() implements CustomPacketPayload {
                 }
                 level.addFreshEntity(familiar);
                 held.set(ModDataComponents.FAMILIAR_UUID.get(), familiar.getUUID());
-                SwordSounds.playModeEnter(level, player.getX(), player.getY(), player.getZ());
             }
         });
     }

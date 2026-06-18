@@ -40,6 +40,12 @@ public record SwordRecallPacket() implements CustomPacketPayload {
             FamiliarState state = familiar.getState();
             if (state != FamiliarState.LAUNCHING && state != FamiliarState.STUCK) return;
 
+            // Spend only once the recall is known valid (stray packets are inert).
+            if (!ManaService.trySpend(player, ManaService.RECALL_COST)) {
+                SwordSounds.playDenied(player);
+                return;
+            }
+
             familiar.recall();
         });
     }

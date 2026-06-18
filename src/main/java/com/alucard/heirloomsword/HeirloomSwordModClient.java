@@ -2,6 +2,7 @@ package com.alucard.heirloomsword;
 
 import com.alucard.heirloomsword.ClientManaState;
 import com.alucard.heirloomsword.ManaService;
+import com.alucard.heirloomsword.ModSounds;
 import com.alucard.heirloomsword.client.SwordFamiliarGeoRenderer;
 import com.alucard.heirloomsword.client.SweepHoldSoundInstance;
 import net.minecraft.util.Mth;
@@ -45,7 +46,7 @@ import javax.annotation.Nullable;
 public class HeirloomSwordModClient {
     public HeirloomSwordModClient(ModContainer container) {
         container.registerExtensionPoint(IConfigScreenFactory.class, ConfigurationScreen::new);
-        NeoForge.EVENT_BUS.register(ClientEvents.class);
+        // Double registry is by design -> adds smoothness
     }
 
     @EventBusSubscriber(modid = HeirloomSwordMod.MODID, value = Dist.CLIENT, bus = EventBusSubscriber.Bus.MOD)
@@ -93,7 +94,7 @@ public class HeirloomSwordModClient {
 
         // Hand shimmer is a rare ambient cue: at most one particle per interval while
         // flying.
-        private static final int HAND_PARTICLE_INTERVAL = 50; // 2.5 s at 20 tps
+        private static final int HAND_PARTICLE_INTERVAL = 300; // 15 s at 20 tps
         private static int handParticleCooldown = 0;
 
         @SubscribeEvent
@@ -215,6 +216,15 @@ public class HeirloomSwordModClient {
                 if (familiar != null && (familiar.getState() == FamiliarState.SWEEPING_HOLD
                         || familiar.getState() == FamiliarState.SWEEPING_RELEASE))
                     continue;
+                // Predict the recall mana gate for states the server actually recalls from.
+                if (familiar != null
+                        && (familiar.getState() == FamiliarState.LAUNCHING
+                                || familiar.getState() == FamiliarState.STUCK)
+                        && !isManaExempt(player)
+                        && ClientManaState.current < ManaService.RECALL_COST) {
+                    playDeniedClient(player);
+                    continue;
+                }
                 PacketDistributor.sendToServer(new SwordRecallPacket());
             }
 
@@ -235,7 +245,11 @@ public class HeirloomSwordModClient {
                 if (attackHoldTicks == TETHER_HOLD_TICKS) {
                     SwordFamiliarEntity tetherFamiliar = findClientFamiliar(player);
                     if (tetherFamiliar != null && tetherFamiliar.getState() == FamiliarState.STUCK) {
-                        PacketDistributor.sendToServer(new SwordTetherPacket());
+                        if (!isManaExempt(player) && ClientManaState.current < ManaService.TETHER_COST) {
+                            playDeniedClient(player);
+                        } else {
+                            PacketDistributor.sendToServer(new SwordTetherPacket());
+                        }
                     }
                 }
             }
@@ -446,9 +460,7 @@ public class HeirloomSwordModClient {
         }
 
         private static void playDeniedClient(LocalPlayer player) {
-            // Mirror of SwordSounds.playDenied, played locally for client-predicted
-            // denials.
-            player.playSound(net.minecraft.sounds.SoundEvents.DISPENSER_FAIL, 0.5f, 1.2f);
+            player.playSound(ModSounds.SWORD_MODE_EXIT.value(), 0.35f, 1.0f);
         }
 
         /**

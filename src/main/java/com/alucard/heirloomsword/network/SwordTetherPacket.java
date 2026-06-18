@@ -30,7 +30,7 @@ public record SwordTetherPacket() implements CustomPacketPayload {
             if (!(held.getItem() instanceof HeirloomSwordItem)) return;
             if (!HeirloomSwordItem.isFlying(held)) return;
 
-            if (ManaService.isLockedOut(player)) return; // inputs locked during depletion punishment
+            if (ManaService.isLockedOut(player)) return;
 
             ServerLevel level = player.serverLevel();
             SwordFamiliarEntity familiar = SwordFamiliarEntity.findForOwner(level, player.getUUID());
@@ -38,6 +38,11 @@ public record SwordTetherPacket() implements CustomPacketPayload {
 
             // Tether only triggers from STUCK (server is authoritative — a stray packet is inert).
             if (familiar.getState() != FamiliarState.STUCK) return;
+
+            if (!ManaService.trySpend(player, ManaService.TETHER_COST)) {
+                SwordSounds.playDenied(player);
+                return;
+            }
 
             familiar.startTether();
         });

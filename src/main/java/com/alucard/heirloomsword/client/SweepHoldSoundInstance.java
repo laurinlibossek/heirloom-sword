@@ -15,21 +15,20 @@ public class SweepHoldSoundInstance extends AbstractTickableSoundInstance {
         this.familiar = familiar;
         this.looping = true;
         this.delay = 0;
-        this.volume = 0.1F;
+        this.volume = 0.075F;
         this.pitch = 1.0F;
         
-        // Initial position
-        this.x = (double) ((float) familiar.getX());
-        this.y = (double) ((float) familiar.getY());
-        this.z = (double) ((float) familiar.getZ());
+        this.x = familiar.getX();
+        this.y = familiar.getY();
+        this.z = familiar.getZ();
     }
 
     @Override
     public void tick() {
         if (!this.familiar.isRemoved() && this.familiar.getState() == FamiliarState.SWEEPING_HOLD) {
-            this.x = (double) ((float) this.familiar.getX());
-            this.y = (double) ((float) this.familiar.getY());
-            this.z = (double) ((float) this.familiar.getZ());
+            this.x = this.familiar.getX();
+            this.y = this.familiar.getY();
+            this.z = this.familiar.getZ();
         } else {
             this.stop();
         }

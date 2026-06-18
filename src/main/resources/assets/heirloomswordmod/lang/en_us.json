@@ -5,7 +5,7 @@
   "key.heirloomswordmod.toggle_mode": "Toggle Sword Mode",
   "key.heirloomswordmod.recall": "Recall Sword",
   "key.heirloomswordmod.guard": "Guard / Block (Familiar)",
-  "key.heirloomswordmod.quick_fire": "Quick Fire (Familiar)",
+  "key.heirloomswordmod.quick_fire": "Thrust / Warp",
   "msg.heirloomswordmod.no_drop": "The sword refuses to leave your side.",
   "msg.heirloomswordmod.no_mount": "Recall your sword first.",
   "msg.heirloomswordmod.no_enter_elytra": "Cannot summon the sword while flying.",

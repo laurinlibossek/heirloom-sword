@@ -20,25 +20,18 @@ public final class SwordSounds {
     }
 
     /**
-     * Subtle "you can't do that right now" cue. Reused for any blocked action (insufficient
-     * mana, on cooldown, no valid target, …). Placeholder vanilla sound — swapped for a custom
-     * sound in the audio pass.
+     * "You can't do that right now" cue — insufficient mana, on cooldown, no valid target, etc.
      */
     public static void playDenied(ServerPlayer player) {
         player.level().playSound(null, player.blockPosition(),
-                SoundEvents.DISPENSER_FAIL, SoundSource.PLAYERS, 0.5f, 1.2f);
+                ModSounds.SWORD_MODE_EXIT.value(), SoundSource.PLAYERS, 0.35f, 1.0f);
     }
 
     // === Phase 10 placeholder cues (vanilla sounds; swap to custom SoundEvents in the audio pass) ===
 
-    /** Flying mode entered (F). (Disabled) */
-    public static void playModeEnter(Level level, double x, double y, double z) {
-        // Removed altogether
-    }
-
-    /** Flying mode exited to normal (F toggle). Pitched down vs enter. Quite quiet. */
+    /** Flying mode exited to normal (F toggle). */
     public static void playModeExit(Level level, double x, double y, double z) {
-        level.playSound(null, x, y, z, ModSounds.SWORD_MODE_EXIT.value(), SoundSource.PLAYERS, 0.08f, 1.0f);
+        level.playSound(null, x, y, z, ModSounds.SWORD_GUARDING_START.value(), SoundSource.PLAYERS, 0.08f, 1.0f);
     }
 
     /** Familiar launch. Charged launch is louder and pitched down. Pitch way down, quieter. */
@@ -69,12 +62,12 @@ public final class SwordSounds {
 
     /** Sword tossed during sweep release. */
     public static void playSweepRelease(Level level, double x, double y, double z) {
-        level.playSound(null, x, y, z, ModSounds.SWORD_SWEEP_RELEASE.value(), SoundSource.PLAYERS, 0.15f, 1.0f);
+        level.playSound(null, x, y, z, ModSounds.SWORD_SWEEP_RELEASE.value(), SoundSource.PLAYERS, 0.08f, 0.8f);
     }
 
-    /** Guard raised (entering BLOCKING). */
+    /** Guard raised (entering BLOCKING). Very subtle acknowledgement — the sword moved one metre. */
     public static void playGuardRaised(Level level, double x, double y, double z) {
-        level.playSound(null, x, y, z, ModSounds.SWORD_GUARDING_START.value(), SoundSource.PLAYERS, 0.7f, 1.0f);
+        level.playSound(null, x, y, z, SoundEvents.EXPERIENCE_ORB_PICKUP, SoundSource.PLAYERS, 0.08f, 1.3f);
     }
 
     /** Frontal shield block melee hits. Uses same custom deflect arrow sound. */
@@ -93,7 +86,7 @@ public final class SwordSounds {
     }
 
     /** Charge building loop (throttled one-shot). Quieter than before, played at native pitch. */
-    public static void playChargeLoop(Level level, double x, double y, double z, float progress) {
+    public static void playChargeLoop(Level level, double x, double y, double z) {
         level.playSound(null, x, y, z, ModSounds.SWORD_CHARGING.value(), SoundSource.PLAYERS, 0.035f, 1.0f);
     }
 
@@ -107,20 +100,10 @@ public final class SwordSounds {
         level.playSound(null, x, y, z, SoundEvents.TRIDENT_HIT_GROUND, SoundSource.PLAYERS, 0.8f, 0.9f);
     }
 
-    // === Phase 11 tether placeholder cues (vanilla sounds; swap to custom SoundEvents in the audio pass) ===
+    // === Phase 11 tether cues ===
 
     /** Tether yank begins — the chain snaps taut as the player is pulled. */
     public static void playTetherStart(Level level, double x, double y, double z) {
         level.playSound(null, x, y, z, SoundEvents.CHAIN_BREAK, SoundSource.PLAYERS, 0.9f, 1.0f);
-    }
-
-    /** Tether pull loop (disabled, empty placeholder). */
-    public static void playTetherLoop(Level level, double x, double y, double z) {
-        // No longer necessary
-    }
-
-    /** Tether ends (disabled, empty placeholder). */
-    public static void playTetherArrival(Level level, double x, double y, double z) {
-        // Removed altogether
     }
 }

@@ -73,7 +73,7 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
     private static final EntityDataAccessor<Integer> DATA_AWARENESS_TARGET =
             SynchedEntityData.defineId(SwordFamiliarEntity.class, EntityDataSerializers.INT);
 
-    private static final double HOVER_RADIUS = 1.65; // [TUNE] 1.5 felt too close, 1.8 too far
+    private static final double HOVER_RADIUS = 1.5; // [TUNE] 1.5 feels right
     private static final double HORIZONTAL_LOCK_LIFT = 0.5; // [TUNE] extra hover height while horizontal/locked-on
     private static final double COLLISION_SPHERE_RADIUS = 0.4;
     private static final double MAX_LAG_DISTANCE = 3.0;
@@ -83,10 +83,10 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
     private static final double SPRING_DAMPING = 0.85;
     private static final double VERTICAL_SMOOTHING = 0.05;
 
-    private static final double LAUNCH_SPEED_NORMAL = 2.08;
-    private static final double LAUNCH_SPEED_CHARGED = 4.8;
-    private static final double RETURN_SPEED = 1.8;
-    private static final double MAX_LAUNCH_RANGE = 48.0;
+    private static final double LAUNCH_SPEED_NORMAL = 3;
+    private static final double LAUNCH_SPEED_CHARGED = 6;
+    private static final double RETURN_SPEED = 2.4;
+    private static final double MAX_LAUNCH_RANGE = 64.0;
     private static final double PICKUP_RANGE = 1.5;
     private static final int STUCK_TIMEOUT_TICKS = 60; // 3 seconds
     // TETHERING constants — single ballistic "force pull": one launch toward the midpoint, then the
@@ -211,7 +211,9 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
     private double smoothedAnchorY = Double.NaN;
     private int currentCandidateIndex = 0;
     private int preferredFreeTicks = 0;
-    private static final int PREFERRED_RETURN_DELAY_TICKS = 10; // [TUNE]
+    // [TUNE] Once a more-preferred slot frees up, stay in the relocated slot this long
+    // before drifting back — longer dwell so the sword commits to a position. 1500ms.
+    private static final int PREFERRED_RETURN_DELAY_TICKS = 30;
 
     // LAUNCHING state fields
     private Vec3 launchDirection = Vec3.ZERO;
@@ -657,8 +659,7 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
         }
         chargeTimer++;
         if (!isChargeReady() && chargeTimer % 10 == 0) {
-            SwordSounds.playChargeLoop(this.level(), getX(), getY(), getZ(),
-                    Math.min(1.0f, (float) chargeTimer / CHARGE_THRESHOLD_TICKS));
+            SwordSounds.playChargeLoop(this.level(), getX(), getY(), getZ());
         }
 
         // Apply movement slowdown via attribute modifier (like bow draw)
@@ -1505,6 +1506,12 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
     }
 
     private void updateMobAwareness(Player owner) {
+        // Server-authoritative only. isValidAwarenessTarget() inspects mob.getTarget() /
+        // getLastHurtByMob(), which are NOT synced to clients, so a client running this would
+        // wrongly find no target for angered neutrals/PvP and clobber the server-synced
+        // DATA_AWARENESS_TARGET back to 0 — the "aims for a frame, then drops the lock" bug.
+        // The client only ever reads the lock via getAwarenessTarget().
+        if (this.level().isClientSide) return;
         if (this.tickCount % 5 != 0) return;
 
         AABB scanBox = new AABB(
