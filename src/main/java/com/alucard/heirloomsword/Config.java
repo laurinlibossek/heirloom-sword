@@ -22,6 +22,7 @@ public class Config {
     // === integration ===
     public static final ModConfigSpec.BooleanValue ALLOW_PVP_DAMAGE;
     public static final ModConfigSpec.BooleanValue SCULK_RESONANCE;
+    public static final ModConfigSpec.BooleanValue ENDER_MOBS_FLEE_SWORD;
 
     static {
         BUILDER.comment("Combat balance — damage values, cooldowns, and the mana master switch.")
@@ -62,6 +63,10 @@ public class Config {
         SCULK_RESONANCE = BUILDER.comment(
                         "Emit vibration game-events (sculk sensors / shrieker / Warden) on launch, embed, and quick-fire.")
                 .define("sculkResonance", true);
+        ENDER_MOBS_FLEE_SWORD = BUILDER.comment(
+                        "Mobs in the #heirloomswordmod:flees_from_sword entity tag (endermen, endermites,",
+                        "and creepers by default) flee from the deployed flying sword. false disables it.")
+                .define("enderMobsFleeSword", true);
         BUILDER.pop();
     }
 

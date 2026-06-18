@@ -36,4 +36,11 @@ public class ManaAttachments {
             ATTACHMENT_TYPES.register("warp_cooldown", () ->
                     AttachmentType.<Integer>builder(() -> 0)
                             .build());
+
+    // Ticks remaining before the sword mode can be toggled again (either direction).
+    // Throttles summon/recall spam — notably the sky-drop entrance. Transient (not serialized).
+    public static final Supplier<AttachmentType<Integer>> MODE_SWITCH_COOLDOWN =
+            ATTACHMENT_TYPES.register("mode_switch_cooldown", () ->
+                    AttachmentType.<Integer>builder(() -> 0)
+                            .build());
 }

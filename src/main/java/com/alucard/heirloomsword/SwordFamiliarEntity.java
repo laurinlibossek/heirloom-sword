@@ -768,6 +768,10 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
         if (blockHit.getType() == HitResult.Type.BLOCK) {
             BlockState hitState = this.level().getBlockState(blockHit.getBlockPos());
             if (!hitState.is(PIERCEABLE_BLOCKS)) {
+                // Damage entities along the path travelled up to the wall BEFORE embedding,
+                // so an enemy standing right in front of the wall is still struck this tick.
+                damageEntitiesInPath(currentPos, blockHit.getLocation(), outboundHitSet,
+                        chargedLaunch ? launchDamageCharged() : launchDamageNormal(), owner);
                 // Embed in block face
                 this.setPos(blockHit.getLocation().subtract(launchDirection.scale(0.1)));
                 enterStuck();

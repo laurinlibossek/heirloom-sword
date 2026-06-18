@@ -10,6 +10,7 @@ import net.minecraft.sounds.SoundSource;
 import net.minecraft.tags.DamageTypeTags;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.PathfinderMob;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.projectile.AbstractArrow;
@@ -140,6 +141,10 @@ public class SwordEventHandler {
             if (warpCd > 0) {
                 player.setData(ManaAttachments.WARP_COOLDOWN.get(), warpCd - 1);
             }
+            int modeCd = player.getData(ManaAttachments.MODE_SWITCH_COOLDOWN.get());
+            if (modeCd > 0) {
+                player.setData(ManaAttachments.MODE_SWITCH_COOLDOWN.get(), modeCd - 1);
+            }
         }
 
         ItemStack swordStack = findFlyingSword(player);
@@ -200,6 +205,16 @@ public class SwordEventHandler {
             item.setUnlimitedLifetime();  // never despawns from age (persists via Age NBT)
             item.setExtendedLifetime();   // also exempt from merge-despawn shortcuts
             item.setInvulnerable(true);   // immune to cactus, fire, lava, explosions (void bypasses this via BYPASSES_INVULNERABILITY, handled below)
+        }
+
+        // Ender-kind (and creepers) recoil from the deployed blade. Attach the flee goal to any
+        // mob in the #heirloomswordmod:flees_from_sword tag. Server-side only — AI ticks on the
+        // server. The Ender Dragon excludes itself: it isn't a PathfinderMob.
+        if (!event.getLevel().isClientSide
+                && Config.ENDER_MOBS_FLEE_SWORD.get()
+                && event.getEntity() instanceof PathfinderMob mob
+                && mob.getType().is(FleeFromSwordGoal.FLEES_FROM_SWORD)) {
+            mob.goalSelector.addGoal(3, new FleeFromSwordGoal(mob));
         }
     }
 

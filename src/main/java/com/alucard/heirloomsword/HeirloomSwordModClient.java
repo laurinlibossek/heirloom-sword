@@ -20,6 +20,7 @@ import com.alucard.heirloomsword.network.SwordTetherPacket;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.sounds.SoundEvents;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.Vec3;
@@ -37,7 +38,6 @@ import net.neoforged.neoforge.client.event.RenderGuiLayerEvent;
 import net.neoforged.neoforge.client.event.RenderHandEvent;
 import net.neoforged.neoforge.client.gui.ConfigurationScreen;
 import net.neoforged.neoforge.client.gui.IConfigScreenFactory;
-import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.network.PacketDistributor;
 
 import javax.annotation.Nullable;
@@ -45,8 +45,7 @@ import javax.annotation.Nullable;
 @Mod(value = HeirloomSwordMod.MODID, dist = Dist.CLIENT)
 public class HeirloomSwordModClient {
     public HeirloomSwordModClient(ModContainer container) {
-        container.registerExtensionPoint(IConfigScreenFactory.class, ConfigurationScreen::new);
-        // Double registry is by design -> adds smoothness
+        container.registerExtensionPoint(IConfigScreenFactory.class, ConfigurationScreen::new);   
     }
 
     @EventBusSubscriber(modid = HeirloomSwordMod.MODID, value = Dist.CLIENT, bus = EventBusSubscriber.Bus.MOD)
@@ -163,6 +162,12 @@ public class HeirloomSwordModClient {
             if (ClientManaState.lockoutTicks > 0) {
                 ClientManaState.lockoutTicks--;
             }
+            if (ClientManaState.modeSwitchCooldownTicks > 0) {
+                ClientManaState.modeSwitchCooldownTicks--;
+                if (ClientManaState.modeSwitchCooldownTicks == 0) {
+                    playModeReadyClient(player); // soft "ready to summon again" chime
+                }
+            }
 
             // Handle F key (toggle mode)
             while (ModKeybinds.TOGGLE_MODE.consumeClick()) {
@@ -170,6 +175,13 @@ public class HeirloomSwordModClient {
                 
                 SwordMode toggledCurrent = HeirloomSwordItem.getMode(held);
                 if (toggledCurrent == SwordMode.NORMAL) {
+                    // Re-entry cooldown (set on the last exit). Gates entering flying mode only;
+                    // mirrors the server gate so we don't optimistically predict a FLYING the
+                    // server will reject. Exiting (the FLYING branch below) is never gated.
+                    if (ClientManaState.modeSwitchCooldownTicks > 0) {
+                        playModeCooldownDenied(player);
+                        continue;
+                    }
                     if (player.isSwimming() || player.isFallFlying() || player.isPassenger()) {
                         continue;
                     }
@@ -202,6 +214,14 @@ public class HeirloomSwordModClient {
                 PacketDistributor.sendToServer(new SwordModePacket());
                 SwordMode next = toggledCurrent == SwordMode.NORMAL ? SwordMode.FLYING : SwordMode.NORMAL;
                 HeirloomSwordItem.setMode(held, next);
+                if (next == SwordMode.NORMAL) {
+                    // Predict the re-entry cooldown the server arms on exit, plus a small grace so
+                    // network skew (the server arms ~ping later than this) can never leave the
+                    // client *less* strict — i.e. we never predict a FLYING the server will reject,
+                    // which would stick. The ready chime fires a hair after the server is truly free.
+                    ClientManaState.modeSwitchCooldownTicks =
+                            SwordModePacket.MODE_SWITCH_COOLDOWN_TICKS + MODE_COOLDOWN_PREDICT_GRACE;
+                }
             }
 
             // Handle R key (recall) — ignored during sweep states
@@ -461,6 +481,20 @@ public class HeirloomSwordModClient {
 
         private static void playDeniedClient(LocalPlayer player) {
             player.playSound(ModSounds.SWORD_MODE_EXIT.value(), 0.35f, 1.0f);
+        }
+
+        // Grace ticks added to the client's predicted re-entry cooldown so it expires no earlier
+        // than the server's (which arms ~ping later). Covers ping up to this many ticks (250ms).
+        private static final int MODE_COOLDOWN_PREDICT_GRACE = 5;
+
+        /** Very quiet "still on cooldown" tick when re-summon is blocked — softer than playDeniedClient. */
+        private static void playModeCooldownDenied(LocalPlayer player) {
+            player.playSound(ModSounds.SWORD_MODE_EXIT.value(), 0.10f, 1.0f);
+        }
+
+        /** Soft XP-pickup chime when the re-entry cooldown clears: the sword can be summoned again. */
+        private static void playModeReadyClient(LocalPlayer player) {
+            player.playSound(SoundEvents.EXPERIENCE_ORB_PICKUP, 0.25f, 1.2f);
         }
 
         /**
