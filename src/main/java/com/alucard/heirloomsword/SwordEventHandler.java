@@ -212,7 +212,11 @@ public class SwordEventHandler {
                 && Config.ENDER_MOBS_FLEE_SWORD.get()
                 && event.getEntity() instanceof PathfinderMob mob
                 && mob.getType().is(FleeFromSwordGoal.FLEES_FROM_SWORD)) {
-            mob.goalSelector.addGoal(3, new FleeFromSwordGoal(mob));
+            boolean alreadyHas = mob.goalSelector.getAvailableGoals().stream()
+                    .anyMatch(g -> g.getGoal() instanceof FleeFromSwordGoal);
+            if (!alreadyHas) {
+                mob.goalSelector.addGoal(3, new FleeFromSwordGoal(mob));
+            }
         }
     }
 

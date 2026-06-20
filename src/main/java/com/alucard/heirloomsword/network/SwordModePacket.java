@@ -20,12 +20,12 @@ public record SwordModePacket() implements CustomPacketPayload {
             StreamCodec.unit(new SwordModePacket());
 
     /**
-     * Re-entry cooldown into flying mode, in ticks (60 = 3s). Deliberately a hardcoded constant,
+     * Re-entry cooldown into flying mode, in ticks (40 = 2s). Deliberately a hardcoded constant,
      * NOT a config value: it is an anti-abuse guard against spamming the sky-drop entrance, so it
      * must not be weakened or disabled server-side. A single shared constant also guarantees the
      * client prediction can never drift from the server timer (no config-sync hole).
      */
-    public static final int MODE_SWITCH_COOLDOWN_TICKS = 60;
+    public static final int MODE_SWITCH_COOLDOWN_TICKS = 40;
 
     @Override
     public Type<? extends CustomPacketPayload> type() {

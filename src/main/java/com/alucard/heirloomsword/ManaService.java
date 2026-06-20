@@ -22,10 +22,11 @@ public final class ManaService {
     public static final float MAX_MANA = 100f;
     public static final float REGEN_PER_TICK = 0.6f;        // 12 / sec
     public static final int   REGEN_PAUSE_TICKS = 20;        // 1 s pause after any spend
-    public static final float CHARGE_DRAIN_PER_TICK = 0.1f; // 15 / sec
+    public static final float CHARGE_DRAIN_PER_TICK = 0.556f; // ~1/3 pool over 3 s wind-up (60 ticks)
     public static final float SWEEP_DRAIN_PER_TICK  = 0.60f; // 8 / sec
     public static final float BLOCK_DRAIN_PER_TICK  = 0.60f; // 10 / sec
     public static final float WARP_COST   = 10f;
+    public static final float LAUNCH_COST = 12.5f;           // 1/8 pool per quick-launch
     public static final float TETHER_COST = 15f;
     public static final float RECALL_COST = 5f;
     public static final float MIN_CHARGE  = 10f;

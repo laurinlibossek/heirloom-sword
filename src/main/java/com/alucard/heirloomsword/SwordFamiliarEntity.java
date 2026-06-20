@@ -1741,7 +1741,7 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
 
         @Override
     public boolean isPickable() {
-        return true; // Re-enabled for testing
+        return true;
     }
 
     @Override

@@ -38,7 +38,7 @@ import net.neoforged.neoforge.client.event.RenderGuiLayerEvent;
 import net.neoforged.neoforge.client.event.RenderHandEvent;
 import net.neoforged.neoforge.client.gui.ConfigurationScreen;
 import net.neoforged.neoforge.client.gui.IConfigScreenFactory;
-import net.neoforged.neoforge.common.NeoForge;
+
 import net.neoforged.neoforge.network.PacketDistributor;
 
 import javax.annotation.Nullable;
@@ -47,7 +47,6 @@ import javax.annotation.Nullable;
 public class HeirloomSwordModClient {
     public HeirloomSwordModClient(ModContainer container) {
         container.registerExtensionPoint(IConfigScreenFactory.class, ConfigurationScreen::new);   
-        NeoForge.EVENT_BUS.register(ClientEvents.class);
     }
 
     @EventBusSubscriber(modid = HeirloomSwordMod.MODID, value = Dist.CLIENT, bus = EventBusSubscriber.Bus.MOD)
@@ -147,6 +146,15 @@ public class HeirloomSwordModClient {
                 }
             }
 
+            // Mode-switch cooldown ticks down regardless of which item is held — the player
+            // should not need to keep the sword selected for the cooldown to expire.
+            if (ClientManaState.modeSwitchCooldownTicks > 0) {
+                ClientManaState.modeSwitchCooldownTicks--;
+                if (ClientManaState.modeSwitchCooldownTicks == 0) {
+                    playModeReadyClient(player); // soft "ready to summon again" chime
+                }
+            }
+
             if (!(held.getItem() instanceof HeirloomSwordItem)) {
                 if (isCharging)
                     resetChargeState();
@@ -163,12 +171,6 @@ public class HeirloomSwordModClient {
             // blocked.
             if (ClientManaState.lockoutTicks > 0) {
                 ClientManaState.lockoutTicks--;
-            }
-            if (ClientManaState.modeSwitchCooldownTicks > 0) {
-                ClientManaState.modeSwitchCooldownTicks--;
-                if (ClientManaState.modeSwitchCooldownTicks == 0) {
-                    playModeReadyClient(player); // soft "ready to summon again" chime
-                }
             }
 
             // Handle F key (toggle mode)
@@ -496,7 +498,7 @@ public class HeirloomSwordModClient {
 
         /** Soft XP-pickup chime when the re-entry cooldown clears: the sword can be summoned again. */
         private static void playModeReadyClient(LocalPlayer player) {
-            player.playSound(SoundEvents.EXPERIENCE_ORB_PICKUP, 0.25f, 1.2f);
+            player.playSound(SoundEvents.EXPERIENCE_ORB_PICKUP, 0.08f, 1.2f);
         }
 
         /**
@@ -578,13 +580,20 @@ public class HeirloomSwordModClient {
                             || findClientFamiliar(player) != null);
             if (showMana) {
                 renderManaBar(event.getGuiGraphics(),
-                        mc.getWindow().getGuiScaledWidth(), mc.getWindow().getGuiScaledHeight());
+                        mc.getWindow().getGuiScaledWidth(), mc.getWindow().getGuiScaledHeight(), player);
             }
 
             int selectedSlot = player.getInventory().selected;
             ItemStack stack = player.getInventory().getItem(selectedSlot);
 
-            if (!(stack.getItem() instanceof HeirloomSwordItem) || !HeirloomSwordItem.isFlying(stack)) {
+            if (!(stack.getItem() instanceof HeirloomSwordItem)) {
+                return;
+            }
+
+            boolean isFlying = HeirloomSwordItem.isFlying(stack);
+            boolean isCooldown = !isFlying && ClientManaState.modeSwitchCooldownTicks > 0;
+
+            if (!isFlying && !isCooldown) {
                 return;
             }
 
@@ -595,10 +604,14 @@ public class HeirloomSwordModClient {
             int hotbarX = screenWidth / 2 - 91 + selectedSlot * 20;
             int hotbarY = screenHeight - 22;
 
-            SwordFamiliarEntity familiar = findClientFamiliar(player);
-            boolean stuck = familiar != null && familiar.getState() == FamiliarState.STUCK;
             if (!player.isSpectator()) {
-                renderPurpleGlow(guiGraphics, hotbarX, hotbarY, stuck);
+                if (isFlying) {
+                    SwordFamiliarEntity familiar = findClientFamiliar(player);
+                    boolean stuck = familiar != null && familiar.getState() == FamiliarState.STUCK;
+                    renderPurpleGlow(guiGraphics, hotbarX, hotbarY, stuck);
+                } else {
+                    renderCooldownGlow(guiGraphics, hotbarX, hotbarY);
+                }
             }
 
             // Render charge bar when charging (only after 1 second hold)
@@ -607,19 +620,101 @@ public class HeirloomSwordModClient {
             }
         }
 
-        private static void renderManaBar(GuiGraphics guiGraphics, int screenWidth, int screenHeight) {
+        private static void renderManaBar(GuiGraphics guiGraphics, int screenWidth, int screenHeight, LocalPlayer player) {
             float ratio = Mth.clamp(ClientManaState.current / ManaService.MAX_MANA, 0f, 1f);
 
             int barWidth = 81; // [TUNE] matches hunger-bar span (10 icons × 9px, right-aligned)
             int barHeight = 4;
             int barX = screenWidth / 2 + 10; // left edge of hunger bar
-            int barY = screenHeight - 47; // just above the hunger icon row
+            int barY = screenHeight - 45; // moved 2px down from -47
+            // Shift up when air bubbles are visible so they don't overlap.
+            if (player.getAirSupply() < player.getMaxAirSupply()) {
+                barY -= 10; // offset adjusts to keep it at -55 when air bubbles are shown
+            }
             int fillWidth = (int) (barWidth * ratio);
 
-            // Slot-gray outline + dark interior track + a conventional mana-blue fill.
-            guiGraphics.fill(barX - 1, barY - 1, barX + barWidth + 1, barY + barHeight + 1, 0xFF8B8B8B);
-            guiGraphics.fill(barX, barY, barX + barWidth, barY + barHeight, 0x88000000);
-            guiGraphics.fill(barX, barY, barX + fillWidth, barY + barHeight, 0xFF3A7BD5);
+            boolean isLockedOut = ClientManaState.lockoutTicks > 0;
+
+            // 1. Draw Casing (Styled rounded border)
+            int borderCol;
+            if (isLockedOut) {
+                // Pulse border color between dark crimson and dark slate to represent lockout
+                float pulse = (float) Math.sin(player.tickCount * 0.2f) * 0.5f + 0.5f;
+                int r = (int) (0x2C + pulse * (0x6F - 0x2C));
+                int g = (int) (0x1F - pulse * (0x10 - 0x05));
+                int b = (int) (0x2C - pulse * (0x10 - 0x05));
+                borderCol = 0xFF000000 | (r << 16) | (g << 8) | b;
+            } else if (ratio >= 1.0f) {
+                // Fully charged glow (glowing celestial teal-blue border)
+                float pulse = (float) Math.sin(player.tickCount * 0.15f) * 0.5f + 0.5f;
+                int r = (int) (0x1F + pulse * 0x1A);
+                int g = (int) (0x55 + pulse * 0x2C);
+                int b = (int) (0x9F + pulse * 0x36);
+                borderCol = 0xFF000000 | (r << 16) | (g << 8) | b;
+            } else {
+                // Sleek dark metallic/navy casing
+                borderCol = 0xFF1B2030;
+            }
+
+            // Draw beveled outer frame (omitting extreme corner pixels for beautiful rounded edges)
+            guiGraphics.fill(barX, barY - 1, barX + barWidth, barY, borderCol); // Top
+            guiGraphics.fill(barX, barY + barHeight, barX + barWidth, barY + barHeight + 1, borderCol); // Bottom
+            guiGraphics.fill(barX - 1, barY, barX, barY + barHeight, borderCol); // Left
+            guiGraphics.fill(barX + barWidth, barY, barX + barWidth + 1, barY + barHeight, borderCol); // Right
+
+            // Soft-blend corner pixels to round the rectangle's sharp vertices
+            int cornerCol = (borderCol & 0x00FFFFFF) | 0x77000000;
+            guiGraphics.fill(barX - 1, barY - 1, barX, barY, cornerCol); // Top-left
+            guiGraphics.fill(barX + barWidth, barY - 1, barX + barWidth + 1, barY, cornerCol); // Top-right
+            guiGraphics.fill(barX - 1, barY + barHeight, barX, barY + barHeight + 1, cornerCol); // Bottom-left
+            guiGraphics.fill(barX + barWidth, barY + barHeight, barX + barWidth + 1, barY + barHeight + 1, cornerCol); // Bottom-right
+
+            // 2. Draw Interior Track
+            int trackCol = isLockedOut ? 0xFF0D0C12 : 0xFF070911;
+            guiGraphics.fill(barX, barY, barX + barWidth, barY + barHeight, trackCol);
+
+            // 3. Draw Liquid Fill (Glowing 3D Cylindrical Gradient)
+            if (fillWidth > 0 && !isLockedOut) {
+                // Row 0 (top): Lightest cyan highlight (liquid surface sheen)
+                guiGraphics.fill(barX, barY, barX + fillWidth, barY + 1, 0xFF6BF0FF);
+                // Row 1: Magical cyan-blue
+                guiGraphics.fill(barX, barY + 1, barX + fillWidth, barY + 2, 0xFF358CFC);
+                // Row 2: Deep rich blue
+                guiGraphics.fill(barX, barY + 2, barX + fillWidth, barY + 3, 0xFF1C4BC4);
+                // Row 3 (bottom): Dark navy shadow
+                guiGraphics.fill(barX, barY + 3, barX + fillWidth, barY + 4, 0xFF0B1B66);
+
+                // Glistening leading edge (bright white-cyan vertical sparkle at the rightmost tip)
+                if (fillWidth > 1) {
+                    float pulse = (float) Math.sin(player.tickCount * 0.3f) * 0.5f + 0.5f;
+                    int r = (int) (0xCF + pulse * 0x30);
+                    int g = (int) (0xFA + pulse * 0x05);
+                    int b = (int) (0xFF);
+                    int leadCol = 0xFF000000 | (r << 16) | (g << 8) | b;
+                    guiGraphics.fill(barX + fillWidth - 1, barY, barX + fillWidth, barY + barHeight, leadCol);
+                }
+            } else if (isLockedOut) {
+                // Lockout phase: Draw a faint, desaturated pulsing crimson core to represent broken/overheated connection
+                float pulse = (float) Math.sin(player.tickCount * 0.15f) * 0.5f + 0.5f;
+                int r = (int) (0x1F + pulse * 0x1A);
+                int g = (int) (0x07 + pulse * 0x05);
+                int b = (int) (0x0C + pulse * 0x0A);
+                int pulseCol = 0xFF000000 | (r << 16) | (g << 8) | b;
+                guiGraphics.fill(barX, barY, barX + barWidth, barY + barHeight, pulseCol);
+            }
+
+            // 4. Draw Segment Notches (Thin, elegant markers dividing the bar at 25%, 50%, and 75%)
+            int[] notches = {20, 40, 60};
+            for (int notch : notches) {
+                int notchX = barX + notch;
+                if (fillWidth > notch) {
+                    // Shaded notch on filled bar (semi-transparent dark overlay)
+                    guiGraphics.fill(notchX, barY, notchX + 1, barY + barHeight, 0x3C000030);
+                } else {
+                    // Empty notch on empty bar (semi-transparent slate overlay)
+                    guiGraphics.fill(notchX, barY, notchX + 1, barY + barHeight, 0x302C324D);
+                }
+            }
         }
 
         private static void renderChargeBar(GuiGraphics guiGraphics, int screenWidth, int screenHeight) {
@@ -632,24 +727,155 @@ public class HeirloomSwordModClient {
             float progress = Math.min(1.0f, (clientChargeTimer - 20) / 40.0f);
             int fillWidth = (int) (barWidth * progress);
 
-            // Slot-gray outline + dark interior track
-            guiGraphics.fill(barX - 1, barY - 1, barX + barWidth + 1, barY + barHeight + 1, 0xFF8B8B8B);
+            // 1. Draw Casing (Styled dark-slate border with rounded corners)
+            int borderCol = 0xFF242630;
+            guiGraphics.fill(barX, barY - 1, barX + barWidth, barY, borderCol); // Top
+            guiGraphics.fill(barX, barY + barHeight, barX + barWidth, barY + barHeight + 1, borderCol); // Bottom
+            guiGraphics.fill(barX - 1, barY, barX, barY + barHeight, borderCol); // Left
+            guiGraphics.fill(barX + barWidth, barY, barX + barWidth + 1, barY + barHeight, borderCol); // Right
+
+            int cornerCol = (borderCol & 0x00FFFFFF) | 0x66000000;
+            guiGraphics.fill(barX - 1, barY - 1, barX, barY, cornerCol); // Top-left
+            guiGraphics.fill(barX + barWidth, barY - 1, barX + barWidth + 1, barY, cornerCol); // Top-right
+            guiGraphics.fill(barX - 1, barY + barHeight, barX, barY + barHeight + 1, cornerCol); // Bottom-left
+            guiGraphics.fill(barX + barWidth, barY + barHeight, barX + barWidth + 1, barY + barHeight + 1, cornerCol); // Bottom-right
+
+            // 2. Draw Interior Track
             guiGraphics.fill(barX, barY, barX + barWidth, barY + barHeight, 0xAA000000);
 
-            // Fill — purple when charging, gold when fully charged
-            int fillColor = progress >= 1.0f ? 0xFFFFD700 : 0xFF9933FF;
-            guiGraphics.fill(barX, barY, barX + fillWidth, barY + barHeight, fillColor);
+            // 3. Draw Cylindrical Fill
+            if (fillWidth > 0) {
+                if (progress >= 1.0f) {
+                    // FULLY CHARGED: Pulsing celestial gold/sunlight theme
+                    double ms = System.currentTimeMillis();
+                    float pulse = (float) Math.sin((ms / 150.0) % (Math.PI * 2)) * 0.12f + 0.88f; // fast subtle golden throb
+                    
+                    int r1 = (int) (0xFF * pulse);
+                    int g1 = (int) (0xFA * pulse);
+                    int b1 = (int) (0xB2 * pulse);
+                    int topCol = 0xFF000000 | (r1 << 16) | (g1 << 8) | b1; // golden highlight
+                    
+                    int r2 = (int) (0xFF * pulse);
+                    int g2 = (int) (0xD7 * pulse);
+                    int b2 = 0x00;
+                    int midCol = 0xFF000000 | (r2 << 16) | (g2 << 8) | b2; // bright gold
+                    
+                    int r3 = (int) (0xC5 * pulse);
+                    int g3 = (int) (0x9B * pulse);
+                    int b3 = 0x00;
+                    int botCol = 0xFF000000 | (r3 << 16) | (g3 << 8) | b3; // deep amber shadow
+
+                    guiGraphics.fill(barX, barY, barX + fillWidth, barY + 1, topCol);
+                    guiGraphics.fill(barX, barY + 1, barX + fillWidth, barY + 2, midCol);
+                    guiGraphics.fill(barX, barY + 2, barX + fillWidth, barY + 3, botCol);
+                } else {
+                    // CHARGING: Magical pulsing purple/violet theme
+                    guiGraphics.fill(barX, barY, barX + fillWidth, barY + 1, 0xFFCCA2FF); // Row 0 (top highlight)
+                    guiGraphics.fill(barX, barY + 1, barX + fillWidth, barY + 2, 0xFF9933FF); // Row 1 (mid purple)
+                    guiGraphics.fill(barX, barY + 2, barX + fillWidth, barY + 3, 0xFF5D12B8); // Row 2 (bottom shadow)
+                }
+            }
         }
 
         private static void renderPurpleGlow(GuiGraphics guiGraphics, int x, int y, boolean stuck) {
-            // Subtle 1px purple outline around the slot's item area
-            guiGraphics.renderOutline(x + 2, y + 2, 18, 18, 0x669933FF);
-            // While the blade is embedded in a block (STUCK), nest a red alert ring just
-            // inside
-            // the purple one so the player knows at a glance even when far from the impact.
+            long ms = System.currentTimeMillis();
+
             if (stuck) {
-                guiGraphics.renderOutline(x + 3, y + 3, 16, 16, 0xCCFF2A2A);
+                // STUCK STATE: Rapid warning-red distress heartbeat frame.
+                double time = ms / 1000.0;
+                float pulse = (float) (Math.sin(time * 7.5) * 0.45f + 0.55f); // intense oscillation
+
+                // 1. High-contrast pulsing crimson outer outline
+                int r1 = (int) (0xB5 + pulse * 0x4A);
+                int g1 = (int) (0x0F + pulse * 0x1A);
+                int b1 = 0x12;
+                int outerCol = 0xFF000000 | (r1 << 16) | (g1 << 8) | b1;
+                guiGraphics.renderOutline(x + 2, y + 2, 18, 18, outerCol);
+
+                // 2. Nested warning orange/yellow inner alert ring
+                int r2 = 0xFF;
+                int g2 = (int) (0x24 + pulse * 0x6E);
+                int b2 = 0x1F;
+                int innerCol = 0xFF000000 | (r2 << 16) | (g2 << 8) | b2;
+                guiGraphics.renderOutline(x + 3, y + 3, 16, 16, innerCol);
+
+                // 3. Solid hazard-orange corner brackets
+                int bracketCol = 0xFFFF4E41;
+                // Top-Left
+                guiGraphics.fill(x + 2, y + 2, x + 5, y + 3, bracketCol);
+                guiGraphics.fill(x + 2, y + 3, x + 3, y + 5, bracketCol);
+                // Top-Right
+                guiGraphics.fill(x + 17, y + 2, x + 20, y + 3, bracketCol);
+                guiGraphics.fill(x + 19, y + 3, x + 20, y + 5, bracketCol);
+                // Bottom-Left
+                guiGraphics.fill(x + 2, y + 19, x + 5, y + 20, bracketCol);
+                guiGraphics.fill(x + 2, y + 17, x + 3, y + 19, bracketCol);
+                // Bottom-Right
+                guiGraphics.fill(x + 17, y + 19, x + 20, y + 20, bracketCol);
+                guiGraphics.fill(x + 19, y + 17, x + 20, y + 19, bracketCol);
+            } else {
+                // FLYING STATE: Breathing magical telekinetic violet/magenta halo frame.
+                double time = ms / 1000.0;
+                float pulse = (float) (Math.sin(time * 2.8) * 0.5f + 0.5f); // 0..1 smooth wave
+
+                // 1. Elegant, pulsing medium purple outer outline
+                int r1 = (int) (0x7F + pulse * 0x2A);
+                int g1 = (int) (0x22 + pulse * 0x1C);
+                int b1 = (int) (0xE8 + pulse * 0x17);
+                int outerCol = 0xFF000000 | (r1 << 16) | (g1 << 8) | b1;
+                guiGraphics.renderOutline(x + 2, y + 2, 18, 18, outerCol);
+
+                // 2. Highlighted bright magenta corner bounds (glowing runes)
+                int r2 = (int) (0xDE + pulse * 0x21);
+                int g2 = 0x48;
+                int b2 = (int) (0xF2 + pulse * 0x0D);
+                int bracketCol = 0xFF000000 | (r2 << 16) | (g2 << 8) | b2;
+                // Top-Left
+                guiGraphics.fill(x + 2, y + 2, x + 5, y + 3, bracketCol);
+                guiGraphics.fill(x + 2, y + 3, x + 3, y + 5, bracketCol);
+                // Top-Right
+                guiGraphics.fill(x + 17, y + 2, x + 20, y + 3, bracketCol);
+                guiGraphics.fill(x + 19, y + 3, x + 20, y + 5, bracketCol);
+                // Bottom-Left
+                guiGraphics.fill(x + 2, y + 19, x + 5, y + 20, bracketCol);
+                guiGraphics.fill(x + 2, y + 17, x + 3, y + 19, bracketCol);
+                // Bottom-Right
+                guiGraphics.fill(x + 17, y + 19, x + 20, y + 20, bracketCol);
+                guiGraphics.fill(x + 19, y + 17, x + 20, y + 19, bracketCol);
             }
+        }
+
+        private static void renderCooldownGlow(GuiGraphics guiGraphics, int x, int y) {
+            long ms = System.currentTimeMillis();
+            double time = ms / 1000.0;
+            
+            // Pulse at a medium steady pace
+            float pulse = (float) (Math.sin(time * 3.5) * 0.35f + 0.65f); // 0.3 .. 1.0
+
+            // 1. Ruby/Crimson pulsing outer outline
+            int r = (int) (0x9F + pulse * 0x60); // 0x9F to 0xFF
+            int g = (int) (0x0C * pulse);
+            int b = (int) (0x1C * pulse);
+            int outerCol = 0xFF000000 | (r << 16) | (g << 8) | b;
+            guiGraphics.renderOutline(x + 2, y + 2, 18, 18, outerCol);
+
+            // 2. Bright scarlet corner brackets (aligned to outer boundaries)
+            int rBracket = (int) (0xC8 + pulse * 0x37); // 0xC8 to 0xFF
+            int bracketCol = 0xFF000000 | (rBracket << 16) | 0x1E1E; // Vibrant red/crimson
+            
+            // Symmetrically aligned 3-pixel corner brackets
+            // Top-Left
+            guiGraphics.fill(x + 2, y + 2, x + 5, y + 3, bracketCol);
+            guiGraphics.fill(x + 2, y + 3, x + 3, y + 5, bracketCol);
+            // Top-Right
+            guiGraphics.fill(x + 17, y + 2, x + 20, y + 3, bracketCol);
+            guiGraphics.fill(x + 19, y + 3, x + 20, y + 5, bracketCol);
+            // Bottom-Left
+            guiGraphics.fill(x + 2, y + 19, x + 5, y + 20, bracketCol);
+            guiGraphics.fill(x + 2, y + 17, x + 3, y + 19, bracketCol);
+            // Bottom-Right
+            guiGraphics.fill(x + 17, y + 19, x + 20, y + 20, bracketCol);
+            guiGraphics.fill(x + 19, y + 17, x + 20, y + 19, bracketCol);
         }
 
         @Nullable
