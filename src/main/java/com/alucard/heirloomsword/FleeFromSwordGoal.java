@@ -24,7 +24,7 @@ import net.minecraft.world.phys.Vec3;
  * (whose generic is bounded to {@code LivingEntity}) cannot target it.
  *
  * <p>The goal is attached at spawn time to any mob whose type is in the
- * {@link #FLEES_FROM_SWORD} tag (endermen, endermites, creepers by default). Because the sword
+ * {@link #FLEES_FROM_SWORD} tag (endermen, endermites by default). Because the sword
  * familiar only exists while flying mode is active, this behaviour is automatically scoped to
  * "while the sword is deployed". Lore: ender-kind recoil from the corrupted ancient blade.
  */

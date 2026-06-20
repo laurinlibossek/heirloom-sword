@@ -1,7 +1,6 @@
 {
   "values": [
     "minecraft:enderman",
-    "minecraft:endermite",
-    "minecraft:creeper"
+    "minecraft:endermite"
   ]
 }

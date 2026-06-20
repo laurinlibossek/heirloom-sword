@@ -242,7 +242,7 @@ public class SwordEventHandler {
             item.setInvulnerable(true);   // immune to cactus, fire, lava, explosions (void bypasses this via BYPASSES_INVULNERABILITY, handled below)
         }
 
-        // Ender-kind (and creepers) recoil from the deployed blade. Attach the flee goal to any
+        // Ender-kind recoil from the deployed blade. Attach the flee goal to any
         // mob in the #heirloomswordmod:flees_from_sword tag. Server-side only — AI ticks on the
         // server. The Ender Dragon excludes itself: it isn't a PathfinderMob.
         if (!event.getLevel().isClientSide
