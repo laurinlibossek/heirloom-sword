@@ -20,6 +20,7 @@ import net.minecraft.world.entity.Pose;
 import net.minecraft.world.entity.ai.attributes.AttributeInstance;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.OwnableEntity;
 import net.minecraft.world.entity.monster.Enemy;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.server.level.ServerLevel;
@@ -128,11 +129,16 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
      * friendly-fire rules allow it. Mirrors §25.5.
      */
     private boolean canDamage(Player owner, LivingEntity target) {
+        // Never damage the owner's own pets
+        if (target instanceof OwnableEntity owned && owner.getUUID().equals(owned.getOwnerUUID())) return false;
+        // Respect scoreboard team friendly-fire for any entity (not just players)
+        var ownerTeam = owner.getTeam();
+        if (ownerTeam != null && ownerTeam.equals(target.getTeam()) && !ownerTeam.isAllowFriendlyFire()) return false;
         if (!(target instanceof Player victim)) return true;
         if (!Config.ALLOW_PVP_DAMAGE.getAsBoolean()) return false;
         var server = this.level().getServer();
         if (server == null || !server.isPvpAllowed()) return false;
-        return owner.canHarmPlayer(victim); // honors scoreboard team friendly-fire
+        return owner.canHarmPlayer(victim);
     }
 
     private boolean isValidAwarenessTarget(Player owner, LivingEntity target) {
@@ -277,6 +283,22 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
     private FamiliarState lastClientState = FamiliarState.HOVERING;
     private int slashVisualTicks = 0;
     private static final int SLASH_VISUAL_TICKS = 14; // matches block_slash clip (0.7s)
+
+    // Render-only personality wobble (figure-eight / curiosity drift). Eased client-side toward
+    // IdlePersonality.visualOffset and applied via the renderer's getRenderOffset. The networked
+    // position is NEVER moved for cosmetics — that flickers between the two ticking sides.
+    private Vec3 idleVisualOffset = Vec3.ZERO;
+    private Vec3 idleVisualOffsetO = Vec3.ZERO;
+    private static final double IDLE_VISUAL_EASE = 0.25; // [TUNE] smoothing toward the target offset
+
+    // Client-side smooth interpolation toward the server position, used ONLY in HOVERING.
+    // Hover is near-stationary, so the old client-side spring prediction shimmered: every server
+    // packet hard-snapped it back to a stale spot, then the next tick sprang it forward again.
+    // Instead the client now eases toward the last server position over lerpHoverSteps ticks (the
+    // base Entity.lerpTo hard-snaps, which is why this is needed). The server still runs the spring
+    // (lazy-lag feel preserved and authoritative); the client merely follows it smoothly.
+    private double lerpX, lerpY, lerpZ;
+    private int lerpHoverSteps;
 
     public boolean isSlashing() {
         return slashVisualTicks > 0;
@@ -463,7 +485,7 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
         if (owner == null) return;
 
                 switch (getState()) {
-            case HOVERING -> tickHovering(owner);
+            case HOVERING -> tickHoveringClient();
             case CHARGING -> tickChargingClient(owner);
             case LAUNCHING -> tickLaunchingClient();
             case STUCK -> {}
@@ -476,6 +498,14 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
             case QUICK_FIRE -> tickQuickFireClient();
             case TETHERING -> {}
         }
+
+        // Ease the render-only personality wobble toward its synced target. Never moves the
+        // networked position; the renderer reads getIdleVisualOffset() and applies it.
+        idleVisualOffsetO = idleVisualOffset;
+        Vec3 idleTarget = getState() == FamiliarState.HOVERING
+                ? IdlePersonality.visualOffset(this, 0f) : Vec3.ZERO;
+        idleVisualOffset = idleVisualOffset.add(idleTarget.subtract(idleVisualOffset).scale(IDLE_VISUAL_EASE));
+
         updateOrientation();
     }
 
@@ -498,6 +528,34 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
     }
 
     // === HOVERING ===
+
+    @Override
+    public void lerpTo(double x, double y, double z, float yRot, float xRot, int steps) {
+        // HOVERING is near-stationary, so a hard snap to each (stale) server packet shimmers
+        // against the client's own motion. Store the target and ease toward it in tickHoveringClient
+        // instead. Rotation stays with updateOrientation() (deterministic from owner facing), so we
+        // ignore yRot/xRot here. Every other state keeps the vanilla hard-snap — they either move
+        // deterministically (launching/returning) or are fully server-driven, so snapping is invisible.
+        if (this.level().isClientSide() && getState() == FamiliarState.HOVERING) {
+            this.lerpX = x;
+            this.lerpY = y;
+            this.lerpZ = z;
+            this.lerpHoverSteps = Math.max(steps, 1);
+            return;
+        }
+        super.lerpTo(x, y, z, yRot, xRot, steps);
+    }
+
+    /** Client HOVERING: ease toward the last server position (no spring prediction → no shimmer). */
+    private void tickHoveringClient() {
+        if (lerpHoverSteps <= 0) return;
+        double t = 1.0 / lerpHoverSteps;
+        setPos(
+                Mth.lerp(t, getX(), lerpX),
+                Mth.lerp(t, getY(), lerpY),
+                Mth.lerp(t, getZ(), lerpZ));
+        lerpHoverSteps--;
+    }
 
     private void tickHovering(Player owner) {
         if (quickFireCooldown > 0) quickFireCooldown--;
@@ -1567,9 +1625,9 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
         this.entityData.set(DATA_CURIOSITY_POS, pos);
     }
 
-    /** Nudge the hover target this tick; the spring physics carries the sword there and back. */
-    public void addIdleOffset(Vec3 offset) {
-        this.targetPosition = this.targetPosition.add(offset);
+    /** Render-only personality wobble for the current frame (see {@link #idleVisualOffset}). */
+    public Vec3 getIdleVisualOffset(float partialTick) {
+        return idleVisualOffsetO.add(idleVisualOffset.subtract(idleVisualOffsetO).scale(partialTick));
     }
 
     /** Fire a one-shot idle reaction clip on the shared "action" controller. */

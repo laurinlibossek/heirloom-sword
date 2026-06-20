@@ -12,6 +12,7 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.phys.Vec3;
 import software.bernie.geckolib.cache.object.BakedGeoModel;
 import software.bernie.geckolib.renderer.GeoEntityRenderer;
 
@@ -45,6 +46,14 @@ public class SwordFamiliarGeoRenderer extends GeoEntityRenderer<SwordFamiliarEnt
         if (t < 60f) return (t - 20f) / 40f;    // 1s -> 3s: ramp half -> full
         // Held at full charge: gentle pulse (doubles as the charge-complete cue).
         return 0.85f + 0.15f * Mth.sin((entity.tickCount + partialTick) * 0.3f);
+    }
+
+    @Override
+    public Vec3 getRenderOffset(SwordFamiliarEntity entity, float partialTick) {
+        // Cosmetic personality wobble (figure-eight / curiosity drift) is applied as a
+        // render-only world-space offset so it never touches the networked position (which
+        // would flicker between the independently-ticking client and server).
+        return super.getRenderOffset(entity, partialTick).add(entity.getIdleVisualOffset(partialTick));
     }
 
     @Override

@@ -18,10 +18,13 @@ import java.util.Optional;
 /**
  * Cosmetic idle "personality" for the sword familiar, active only within HOVERING.
  *
- * <p>Server-authoritative: the server runs the timers/selection and writes the synced
- * descriptor ({@code DATA_IDLE_ANIM} id + {@code DATA_CURIOSITY_POS}) that the client reads
- * to reproduce the same {@code targetPosition} offset and pick the matching clip. Purely
- * visual — no damage, no interaction, no new {@link FamiliarState}.
+ * <p>Server-authoritative selection: the server runs the timers and writes the synced
+ * descriptor ({@code DATA_IDLE_ANIM} id + {@code DATA_CURIOSITY_POS}) that picks the matching
+ * clip. The cosmetic hover wobble is render-only — applied client-side as a render offset
+ * (see {@code SwordFamiliarGeoRenderer#getRenderOffset} / {@link #visualOffset}) and never
+ * written to the entity's networked position, which would flicker between the two
+ * independently-ticking sides. Purely visual — no damage, no interaction, no new
+ * {@link FamiliarState}.
  *
  * <p>All constants are {@code [TUNE]} and bound for the Phase 13 {@code idle} config section.
  */
@@ -46,7 +49,6 @@ public final class IdlePersonality {
     private static final double FIGURE_EIGHT_WIDTH = 0.6;
     private static final double FIGURE_EIGHT_BOB = 0.2;
     private static final double RECOIL_RANGE = 3.0;
-    private static final double RECOIL_NUDGE = 0.5;
     private static final double IDLE_MOVE_EPSILON_SQR = 0.003 * 0.003;
 
     private static final TagKey<Block> CURIOSITIES = TagKey.create(
@@ -75,21 +77,10 @@ public final class IdlePersonality {
      * target anchor is set and before spring physics runs.
      */
     public void tick(Player owner) {
-        if (sword.level().isClientSide) {
-            applyClientOffset();
-        } else {
-            tickServer(owner);
-        }
-    }
-
-    // ---- Client: reproduce the server's offset from synced data (no timers) ----
-    private void applyClientOffset() {
-        switch (sword.getIdleAnim()) {
-            case ANIM_CURIOUS, ANIM_GUARD -> sword.getCuriosityPos().ifPresent(pos ->
-                    sword.addIdleOffset(curiosityOffset(Vec3.atCenterOf(pos))));
-            case ANIM_FIGURE_EIGHT -> sword.addIdleOffset(figureEightOffset());
-            default -> { /* plain idle — no offset */ }
-        }
+        // Client runs nothing: the wobble is a render-only offset (see visualOffset /
+        // SwordFamiliarGeoRenderer#getRenderOffset); only the server runs timers/selection.
+        if (sword.level().isClientSide) return;
+        tickServer(owner);
     }
 
     // ---- Server: authoritative timers + selection ----
@@ -137,17 +128,13 @@ public final class IdlePersonality {
                 curiosityHeldTicks = 0;
                 sword.setIdleAnim(ANIM_CURIOUS);
                 sword.setCuriosityPos(Optional.of(block));
-                sword.addIdleOffset(curiosityOffset(Vec3.atCenterOf(block)));
                 return;
             }
         }
 
         // Lazy figure-eight after extended idle.
-        if (idleTicks >= FIGURE_EIGHT_TRIGGER_TICKS) {
-            if (sword.getIdleAnim() != ANIM_FIGURE_EIGHT) {
-                sword.setIdleAnim(ANIM_FIGURE_EIGHT);
-            }
-            sword.addIdleOffset(figureEightOffset());
+        if (idleTicks >= FIGURE_EIGHT_TRIGGER_TICKS && sword.getIdleAnim() != ANIM_FIGURE_EIGHT) {
+            sword.setIdleAnim(ANIM_FIGURE_EIGHT);
         }
     }
 
@@ -158,7 +145,6 @@ public final class IdlePersonality {
             endInspection();
             return;
         }
-        sword.addIdleOffset(curiosityOffset(Vec3.atCenterOf(target.get())));
         if (curiosityHeldTicks >= CURIOSITY_HOLD_TICKS) {
             if (curiousIsTrappedChest) {
                 // Stay pinned at the chest and raise a guard pose for a beat ("don't open that").
@@ -173,8 +159,6 @@ public final class IdlePersonality {
     /** Trapped-chest guard beat: hold the guard pose at the chest, then drift home. */
     private void tickGuardHold() {
         gestureTicks++;
-        sword.getCuriosityPos().ifPresent(pos ->
-                sword.addIdleOffset(curiosityOffset(Vec3.atCenterOf(pos))));
         if (gestureTicks >= GUARD_GESTURE_TICKS) {
             endInspection();
         }
@@ -200,11 +184,9 @@ public final class IdlePersonality {
         if (!tnt.isEmpty()) {
             if (!recoilLatched) {
                 recoilLatched = true;
+                // The idle_recoil clip carries the visual recoil; no positional nudge (cosmetic
+                // motion stays render-only and out of the networked position).
                 sword.triggerIdleAnim("idle_recoil");
-                Vec3 away = sword.position().subtract(tnt.get(0).position());
-                if (away.lengthSqr() > 1.0E-4) {
-                    sword.addIdleOffset(away.normalize().scale(RECOIL_NUDGE));
-                }
             }
         } else {
             recoilLatched = false;
@@ -218,8 +200,24 @@ public final class IdlePersonality {
         wasRaining = raining;
     }
 
-    private Vec3 curiosityOffset(Vec3 blockCenter) {
-        Vec3 dir = blockCenter.subtract(sword.position());
+    /**
+     * Render-only cosmetic hover offset (world space) for the sword's current idle anim.
+     * Derived purely from synced state (idle-anim id, curiosity pos) + global game-time, so
+     * every client reproduces it identically without it ever touching the networked position.
+     * Called per render frame from {@code SwordFamiliarGeoRenderer#getRenderOffset}.
+     */
+    public static Vec3 visualOffset(SwordFamiliarEntity sword, float partialTick) {
+        return switch (sword.getIdleAnim()) {
+            case ANIM_FIGURE_EIGHT -> figureEightOffset(sword.level().getGameTime() + partialTick);
+            case ANIM_CURIOUS, ANIM_GUARD -> sword.getCuriosityPos()
+                    .map(pos -> curiosityOffset(sword.position(), Vec3.atCenterOf(pos)))
+                    .orElse(Vec3.ZERO);
+            default -> Vec3.ZERO;
+        };
+    }
+
+    private static Vec3 curiosityOffset(Vec3 from, Vec3 blockCenter) {
+        Vec3 dir = blockCenter.subtract(from);
         double dist = dir.length();
         if (dist < 1.0E-4) return Vec3.ZERO;
         double drift = Math.min(Math.max(dist, CURIOSITY_MIN_DRIFT), CURIOSITY_MAX_DRIFT);
@@ -227,8 +225,8 @@ public final class IdlePersonality {
         return dir.normalize().scale(drift);
     }
 
-    private Vec3 figureEightOffset() {
-        double t = sword.level().getGameTime() * FIGURE_EIGHT_SPEED;
+    private static Vec3 figureEightOffset(double time) {
+        double t = time * FIGURE_EIGHT_SPEED;
         return new Vec3(
                 Math.sin(t) * FIGURE_EIGHT_WIDTH,
                 Math.sin(t * 0.5) * FIGURE_EIGHT_BOB,
