@@ -18,6 +18,8 @@ public class Config {
     public static final ModConfigSpec.IntValue GUARD_BREAK_COOLDOWN_TICKS;
     public static final ModConfigSpec.DoubleValue UNDEAD_IGNITE_SECONDS;
     public static final ModConfigSpec.BooleanValue CONSUME_MANA;
+    public static final ModConfigSpec.DoubleValue BLOODLUST_DAMAGE_MULT;
+    public static final ModConfigSpec.DoubleValue TETHER_SLAM_DAMAGE;
 
     // === integration ===
     public static final ModConfigSpec.BooleanValue ALLOW_PVP_DAMAGE;
@@ -53,6 +55,14 @@ public class Config {
                         "Master mana switch. false = every flying-mode action (charge, sweep, block, warp)",
                         "is free with no drain, no minimum-cost gate, and no depletion lockout.")
                 .define("consumeMana", true);
+        BLOODLUST_DAMAGE_MULT = BUILDER.comment(
+                        "Damage multiplier applied to flying-mode attacks while the blade is bloodied (blood > 0).",
+                        "1.0 disables the Bloodlust passive; 1.2 = +20%.")
+                .defineInRange("bloodlustDamageMult", 1.2, 1.0, 4.0);
+        TETHER_SLAM_DAMAGE = BUILDER.comment(
+                        "AoE damage to all valid entities in a short radius when a tether pull slams the",
+                        "player through an enemy.")
+                .defineInRange("tetherSlamDamage", 12.0, 0.0, 1024.0);
         BUILDER.pop();
 
         BUILDER.comment("Cross-mod / server integration toggles.").push("integration");

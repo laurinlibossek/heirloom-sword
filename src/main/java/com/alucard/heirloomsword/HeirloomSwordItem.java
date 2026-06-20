@@ -78,6 +78,8 @@ public class HeirloomSwordItem extends SwordItem implements GeoItem {
     public void appendHoverText(ItemStack stack, Item.TooltipContext context, List<Component> tooltip, TooltipFlag flag) {
         tooltip.add(Component.translatable("tooltip.heirloomswordmod.lore1")
                 .withStyle(ChatFormatting.DARK_PURPLE, ChatFormatting.ITALIC));
+        tooltip.add(Component.translatable("tooltip.heirloomswordmod.bloodlust")
+                .withStyle(ChatFormatting.DARK_RED));
         super.appendHoverText(stack, context, tooltip, flag);
     }
 

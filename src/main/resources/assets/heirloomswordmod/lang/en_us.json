@@ -11,6 +11,8 @@
   "msg.heirloomswordmod.no_enter_elytra": "Cannot summon the sword while flying.",
   "msg.heirloomswordmod.no_enter_swimming": "Cannot summon the sword while swimming.",
   "msg.heirloomswordmod.sword_returns": "The sword returns to your side.",
+  "msg.heirloomswordmod.back_sheath_on": "The sword now shows on your back.",
+  "msg.heirloomswordmod.back_sheath_off": "The sword no longer shows on your back.",
   "entity.heirloomswordmod.sword_familiar": "Heirloom Sword",
   "heirloomswordmod.configuration.title": "Heirloom Sword Mod Configs",
   "heirloomswordmod.configuration.section.heirloomswordmod.common.toml": "Heirloom Sword Mod Configs",
@@ -19,7 +21,8 @@
   "advancements.heirloomswordmod.soul_bound.title": "Soul-Bound",
   "advancements.heirloomswordmod.soul_bound.description": "Obtain the Heirloom Sword.",
   "advancements.heirloomswordmod.a_will_of_its_own.title": "It flies?",
-  "advancements.heirloomswordmod.a_will_of_its_own.description": "Awaken the sword into flight for the first time.",
+  "advancements.heirloomswordmod.a_will_of_its_own.description": "Awaken the sword.",
   "subtitles.heirloomswordmod.sword_sweep_hold": "Sword whirls menacingly",
-  "subtitles.heirloomswordmod.sword_sweep_release": "Sword launches with a fierce swoosh"
+  "subtitles.heirloomswordmod.sword_sweep_release": "Sword launches with a fierce swoosh",
+  "tooltip.heirloomswordmod.bloodlust": "While blood clings to its blade, it strikes with greater hunger."
 }

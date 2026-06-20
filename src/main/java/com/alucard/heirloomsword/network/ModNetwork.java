@@ -66,5 +66,10 @@ public class ModNetwork {
                 ManaSyncPacket.STREAM_CODEC,
                 ManaSyncPacket::handle
         );
+        registrar.playToClient(
+                BackSheathSyncPacket.TYPE,
+                BackSheathSyncPacket.STREAM_CODEC,
+                BackSheathSyncPacket::handle
+        );
     }
 }

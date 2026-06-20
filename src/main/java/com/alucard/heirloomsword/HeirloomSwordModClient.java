@@ -140,6 +140,7 @@ public class HeirloomSwordModClient {
                     if (familiar.getAwarenessTarget() == null)
                         continue; // needs a lock-on
                     PacketDistributor.sendToServer(new SwordQuickFirePacket());
+                    spawnLaunchPuff(player);
                 } else if (held.getItem() instanceof HeirloomSwordItem && !HeirloomSwordItem.isFlying(held)) {
                     // Normal mode: server validates target / mana / cooldown and gives feedback.
                     PacketDistributor.sendToServer(new SwordWarpPacket());
@@ -304,6 +305,7 @@ public class HeirloomSwordModClient {
                     Vec3 lookDir = player.getLookAngle();
                     boolean charged = clientChargeTimer >= 60;
                     PacketDistributor.sendToServer(new SwordLaunchPacket(lookDir, charged));
+                    spawnLaunchPuff(player);
                     resetChargeState();
                 } else {
                     clientChargeTimer++;
@@ -388,28 +390,28 @@ public class HeirloomSwordModClient {
                 }
             }
 
-            // Telekinetic shimmer at the hand while flying mode is active — throttled to a
-            // single
-            // particle every HAND_PARTICLE_INTERVAL ticks so it reads as a faint occasional
-            // glint.
-            if (HeirloomSwordItem.isFlying(held) && mc.level != null && --handParticleCooldown <= 0) {
-                handParticleCooldown = HAND_PARTICLE_INTERVAL;
-                double dx = (player.getRandom().nextDouble() - 0.5) * 0.2;
-                double dy = (player.getRandom().nextDouble() - 0.5) * 0.2;
-                double dz = (player.getRandom().nextDouble() - 0.5) * 0.2;
+            // === Telekinetic hand shimmer (state-driven) ===
+            if (HeirloomSwordItem.isFlying(held) && mc.level != null) {
+                SwordFamiliarEntity shimmerFamiliar = findClientFamiliar(player);
+                FamiliarState shimmerState = shimmerFamiliar != null ? shimmerFamiliar.getState() : null;
+                Vec3 handPos = telekineticHandPos(player);
+                var rng = player.getRandom();
 
-                Vec3 handPos;
-                if (mc.options.getCameraType().isFirstPerson()) {
-                    handPos = player.getEyePosition().add(player.getLookAngle().scale(0.5)).add(0, -0.3, 0);
-                } else {
-                    float yRot = player.yBodyRot * ((float) Math.PI / 180F);
-                    double handOffsetZ = Math.cos(yRot) * 0.4;
-                    double handOffsetX = Math.sin(yRot) * 0.4;
-                    handPos = new Vec3(player.getX() - handOffsetX,
-                            player.getY() + player.getBbHeight() * 0.5, player.getZ() + handOffsetZ);
+                if (shimmerState == FamiliarState.BLOCKING) {
+                    // Violet dome: hemisphere of witch particles biased forward along the look vector.
+                    // Heavily reduced density as requested.
+                    if (rng.nextFloat() < 0.15f) { // 15% chance per tick (approx. 3 particles per second)
+                        Vec3 look = player.getLookAngle();
+                        Vec3 base = handPos.add(look.scale(0.4));
+                        double a = rng.nextDouble() * Math.PI * 2;
+                        double el = rng.nextDouble() * Math.PI * 0.5;
+                        double rr = 0.6;
+                        double lx = Math.cos(a) * Math.cos(el) * rr;
+                        double ly = Math.sin(el) * rr;
+                        double lz = Math.sin(a) * Math.cos(el) * rr;
+                        mc.level.addParticle(ParticleTypes.WITCH, base.x + lx, base.y + ly, base.z + lz, 0, 0, 0);
+                    }
                 }
-
-                mc.level.addParticle(ParticleTypes.WITCH, handPos.x + dx, handPos.y + dy, handPos.z + dz, 0, 0, 0);
             }
         }
 
@@ -876,6 +878,24 @@ public class HeirloomSwordModClient {
             // Bottom-Right
             guiGraphics.fill(x + 17, y + 19, x + 20, y + 20, bracketCol);
             guiGraphics.fill(x + 19, y + 17, x + 20, y + 19, bracketCol);
+        }
+
+        /** Approximate world position of the telekinetic "fist" (works in 1st and 3rd person). */
+        private static Vec3 telekineticHandPos(LocalPlayer player) {
+            Minecraft mc = Minecraft.getInstance();
+            if (mc.options.getCameraType().isFirstPerson()) {
+                return player.getEyePosition().add(player.getLookAngle().scale(0.5)).add(0, -0.3, 0);
+            }
+            float yRot = player.yBodyRot * ((float) Math.PI / 180F);
+            double handOffsetZ = Math.cos(yRot) * 0.4;
+            double handOffsetX = Math.sin(yRot) * 0.4;
+            return new Vec3(player.getX() - handOffsetX,
+                    player.getY() + player.getBbHeight() * 0.5, player.getZ() + handOffsetZ);
+        }
+
+        /** One-shot telekinetic discharge burst at the hand the instant a launch fires. */
+        private static void spawnLaunchPuff(LocalPlayer player) {
+            // Deprecated: user requested removal of the launching puff/explosion effect.
         }
 
         @Nullable

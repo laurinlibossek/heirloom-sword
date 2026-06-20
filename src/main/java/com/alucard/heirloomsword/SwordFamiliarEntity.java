@@ -73,6 +73,8 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
             SynchedEntityData.defineId(SwordFamiliarEntity.class, EntityDataSerializers.OPTIONAL_BLOCK_POS);
     private static final EntityDataAccessor<Integer> DATA_AWARENESS_TARGET =
             SynchedEntityData.defineId(SwordFamiliarEntity.class, EntityDataSerializers.INT);
+    private static final EntityDataAccessor<Boolean> DATA_AWAKENING =
+            SynchedEntityData.defineId(SwordFamiliarEntity.class, EntityDataSerializers.BOOLEAN);
 
     private static final double HOVER_RADIUS = 1.5; // [TUNE] 1.5 feels right
     private static final double HORIZONTAL_LOCK_LIFT = 0.5; // [TUNE] extra hover height while horizontal/locked-on
@@ -101,6 +103,10 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
     private static final int TETHER_TIMEOUT_TICKS = 40;          // 2 seconds
     private static final int TETHER_GEOMETRY_BLOCK_TICKS = 10;   // ticks of near-zero travel (blocked / landed) → done
     private static final double TETHER_GEOMETRY_MOVE_SQR = 0.01; // (~0.1 block/tick)^2 movement floor
+    private static final double TETHER_SLAM_DETECT_INFLATE = 1.2; // tight box around the player to detect the slam
+    private static final double TETHER_SLAM_RADIUS = 3.5;         // [TUNE] AoE radius of the slam
+    private static final float  TETHER_SLAM_KNOCKBACK = 1.2f;     // [TUNE] outward knockback strength
+    private static float tetherSlamDamage() { return (float) Config.TETHER_SLAM_DAMAGE.getAsDouble(); }
     private static final TagKey<Block> PIERCEABLE_BLOCKS = TagKey.create(
             Registries.BLOCK, ResourceLocation.fromNamespaceAndPath(HeirloomSwordMod.MODID, "pierceable"));
     private static final int CHARGE_THRESHOLD_TICKS = 60; // 3 seconds for charged tier
@@ -111,17 +117,29 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
 
     // Combat values are config-backed (design §25.1). Read per-use so a /reload-style config
     // edit on world reload applies without a restart. Names mirror the deleted constants.
-    private static float launchDamageNormal()      { return (float) Config.LAUNCH_DAMAGE_NORMAL.getAsDouble(); }
-    private static float launchDamageCharged()     { return (float) Config.LAUNCH_DAMAGE_CHARGED.getAsDouble(); }
+    private float launchDamageNormal()             { return (float) Config.LAUNCH_DAMAGE_NORMAL.getAsDouble()  * bloodlustMultiplier(); }
+    private float launchDamageCharged()            { return (float) Config.LAUNCH_DAMAGE_CHARGED.getAsDouble() * bloodlustMultiplier(); }
     private static float returnDamage()            { return (float) Config.RETURN_DAMAGE.getAsDouble(); }
-    private static float quickFireDamage()         { return (float) Config.QUICK_FIRE_DAMAGE.getAsDouble(); }
-    private static float sweepContactDamage()      { return (float) Config.SWEEP_CONTACT_DAMAGE.getAsDouble(); }
-    private static float sweepReleaseDamage()      { return (float) Config.SWEEP_RELEASE_DAMAGE.getAsDouble(); }
-    private static float blockSlashDamage()        { return (float) Config.BLOCK_SLASH_DAMAGE.getAsDouble(); }
+    private float quickFireDamage()                { return (float) Config.QUICK_FIRE_DAMAGE.getAsDouble()     * bloodlustMultiplier(); }
+    private float sweepContactDamage()             { return (float) Config.SWEEP_CONTACT_DAMAGE.getAsDouble()  * bloodlustMultiplier(); }
+    private float sweepReleaseDamage()             { return (float) Config.SWEEP_RELEASE_DAMAGE.getAsDouble()  * bloodlustMultiplier(); }
+    private float blockSlashDamage()               { return (float) Config.BLOCK_SLASH_DAMAGE.getAsDouble()    * bloodlustMultiplier(); }
     private static float landingImpactDamage()     { return (float) Config.LANDING_IMPACT_DAMAGE.getAsDouble(); }
     private static int   quickFireCooldownTicks()  { return Config.QUICK_FIRE_COOLDOWN_TICKS.getAsInt(); }
     private static int   guardBreakCooldownTicks() { return Config.GUARD_BREAK_COOLDOWN_TICKS.getAsInt(); }
     private static float undeadBurnSeconds()       { return (float) Config.UNDEAD_IGNITE_SECONDS.getAsDouble(); }
+
+    /** True when the owner's blade currently carries blood — drives the Bloodlust passive. */
+    private boolean isOwnerBladeBloody() {
+        Player owner = getOwner();
+        if (owner == null) return false;
+        return HeirloomSwordItem.getBlood(HeirloomSwordItem.findInInventory(owner)) > 0f;
+    }
+
+    /** 1.0 normally; the configured Bloodlust multiplier while the blade is bloodied. */
+    private float bloodlustMultiplier() {
+        return isOwnerBladeBloody() ? (float) Config.BLOODLUST_DAMAGE_MULT.getAsDouble() : 1.0f;
+    }
 
     /**
      * Whether the sword may damage this target. Non-players: always. Players: only when
@@ -202,10 +220,10 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
     private static final double ARRIVE_SPEED = 2.5;      // [TUNE] blocks/tick descent
     private boolean skyDropSpawn = false;
 
-    private boolean awakening = false;
     private static final double AWAKENING_DESCENT_SPEED = 0.32; // [TUNE] ~2.5s over a ~16-block drop
 
-    public void setAwakening(boolean value) { this.awakening = value; }
+    public void setAwakening(boolean value) { this.entityData.set(DATA_AWAKENING, value); }
+    public boolean isAwakening() { return this.entityData.get(DATA_AWAKENING); }
 
     public boolean isSkyDropSpawn() {
         return skyDropSpawn;
@@ -355,6 +373,7 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
         builder.define(DATA_IDLE_ANIM, 0);
         builder.define(DATA_CURIOSITY_POS, Optional.empty());
         builder.define(DATA_AWARENESS_TARGET, 0);
+        builder.define(DATA_AWAKENING, false);
     }
 
     @Override
@@ -941,6 +960,18 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
     }
 
     private void tickTethering(Player owner) {
+        // Tether Slam: dragging the player into a valid enemy detonates an AoE and aborts the pull.
+        if (!this.level().isClientSide) {
+            AABB detect = owner.getBoundingBox().inflate(
+                    TETHER_SLAM_DETECT_INFLATE, TETHER_SLAM_DETECT_INFLATE, TETHER_SLAM_DETECT_INFLATE);
+            boolean contact = !this.level().getEntitiesOfClass(LivingEntity.class, detect,
+                    e -> e.isAlive() && e != owner && canDamage(owner, e)).isEmpty();
+            if (contact) {
+                tetherSlam(owner);
+                return; // slam consumed the pull
+            }
+        }
+
         tetherTimer++;
 
         // Pure ballistic monitor — the launch in enterTether did the work; gravity carries the arc.
@@ -978,6 +1009,28 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
             tetherGeometryTicks = 0;
         }
         tetherLastPos = nowPos;
+    }
+
+    /** Single AoE detonation centred on the player; damages, ignites, bloodies, and knocks back. */
+    private void tetherSlam(Player owner) {
+        Vec3 center = owner.position();
+        DamageSource source = this.level().damageSources().playerAttack(owner);
+        for (LivingEntity target : this.level().getEntitiesOfClass(LivingEntity.class,
+                new AABB(center, center).inflate(TETHER_SLAM_RADIUS),
+                e -> e.isAlive() && e != owner && canDamage(owner, e))) {
+            target.hurt(source, tetherSlamDamage());
+            igniteIfUndead(target);
+            bloodyOwnerBlade(target);
+            // Push away from the player (mirrors doBlockSlashDamage's knockback convention).
+            target.knockback(TETHER_SLAM_KNOCKBACK,
+                    owner.getX() - target.getX(), owner.getZ() - target.getZ());
+        }
+        if (this.level() instanceof ServerLevel sl) {
+            sl.sendParticles(ParticleTypes.EXPLOSION, center.x, center.y + 1.0, center.z, 1, 0.0, 0.0, 0.0, 0.0);
+            sl.sendParticles(ParticleTypes.SWEEP_ATTACK, center.x, center.y + 1.0, center.z, 6, 1.5, 0.4, 1.5, 0.0);
+        }
+        SwordSounds.playTetherSlam(this.level(), center.x, center.y, center.z);
+        endTether();
     }
 
     private void endTether() {
@@ -1667,7 +1720,7 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
     private void tickArriving(Player owner) {
         Vec3 hoverPos = computeCandidatePosition(owner, 0);
 
-        if (awakening) {
+        if (isAwakening()) {
             // Ceremonial slow descent.
             Vec3 toTarget = hoverPos.subtract(this.position());
             if (toTarget.length() > AWAKENING_DESCENT_SPEED) {
@@ -1679,7 +1732,7 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
             this.targetPosition = hoverPos;
             this.velocity = Vec3.ZERO;
             this.smoothedAnchorY = Double.NaN;
-            this.awakening = false;
+            setAwakening(false);
             setState(FamiliarState.HOVERING);
             SwordSounds.playLandingTouchdown(this.level(), this.getX(), this.getY(), this.getZ());
             return;
@@ -1709,6 +1762,10 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
     }
 
     private void tickArrivingClient() {
+        if (isAwakening()) {
+            tickAwakeningClient();
+            return;
+        }
         // Falling streak [TUNE density]
         for (int i = 0; i < 2; i++) {
             this.level().addParticle(ParticleTypes.END_ROD,
@@ -1717,6 +1774,49 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
                     getZ() + (this.random.nextDouble() - 0.5) * 0.3,
                     0, 0.1, 0);
         }
+    }
+
+    /** Client-only awakening descent VFX: swirling glow + electric crackle + expanding ground rings. */
+    private void tickAwakeningClient() {
+        // Energy build-up swirling around the descending blade.
+        for (int i = 0; i < 3; i++) { // [TUNE]
+            double a = this.random.nextDouble() * Math.PI * 2;
+            double r = 0.6 + this.random.nextDouble() * 0.4;
+            double px = getX() + Math.cos(a) * r;
+            double py = getY() + getBbHeight() * 0.5 + (this.random.nextDouble() - 0.5) * 1.5;
+            double pz = getZ() + Math.sin(a) * r;
+            this.level().addParticle(ParticleTypes.GLOW, px, py, pz, 0, 0.02, 0);
+            if (this.random.nextFloat() < 0.4f) {
+                this.level().addParticle(ParticleTypes.ELECTRIC_SPARK, px, py, pz,
+                        (getX() - px) * 0.2, 0, (getZ() - pz) * 0.2);
+            }
+        }
+        // Concentric expanding rings on the ground beneath the descent.
+        double groundY = findGroundY();
+        for (int ring = 0; ring < 2; ring++) { // [TUNE]
+            double phase = ((this.tickCount + ring * 7) % 20) / 20.0;
+            double radius = 0.5 + phase * 2.5;
+            int pts = 24;
+            for (int p = 0; p < pts; p++) {
+                double ang = (p / (double) pts) * Math.PI * 2;
+                this.level().addParticle(p % 2 == 0 ? ParticleTypes.WITCH : ParticleTypes.ENCHANT,
+                        getX() + Math.cos(ang) * radius, groundY + 0.1, getZ() + Math.sin(ang) * radius,
+                        0, 0, 0);
+            }
+        }
+    }
+
+    /** First solid block surface below the entity (client-side, for the ground ring effect). */
+    private double findGroundY() {
+        BlockPos.MutableBlockPos m = new BlockPos.MutableBlockPos();
+        m.set(this.blockPosition());
+        for (int i = 0; i < 24; i++) {
+            m.move(net.minecraft.core.Direction.DOWN);
+            if (!this.level().getBlockState(m).getCollisionShape(this.level(), m).isEmpty()) {
+                return m.getY() + 1.0;
+            }
+        }
+        return getY();
     }
 
     public static void despawnForOwner(ServerLevel level, UUID ownerUUID) {

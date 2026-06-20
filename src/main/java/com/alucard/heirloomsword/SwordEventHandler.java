@@ -1,5 +1,7 @@
 package com.alucard.heirloomsword;
 
+import com.alucard.heirloomsword.network.BackSheathSyncPacket;
+import net.minecraft.commands.Commands;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
@@ -22,7 +24,9 @@ import net.minecraft.world.level.storage.loot.predicates.LootItemRandomChanceCon
 import net.minecraft.world.phys.EntityHitResult;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.neoforge.event.RegisterCommandsEvent;
 import net.neoforged.neoforge.event.LootTableLoadEvent;
+import net.neoforged.neoforge.network.PacketDistributor;
 import net.neoforged.neoforge.event.entity.EntityJoinLevelEvent;
 import net.neoforged.neoforge.event.entity.ProjectileImpactEvent;
 import net.neoforged.neoforge.event.entity.item.ItemTossEvent;
@@ -133,6 +137,8 @@ public class SwordEventHandler {
     public void onPlayerTick(PlayerTickEvent.Post event) {
         if (!(event.getEntity() instanceof ServerPlayer player)) return;
 
+        updateBackSheath(player);
+
         if (playerHasSword(player)) {
             ManaService.tickRegen(player);
             int warpCd = player.getData(ManaAttachments.WARP_COOLDOWN.get());
@@ -172,6 +178,9 @@ public class SwordEventHandler {
     public void onPlayerLogout(PlayerEvent.PlayerLoggedOutEvent event) {
         if (!(event.getEntity() instanceof ServerPlayer player)) return;
 
+        // Clear this player's back-sheath state on every remaining client.
+        PacketDistributor.sendToAllPlayers(new BackSheathSyncPacket(player.getUUID(), false));
+
         ItemStack swordStack = findFlyingSword(player);
         if (swordStack != null) {
             HeirloomSwordItem.setMode(swordStack, SwordMode.NORMAL);
@@ -180,6 +189,34 @@ public class SwordEventHandler {
         }
 
         SwordFamiliarEntity.despawnForOwner(player.serverLevel(), player.getUUID());
+    }
+
+    @SubscribeEvent
+    public void onPlayerLogin(PlayerEvent.PlayerLoggedInEvent event) {
+        if (!(event.getEntity() instanceof ServerPlayer joining)) return;
+        // Send the joining player a snapshot of everyone already wearing a back sheath. Their own
+        // state, and any later changes, are handled by the per-tick edge-detected broadcast.
+        for (ServerPlayer other : joining.server.getPlayerList().getPlayers()) {
+            if (other != joining && other.getData(ManaAttachments.BACK_SHEATH_SYNCED.get())) {
+                PacketDistributor.sendToPlayer(joining, new BackSheathSyncPacket(other.getUUID(), true));
+            }
+        }
+    }
+
+    @SubscribeEvent
+    public void onRegisterCommands(RegisterCommandsEvent event) {
+        // /heirloom show — toggle whether this player displays the sheathed sword on their back.
+        event.getDispatcher().register(Commands.literal("heirloom")
+                .then(Commands.literal("show")
+                        .executes(ctx -> {
+                            ServerPlayer player = ctx.getSource().getPlayerOrException();
+                            boolean next = !player.getData(ManaAttachments.SHOW_BACK_SHEATH.get());
+                            player.setData(ManaAttachments.SHOW_BACK_SHEATH.get(), next);
+                            ctx.getSource().sendSuccess(() -> Component.translatable(
+                                    next ? "msg.heirloomswordmod.back_sheath_on"
+                                         : "msg.heirloomswordmod.back_sheath_off"), false);
+                            return 1;
+                        })));
     }
 
     @SubscribeEvent
@@ -249,6 +286,33 @@ public class SwordEventHandler {
     private boolean playerHasSword(Player player) {
         for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
             if (player.getInventory().getItem(i).getItem() instanceof HeirloomSwordItem) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Recomputes whether this player should display a sheathed sword and, if it changed since the
+     * last broadcast, syncs the new state to every client (they render each other's backs but can't
+     * see each other's inventories, so the server must decide).
+     */
+    private void updateBackSheath(ServerPlayer player) {
+        boolean wearing = computeBackSheath(player);
+        if (wearing != player.getData(ManaAttachments.BACK_SHEATH_SYNCED.get())) {
+            player.setData(ManaAttachments.BACK_SHEATH_SYNCED.get(), wearing);
+            PacketDistributor.sendToAllPlayers(new BackSheathSyncPacket(player.getUUID(), wearing));
+        }
+    }
+
+    /** Display preference on, a NORMAL-mode sword owned, and not currently held in either hand. */
+    private boolean computeBackSheath(ServerPlayer player) {
+        if (!player.getData(ManaAttachments.SHOW_BACK_SHEATH.get())) return false;
+        if (player.getMainHandItem().getItem() instanceof HeirloomSwordItem) return false;
+        if (player.getOffhandItem().getItem() instanceof HeirloomSwordItem) return false;
+        for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
+            ItemStack s = player.getInventory().getItem(i);
+            if (s.getItem() instanceof HeirloomSwordItem && !HeirloomSwordItem.isFlying(s)) {
                 return true;
             }
         }

@@ -43,4 +43,19 @@ public class ManaAttachments {
             ATTACHMENT_TYPES.register("mode_switch_cooldown", () ->
                     AttachmentType.<Integer>builder(() -> 0)
                             .build());
+
+    // Player preference: show the sheathed sword on the back (toggled by /heirloom show).
+    // Off by default; persists across logout.
+    public static final Supplier<AttachmentType<Boolean>> SHOW_BACK_SHEATH =
+            ATTACHMENT_TYPES.register("show_back_sheath", () ->
+                    AttachmentType.<Boolean>builder(() -> false)
+                            .serialize(Codec.BOOL)
+                            .build());
+
+    // Last back-sheath render state broadcast to clients for this player, used to edge-detect
+    // changes so we only send a sync packet when it actually flips. Transient (not serialized).
+    public static final Supplier<AttachmentType<Boolean>> BACK_SHEATH_SYNCED =
+            ATTACHMENT_TYPES.register("back_sheath_synced", () ->
+                    AttachmentType.<Boolean>builder(() -> false)
+                            .build());
 }

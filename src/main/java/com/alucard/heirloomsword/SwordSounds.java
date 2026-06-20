@@ -106,4 +106,11 @@ public final class SwordSounds {
     public static void playTetherStart(Level level, double x, double y, double z) {
         level.playSound(null, x, y, z, SoundEvents.CHAIN_BREAK, SoundSource.PLAYERS, 0.9f, 1.0f);
     }
+
+    /** Tether pull slams the player through an enemy — heavy metallic impact plus a blast. */
+    public static void playTetherSlam(Level level, double x, double y, double z) {
+        level.playSound(null, x, y, z, SoundEvents.ANVIL_LAND, SoundSource.PLAYERS, 0.9f, 0.8f);
+        // GENERIC_EXPLODE is a Holder<SoundEvent> in 1.21.1 — the playSound(Holder, ...) overload applies.
+        level.playSound(null, x, y, z, SoundEvents.GENERIC_EXPLODE, SoundSource.PLAYERS, 0.7f, 1.1f);
+    }
 }
