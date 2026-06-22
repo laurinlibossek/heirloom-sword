@@ -80,6 +80,26 @@ public class SwordEventHandler {
     }
 
     @SubscribeEvent
+    public void onBloodlustOutgoing(LivingIncomingDamageEvent event) {
+        DamageSource source = event.getSource();
+        if (!(source.getEntity() instanceof Player attacker)) return;
+        // Direct melee only — exclude projectiles / indirect sources.
+        if (source.getDirectEntity() != source.getEntity()) return;
+
+        ItemStack weapon = attacker.getMainHandItem();
+        if (!(weapon.getItem() instanceof HeirloomSwordItem)) return;
+        if (HeirloomSwordItem.isFlying(weapon)) return; // flying mode handles its own multiplier
+
+        // Ramp: read blood BEFORE refreshing, so the first hit on a clean blade gets no bonus.
+        if (HeirloomSwordItem.getBlood(weapon) > 0f) {
+            event.setAmount((float) (event.getAmount() * Config.BLOODLUST_DAMAGE_MULT.get()));
+        }
+        if (SwordFamiliarEntity.canBleed(event.getEntity())) {
+            HeirloomSwordItem.setBlood(weapon, 1.0f);
+        }
+    }
+
+    @SubscribeEvent
     public void onProjectileImpact(ProjectileImpactEvent event) {
         if (!(event.getRayTraceResult() instanceof EntityHitResult hit)) return;
         if (!(hit.getEntity() instanceof ServerPlayer player)) return;

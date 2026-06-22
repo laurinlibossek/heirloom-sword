@@ -30,15 +30,15 @@ public record SwordGuardPacket(boolean held) implements CustomPacketPayload {
         context.enqueueWork(() -> {
             if (!(context.player() instanceof ServerPlayer player)) return;
 
-            ItemStack held = player.getMainHandItem();
-            if (!(held.getItem() instanceof HeirloomSwordItem)) return;
-            if (!HeirloomSwordItem.isFlying(held)) return;
-
             ServerLevel level = player.serverLevel();
             SwordFamiliarEntity familiar = SwordFamiliarEntity.findForOwner(level, player.getUUID());
             if (familiar == null) return;
 
             if (packet.held()) {
+                // Press: requires the flying sword in hand, plus mana, cooldown, and a valid source state.
+                ItemStack held = player.getMainHandItem();
+                if (!(held.getItem() instanceof HeirloomSwordItem)) return;
+                if (!HeirloomSwordItem.isFlying(held)) return;
                 if (familiar.getGuardCooldown() > 0) return;
                 if (!ManaService.hasAtLeast(player, ManaService.MIN_BLOCK)) {
                     SwordSounds.playDenied(player);
@@ -51,8 +51,11 @@ public record SwordGuardPacket(boolean held) implements CustomPacketPayload {
                     default -> { } // invalid source state — silently discard (design doc §22)
                 }
             } else {
-                if (familiar.getState() != FamiliarState.BLOCKING) return;
-                familiar.stopBlocking();
+                // Release: end the guard regardless of which item is currently selected, so a guard
+                // held while scrolling away (e.g. to eat) can never get stuck.
+                if (familiar.getState() == FamiliarState.BLOCKING) {
+                    familiar.stopBlocking();
+                }
             }
         });
     }

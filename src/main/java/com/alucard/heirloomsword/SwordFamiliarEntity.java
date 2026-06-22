@@ -109,6 +109,8 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
     private static float tetherSlamDamage() { return (float) Config.TETHER_SLAM_DAMAGE.getAsDouble(); }
     private static final TagKey<Block> PIERCEABLE_BLOCKS = TagKey.create(
             Registries.BLOCK, ResourceLocation.fromNamespaceAndPath(HeirloomSwordMod.MODID, "pierceable"));
+    private static final TagKey<Block> SWEPT_AWAY_BLOCKS = TagKey.create(
+            Registries.BLOCK, ResourceLocation.fromNamespaceAndPath(HeirloomSwordMod.MODID, "swept_away"));
     private static final int CHARGE_THRESHOLD_TICKS = 60; // 3 seconds for charged tier
     private static final ResourceLocation CHARGE_SLOW_ID =
             ResourceLocation.fromNamespaceAndPath(HeirloomSwordMod.MODID, "charge_slowdown");
@@ -1158,6 +1160,11 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
 
         // Contact damage with directional knockback
         sweepDamageEntities(prevPos, nextPos, owner);
+
+        // Mow qualifying foliage the blade swept through (drops items).
+        if (Config.SWEEP_MOWS_PLANTS.get()) {
+            mowPlants(prevPos, nextPos, owner);
+        }
     }
 
     private void tickSweepingHoldClient(Player owner) {
@@ -1212,6 +1219,22 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
         }
         if (!this.level().isClientSide) {
             SwordSounds.playSweepContact(this.level(), getX(), getY(), getZ());
+        }
+    }
+
+    /** Destroy and drop qualifying foliage in the blade's swept volume (server-side). */
+    private void mowPlants(Vec3 from, Vec3 to, Player owner) {
+        if (this.level().isClientSide) return;
+        AABB box = new AABB(
+                Math.min(from.x, to.x) - SWORD_HALF_LENGTH, Math.min(from.y, to.y) - SWORD_HALF_THICKNESS, Math.min(from.z, to.z) - SWORD_HALF_LENGTH,
+                Math.max(from.x, to.x) + SWORD_HALF_LENGTH, Math.max(from.y, to.y) + SWORD_HALF_THICKNESS, Math.max(from.z, to.z) + SWORD_HALF_LENGTH);
+        Level level = this.level();
+        for (BlockPos pos : BlockPos.betweenClosed(
+                Mth.floor(box.minX), Mth.floor(box.minY), Mth.floor(box.minZ),
+                Mth.floor(box.maxX), Mth.floor(box.maxY), Mth.floor(box.maxZ))) {
+            if (level.getBlockState(pos).is(SWEPT_AWAY_BLOCKS)) {
+                level.destroyBlock(pos, true, owner);
+            }
         }
     }
 
@@ -1408,7 +1431,7 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
     }
 
     /** Returns false for entities that have no blood (mechanical, elemental, slime, bare bone). */
-    private static boolean canBleed(LivingEntity entity) {
+    public static boolean canBleed(LivingEntity entity) {
         EntityType<?> t = entity.getType();
         return !(
             // Constructed — no biology

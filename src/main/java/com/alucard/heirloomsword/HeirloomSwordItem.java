@@ -6,12 +6,17 @@ import net.minecraft.core.Holder;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.entity.EquipmentSlotGroup;
+import net.minecraft.world.entity.ai.attributes.AttributeModifier;
+import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Rarity;
 import net.minecraft.world.item.SwordItem;
 import net.minecraft.world.item.Tiers;
 import net.minecraft.world.item.TooltipFlag;
+import net.minecraft.world.item.component.ItemAttributeModifiers;
 import net.minecraft.world.item.component.Unbreakable;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
@@ -38,11 +43,24 @@ public class HeirloomSwordItem extends SwordItem implements GeoItem {
                 .fireResistant()
                 // 7 + netherite bonus 4 + player base 1 = 12 attack damage.
                 // -2.4f attack speed = 1.6 final, identical cooldown to a netherite sword.
-                .attributes(SwordItem.createAttributes(Tiers.NETHERITE, 7, -2.4f))
+                .attributes(buildAttributes())
                 // TieredItem force-applies netherite durability; UNBREAKABLE suppresses it
                 // entirely (no damage taken, no bar). false = no "Unbreakable" tooltip line.
                 .component(DataComponents.UNBREAKABLE, new Unbreakable(false))
                 .component(ModDataComponents.SWORD_MODE.get(), SwordMode.NORMAL));
+    }
+
+    // Held-mode melee reach: vanilla entity_interaction_range default is 3.0; +1.5 -> 4.5 so the
+    // long greatsword can land hits at a believable distance. MAINHAND only.
+    private static ItemAttributeModifiers buildAttributes() {
+        return SwordItem.createAttributes(Tiers.NETHERITE, 7, -2.4f)
+                .withModifierAdded(
+                        Attributes.ENTITY_INTERACTION_RANGE,
+                        new AttributeModifier(
+                                ResourceLocation.fromNamespaceAndPath(HeirloomSwordMod.MODID, "reach"),
+                                1.5,
+                                AttributeModifier.Operation.ADD_VALUE),
+                        EquipmentSlotGroup.MAINHAND);
     }
 
     @Override

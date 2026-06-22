@@ -156,13 +156,18 @@ public class HeirloomSwordModClient {
                 }
             }
 
+            // Guard maintenance runs above the held-item gate so a held guard persists when the
+            // player scrolls to another slot (e.g. to eat). It ends only when G is released or the
+            // familiar is gone — never merely because the sword was deselected.
+            if (isBlocking && (!ModKeybinds.GUARD.isDown() || findClientFamiliar(player) == null)) {
+                cancelBlocking();
+            }
+
             if (!(held.getItem() instanceof HeirloomSwordItem)) {
                 if (isCharging)
                     resetChargeState();
                 if (isSweeping)
                     resetSweepState();
-                if (isBlocking)
-                    cancelBlocking();
                 return;
             }
 
@@ -333,10 +338,6 @@ public class HeirloomSwordModClient {
                             }
                         }
                     }
-                }
-            } else {
-                if (!HeirloomSwordItem.isFlying(held) || !ModKeybinds.GUARD.isDown()) {
-                    cancelBlocking();
                 }
             }
 

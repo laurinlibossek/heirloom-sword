@@ -20,6 +20,7 @@ public class Config {
     public static final ModConfigSpec.BooleanValue CONSUME_MANA;
     public static final ModConfigSpec.DoubleValue BLOODLUST_DAMAGE_MULT;
     public static final ModConfigSpec.DoubleValue TETHER_SLAM_DAMAGE;
+    public static final ModConfigSpec.BooleanValue SWEEP_MOWS_PLANTS;
 
     // === integration ===
     public static final ModConfigSpec.BooleanValue ALLOW_PVP_DAMAGE;
@@ -40,7 +41,7 @@ public class Config {
         SWEEP_CONTACT_DAMAGE = BUILDER.comment("Per-contact damage while the sword sweeps around the player.")
                 .defineInRange("sweepContactDamage", 4.0, 0.0, 1024.0);
         SWEEP_RELEASE_DAMAGE = BUILDER.comment("Damage from the sweep release fling.")
-                .defineInRange("sweepReleaseDamage", 14.0, 0.0, 1024.0);
+                .defineInRange("sweepReleaseDamage", 18.0, 0.0, 1024.0);
         BLOCK_SLASH_DAMAGE = BUILDER.comment("Counter-slash damage from a successful guard.")
                 .defineInRange("blockSlashDamage", 12.0, 0.0, 1024.0);
         LANDING_IMPACT_DAMAGE = BUILDER.comment("Sky-drop landing impact AoE damage on spawn.")
@@ -56,13 +57,18 @@ public class Config {
                         "is free with no drain, no minimum-cost gate, and no depletion lockout.")
                 .define("consumeMana", true);
         BLOODLUST_DAMAGE_MULT = BUILDER.comment(
-                        "Damage multiplier applied to flying-mode attacks while the blade is bloodied (blood > 0).",
+                        "Damage multiplier applied (in BOTH normal and flying mode) while the blade is bloodied (blood > 0).",
                         "1.0 disables the Bloodlust passive; 1.2 = +20%.")
                 .defineInRange("bloodlustDamageMult", 1.2, 1.0, 4.0);
         TETHER_SLAM_DAMAGE = BUILDER.comment(
                         "AoE damage to all valid entities in a short radius when a tether pull slams the",
                         "player through an enemy.")
                 .defineInRange("tetherSlamDamage", 12.0, 0.0, 1024.0);
+        SWEEP_MOWS_PLANTS = BUILDER.comment(
+                        "While the sword sweeps (SWEEPING_HOLD), destroy and drop foliage it passes",
+                        "through (grass, flowers, bamboo, sugar cane, cobweb, vines, saplings, nether",
+                        "foliage). Crops are never affected. false disables the mowing.")
+                .define("sweepMowsPlants", true);
         BUILDER.pop();
 
         BUILDER.comment("Cross-mod / server integration toggles.").push("integration");
