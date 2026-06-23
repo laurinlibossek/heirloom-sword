@@ -23,15 +23,15 @@ public final class SwordSounds {
      * "You can't do that right now" cue — insufficient mana, on cooldown, no valid target, etc.
      */
     public static void playDenied(ServerPlayer player) {
-        player.level().playSound(null, player.blockPosition(),
-                ModSounds.SWORD_MODE_EXIT.value(), SoundSource.PLAYERS, 0.35f, 1.0f);
+        // Self-only: playNotifySound sends the cue to just this player, so bystanders don't hear it.
+        player.playNotifySound(ModSounds.SWORD_MODE_EXIT.value(), SoundSource.PLAYERS, 0.35f, 1.0f);
     }
 
     // === Phase 10 placeholder cues (vanilla sounds; swap to custom SoundEvents in the audio pass) ===
 
-    /** Flying mode exited to normal (F toggle). */
-    public static void playModeExit(Level level, double x, double y, double z) {
-        level.playSound(null, x, y, z, ModSounds.SWORD_GUARDING_START.value(), SoundSource.PLAYERS, 0.08f, 1.0f);
+    /** Flying mode exited to normal (F toggle). Self-only — informational toggle acknowledgement. */
+    public static void playModeExit(ServerPlayer player) {
+        player.playNotifySound(ModSounds.SWORD_GUARDING_START.value(), SoundSource.PLAYERS, 0.08f, 1.0f);
     }
 
     /** Familiar launch. Charged launch is louder and pitched down. Pitch way down, quieter. */
@@ -45,9 +45,9 @@ public final class SwordSounds {
         level.playSound(null, x, y, z, SoundEvents.PLAYER_ATTACK_SWEEP, SoundSource.PLAYERS, 0.9f, 1.0f);
     }
 
-    /** Familiar reaches the player at the end of RETURNING. Reuses old experience point pickup sound, very quiet. */
-    public static void playReturnArrival(Level level, double x, double y, double z) {
-        level.playSound(null, x, y, z, SoundEvents.EXPERIENCE_ORB_PICKUP, SoundSource.PLAYERS, 0.15f, 1.3f);
+    /** Familiar reaches the player at the end of RETURNING. Self-only — personal "it's back" chime. */
+    public static void playReturnArrival(ServerPlayer player) {
+        player.playNotifySound(SoundEvents.EXPERIENCE_ORB_PICKUP, SoundSource.PLAYERS, 0.15f, 1.3f);
     }
 
     /** Familiar touchdown landing (arriving state). Quieter than before. */
@@ -65,9 +65,9 @@ public final class SwordSounds {
         level.playSound(null, x, y, z, ModSounds.SWORD_SWEEP_RELEASE.value(), SoundSource.PLAYERS, 0.08f, 0.8f);
     }
 
-    /** Guard raised (entering BLOCKING). Very subtle acknowledgement — the sword moved one metre. */
-    public static void playGuardRaised(Level level, double x, double y, double z) {
-        level.playSound(null, x, y, z, SoundEvents.EXPERIENCE_ORB_PICKUP, SoundSource.PLAYERS, 0.08f, 1.3f);
+    /** Guard raised (entering BLOCKING). Self-only — very subtle acknowledgement to the wielder. */
+    public static void playGuardRaised(ServerPlayer player) {
+        player.playNotifySound(SoundEvents.EXPERIENCE_ORB_PICKUP, SoundSource.PLAYERS, 0.08f, 1.3f);
     }
 
     /** Frontal shield block melee hits. Uses same custom deflect arrow sound. */
@@ -92,7 +92,7 @@ public final class SwordSounds {
 
     /** Hovering ambient (throttled one-shot). */
     public static void playHoverAmbient(Level level, double x, double y, double z) {
-        level.playSound(null, x, y, z, ModSounds.SWORD_AMBIENT.value(), SoundSource.PLAYERS, 0.035f, 1.0f);
+        level.playSound(null, x, y, z, ModSounds.SWORD_AMBIENT.value(), SoundSource.PLAYERS, 0.25f, 1.0f);
     }
 
     /** Familiar death-fall (owner death / despawn). */

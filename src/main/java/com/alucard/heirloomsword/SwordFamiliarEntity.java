@@ -24,6 +24,7 @@ import net.minecraft.world.entity.OwnableEntity;
 import net.minecraft.world.entity.monster.Enemy;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.phys.AABB;
@@ -594,8 +595,8 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
 
         public void startBlocking() {
         setState(FamiliarState.BLOCKING);
-        if (!this.level().isClientSide) {
-            SwordSounds.playGuardRaised(this.level(), getX(), getY(), getZ());
+        if (getOwner() instanceof ServerPlayer sp) {
+            SwordSounds.playGuardRaised(sp);
         }
     }
 
@@ -603,8 +604,8 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
         removeChargeSlowdown();
         chargeTimer = 0;
         setState(FamiliarState.BLOCKING);
-        if (!this.level().isClientSide) {
-            SwordSounds.playGuardRaised(this.level(), getX(), getY(), getZ());
+        if (getOwner() instanceof ServerPlayer sp) {
+            SwordSounds.playGuardRaised(sp);
         }
     }
 
@@ -619,8 +620,8 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
         this.sweepVelocity = Vec3.ZERO;
         this.sweepIFrames.clear();
         setState(FamiliarState.BLOCKING);
-        if (!this.level().isClientSide) {
-            SwordSounds.playGuardRaised(this.level(), getX(), getY(), getZ());
+        if (getOwner() instanceof ServerPlayer sp) {
+            SwordSounds.playGuardRaised(sp);
         }
     }
 
@@ -1067,7 +1068,9 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
             this.velocity = Vec3.ZERO;
             this.smoothedAnchorY = Double.NaN;
             this.targetPosition = computeCandidatePosition(owner, 0);
-            SwordSounds.playReturnArrival(this.level(), getX(), getY(), getZ());
+            if (owner instanceof ServerPlayer sp) {
+                SwordSounds.playReturnArrival(sp);
+            }
             return;
         }
 
@@ -1299,6 +1302,11 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
 
         // Damage entities in path (8 damage, each entity hit once)
         damageEntitiesInPath(currentPos, nextPos, sweepReleaseHitSet, sweepReleaseDamage(), owner, SWORD_HALF_LENGTH);
+
+        // Mow qualifying foliage the flung blade slices through (outbound sawblade only).
+        if (Config.SWEEP_MOWS_PLANTS.get()) {
+            mowPlants(currentPos, nextPos, owner);
+        }
     }
 
     private void tickSweepingReleaseClient(Player owner) {
@@ -1718,7 +1726,8 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
                 var stack = owner.getInventory().getItem(i);
                 if (stack.getItem() instanceof HeirloomSwordItem && HeirloomSwordItem.isFlying(stack)) {
                     HeirloomSwordItem.setMode(stack, SwordMode.NORMAL);
-                    HeirloomSwordItem.setBlood(stack, 0f); // recall = sheathe: blood flies off instantly
+                    // Blood persists across the recall — it is one unified countdown that decays on a
+                    // single timeline no matter the mode, so the held/sheathed blade keeps its splatter.
                     stack.remove(ModDataComponents.FAMILIAR_UUID.get());
                     break;
                 }

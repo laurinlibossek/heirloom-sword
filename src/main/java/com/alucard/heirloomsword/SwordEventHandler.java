@@ -177,7 +177,7 @@ public class SwordEventHandler {
         java.util.UUID familiarUUID = swordStack.get(ModDataComponents.FAMILIAR_UUID.get());
         if (familiarUUID == null) {
             HeirloomSwordItem.setMode(swordStack, SwordMode.NORMAL);
-            HeirloomSwordItem.setBlood(swordStack, 0f); // recall = sheathe: blood flies off instantly
+            // Blood persists across recall (one unified countdown, decays on a single timeline).
             player.displayClientMessage(
                     Component.translatable("msg.heirloomswordmod.sword_returns"), true);
             return;
@@ -187,7 +187,7 @@ public class SwordEventHandler {
         Entity entity = level.getEntity(familiarUUID);
         if (!(entity instanceof SwordFamiliarEntity) || entity.isRemoved()) {
             HeirloomSwordItem.setMode(swordStack, SwordMode.NORMAL);
-            HeirloomSwordItem.setBlood(swordStack, 0f); // recall = sheathe: blood flies off instantly
+            // Blood persists across recall (one unified countdown, decays on a single timeline).
             swordStack.remove(ModDataComponents.FAMILIAR_UUID.get());
             player.displayClientMessage(
                     Component.translatable("msg.heirloomswordmod.sword_returns"), true);
@@ -199,7 +199,7 @@ public class SwordEventHandler {
         if (!(event.getEntity() instanceof ServerPlayer player)) return;
 
         // Clear this player's back-sheath state on every remaining client.
-        PacketDistributor.sendToAllPlayers(new BackSheathSyncPacket(player.getUUID(), false));
+        PacketDistributor.sendToAllPlayers(new BackSheathSyncPacket(player.getUUID(), false, (byte) 0));
 
         ItemStack swordStack = findFlyingSword(player);
         if (swordStack != null) {
@@ -218,7 +218,8 @@ public class SwordEventHandler {
         // state, and any later changes, are handled by the per-tick edge-detected broadcast.
         for (ServerPlayer other : joining.server.getPlayerList().getPlayers()) {
             if (other != joining && other.getData(ManaAttachments.BACK_SHEATH_SYNCED.get())) {
-                PacketDistributor.sendToPlayer(joining, new BackSheathSyncPacket(other.getUUID(), true));
+                byte bloodQ = (byte) (int) other.getData(ManaAttachments.BACK_SHEATH_BLOOD_SYNCED.get());
+                PacketDistributor.sendToPlayer(joining, new BackSheathSyncPacket(other.getUUID(), true, bloodQ));
             }
         }
     }
@@ -319,10 +320,28 @@ public class SwordEventHandler {
      */
     private void updateBackSheath(ServerPlayer player) {
         boolean wearing = computeBackSheath(player);
-        if (wearing != player.getData(ManaAttachments.BACK_SHEATH_SYNCED.get())) {
+        // Quantize blood to ~5% steps (0..20) so a decaying blade only re-broadcasts a handful of
+        // times, not on every decay tick. Blood only matters while the blade is actually displayed.
+        int bloodQ = wearing ? Math.round(computeBackSheathBlood(player) * 20f) : 0;
+        boolean wearingChanged = wearing != player.getData(ManaAttachments.BACK_SHEATH_SYNCED.get());
+        boolean bloodChanged = bloodQ != player.getData(ManaAttachments.BACK_SHEATH_BLOOD_SYNCED.get());
+        if (wearingChanged || bloodChanged) {
             player.setData(ManaAttachments.BACK_SHEATH_SYNCED.get(), wearing);
-            PacketDistributor.sendToAllPlayers(new BackSheathSyncPacket(player.getUUID(), wearing));
+            player.setData(ManaAttachments.BACK_SHEATH_BLOOD_SYNCED.get(), bloodQ);
+            PacketDistributor.sendToAllPlayers(
+                    new BackSheathSyncPacket(player.getUUID(), wearing, (byte) bloodQ));
         }
+    }
+
+    /** Blood level (0..1) of the NORMAL-mode sword that would be shown on the back, or 0 if none. */
+    private float computeBackSheathBlood(ServerPlayer player) {
+        for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
+            ItemStack s = player.getInventory().getItem(i);
+            if (s.getItem() instanceof HeirloomSwordItem && !HeirloomSwordItem.isFlying(s)) {
+                return HeirloomSwordItem.getBlood(s);
+            }
+        }
+        return 0f;
     }
 
     /** Display preference on, a NORMAL-mode sword owned, and not currently held in either hand. */

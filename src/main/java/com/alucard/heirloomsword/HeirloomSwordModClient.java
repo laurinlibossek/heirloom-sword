@@ -156,10 +156,30 @@ public class HeirloomSwordModClient {
                 }
             }
 
-            // Guard maintenance runs above the held-item gate so a held guard persists when the
-            // player scrolls to another slot (e.g. to eat). It ends only when G is released or the
-            // familiar is gone — never merely because the sword was deselected.
-            if (isBlocking && (!ModKeybinds.GUARD.isDown() || findClientFamiliar(player) == null)) {
+            // Guard (G) runs above the held-item gate, mirroring V quick-fire: the familiar only
+            // exists in flying mode, so its presence is the flying-mode signal and the guard can be
+            // raised even when the sword isn't the selected hotbar slot (e.g. while eating). It
+            // persists while G is held and ends when G is released or the familiar is gone.
+            SwordFamiliarEntity guardFamiliar = findClientFamiliar(player);
+            if (!isBlocking) {
+                if (ModKeybinds.GUARD.isDown() && guardFamiliar != null && guardFamiliar.getGuardCooldown() == 0) {
+                    FamiliarState gs = guardFamiliar.getState();
+                    if (gs == FamiliarState.HOVERING
+                            || gs == FamiliarState.CHARGING
+                            || gs == FamiliarState.SWEEPING_HOLD) {
+                        if (!isManaExempt(player) && ClientManaState.current < ManaService.MIN_BLOCK) {
+                            playDeniedClient(player);
+                        } else {
+                            if (isCharging)
+                                resetChargeState(); // G cancels the charge — no launch packet
+                            if (isSweeping)
+                                resetSweepState(); // G arrests the sweep — no release packet
+                            PacketDistributor.sendToServer(new SwordGuardPacket(true));
+                            isBlocking = true;
+                        }
+                    }
+                }
+            } else if (!ModKeybinds.GUARD.isDown() || guardFamiliar == null) {
                 cancelBlocking();
             }
 
@@ -314,30 +334,6 @@ public class HeirloomSwordModClient {
                     resetChargeState();
                 } else {
                     clientChargeTimer++;
-                }
-            }
-
-            // Track guard hold state (G key)
-            if (!isBlocking) {
-                if (ModKeybinds.GUARD.isDown() && HeirloomSwordItem.isFlying(held)) {
-                    SwordFamiliarEntity familiar = findClientFamiliar(player);
-                    if (familiar != null && familiar.getGuardCooldown() == 0) {
-                        FamiliarState s = familiar.getState();
-                        if (s == FamiliarState.HOVERING
-                                || s == FamiliarState.CHARGING
-                                || s == FamiliarState.SWEEPING_HOLD) {
-                            if (!isManaExempt(player) && ClientManaState.current < ManaService.MIN_BLOCK) {
-                                playDeniedClient(player);
-                            } else {
-                                if (isCharging)
-                                    resetChargeState(); // G cancels the charge — no launch packet
-                                if (isSweeping)
-                                    resetSweepState(); // G arrests the sweep — no release packet
-                                PacketDistributor.sendToServer(new SwordGuardPacket(true));
-                                isBlocking = true;
-                            }
-                        }
-                    }
                 }
             }
 

@@ -50,15 +50,15 @@ public class HeirloomSwordItem extends SwordItem implements GeoItem {
                 .component(ModDataComponents.SWORD_MODE.get(), SwordMode.NORMAL));
     }
 
-    // Held-mode melee reach: vanilla entity_interaction_range default is 3.0; +1.5 -> 4.5 so the
-    // long greatsword can land hits at a believable distance. MAINHAND only.
+    // Held-mode melee reach: vanilla entity_interaction_range default is 3.0; +1.0 -> 4.0 so the
+    // long greatsword can land hits at a believable distance without overreaching. MAINHAND only.
     private static ItemAttributeModifiers buildAttributes() {
         return SwordItem.createAttributes(Tiers.NETHERITE, 7, -2.4f)
                 .withModifierAdded(
                         Attributes.ENTITY_INTERACTION_RANGE,
                         new AttributeModifier(
                                 ResourceLocation.fromNamespaceAndPath(HeirloomSwordMod.MODID, "reach"),
-                                1.5,
+                                1.0,
                                 AttributeModifier.Operation.ADD_VALUE),
                         EquipmentSlotGroup.MAINHAND);
     }

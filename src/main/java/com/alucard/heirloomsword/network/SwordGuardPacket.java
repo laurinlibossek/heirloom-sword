@@ -8,7 +8,6 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 
 public record SwordGuardPacket(boolean held) implements CustomPacketPayload {
@@ -35,10 +34,8 @@ public record SwordGuardPacket(boolean held) implements CustomPacketPayload {
             if (familiar == null) return;
 
             if (packet.held()) {
-                // Press: requires the flying sword in hand, plus mana, cooldown, and a valid source state.
-                ItemStack held = player.getMainHandItem();
-                if (!(held.getItem() instanceof HeirloomSwordItem)) return;
-                if (!HeirloomSwordItem.isFlying(held)) return;
+                // Press authorised by the familiar (the flying-mode signal), mirroring V quick-fire:
+                // no held-item check, so the guard can be raised while another slot is selected.
                 if (familiar.getGuardCooldown() > 0) return;
                 if (!ManaService.hasAtLeast(player, ManaService.MIN_BLOCK)) {
                     SwordSounds.playDenied(player);

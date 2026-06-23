@@ -12,8 +12,11 @@ import net.neoforged.neoforge.network.handling.IPayloadContext;
 
 import java.util.UUID;
 
-/** Server → client: a player's back-sheath display state changed (or an initial snapshot on login). */
-public record BackSheathSyncPacket(UUID playerId, boolean wearing) implements CustomPacketPayload {
+/**
+ * Server → client: a player's back-sheath display state changed (or an initial snapshot on login).
+ * {@code blood} is the blade's blood level quantized to 0..20 (5% steps); clients divide by 20.
+ */
+public record BackSheathSyncPacket(UUID playerId, boolean wearing, byte blood) implements CustomPacketPayload {
     public static final Type<BackSheathSyncPacket> TYPE =
             new Type<>(ResourceLocation.fromNamespaceAndPath(HeirloomSwordMod.MODID, "back_sheath_sync"));
 
@@ -21,6 +24,7 @@ public record BackSheathSyncPacket(UUID playerId, boolean wearing) implements Cu
             StreamCodec.composite(
                     UUIDUtil.STREAM_CODEC, BackSheathSyncPacket::playerId,
                     ByteBufCodecs.BOOL, BackSheathSyncPacket::wearing,
+                    ByteBufCodecs.BYTE, BackSheathSyncPacket::blood,
                     BackSheathSyncPacket::new);
 
     @Override
@@ -30,6 +34,6 @@ public record BackSheathSyncPacket(UUID playerId, boolean wearing) implements Cu
 
     public static void handle(BackSheathSyncPacket packet, IPayloadContext context) {
         context.enqueueWork(() ->
-                BackSheathClientState.set(packet.playerId(), packet.wearing()));
+                BackSheathClientState.set(packet.playerId(), packet.wearing(), packet.blood() / 20f));
     }
 }

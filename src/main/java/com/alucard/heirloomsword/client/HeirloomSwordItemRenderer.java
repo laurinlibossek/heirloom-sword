@@ -16,12 +16,12 @@ public class HeirloomSwordItemRenderer extends GeoItemRenderer<HeirloomSwordItem
     public HeirloomSwordItemRenderer() {
         super(new HeirloomSwordItemModel());
 
-        // Blood overlay never renders in normal (held) mode — recall is a sheathe, the blood
-        // flies off instantly. It only shows on the flying familiar (its own renderer). Gating
-        // on the render side means a lingering data-component value can never paint the held blade.
+        // Blood overlay renders in every mode — the blood level is a single unified value that
+        // decays on one timeline regardless of state, so the held blade, the flying familiar, the
+        // GUI icon, and the back sheath all show the same splatter. Alpha is the blade's blood.
         addRenderLayer(new FadingOverlayLayer<>(this, SwordTextures.BLOOD, false, (item, partialTick) -> {
             ItemStack stack = getCurrentItemStack();
-            if (stack == null || stack.isEmpty() || !HeirloomSwordItem.isFlying(stack)) return 0f;
+            if (stack == null || stack.isEmpty()) return 0f;
             return HeirloomSwordItem.getBlood(stack);
         }));
     }

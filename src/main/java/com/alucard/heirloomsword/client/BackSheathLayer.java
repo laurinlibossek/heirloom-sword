@@ -1,6 +1,7 @@
 package com.alucard.heirloomsword.client;
 
 import com.alucard.heirloomsword.BackSheathClientState;
+import com.alucard.heirloomsword.HeirloomSwordItem;
 import com.alucard.heirloomsword.HeirloomSwordMod;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.math.Axis;
@@ -48,9 +49,11 @@ public final class BackSheathLayer extends RenderLayer<AbstractClientPlayer, Pla
         // Clients can't read other players' inventories, so this flag is the only reliable signal.
         if (!BackSheathClientState.isWearing(player.getUUID())) return;
 
-        // Other clients don't have the actual stack, and a normal-mode blade has no per-stack
-        // visuals (blood is always 0, no enchant glint), so a generic instance renders identically.
+        // Other clients don't have the actual stack, so we render a generic instance and stamp on
+        // the blood level synced from the server — the one per-stack visual a sheathed blade shows.
         ItemStack sheathed = new ItemStack(HeirloomSwordMod.HEIRLOOM_SWORD.get());
+        float blood = BackSheathClientState.getBlood(player.getUUID());
+        if (blood > 0f) HeirloomSwordItem.setBlood(sheathed, blood);
 
         poseStack.pushPose();
         // Attach to the torso bone — origin moves to the body pivot and inherits its rotation.
@@ -64,7 +67,7 @@ public final class BackSheathLayer extends RenderLayer<AbstractClientPlayer, Pla
         poseStack.scale(3f, 3f, 3f);                // size the geo model to span the back
 
         // FIXED is not a hand context, so HeirloomSwordItemRenderer renders the clean Geo model
-        // (no hilt-flip, no flying-mode suppression). Normal-mode blood is always 0 → no overlay.
+        // (no hilt-flip, no flying-mode suppression) and paints the blood overlay from the stack.
         Minecraft.getInstance().getItemRenderer().renderStatic(
                 sheathed, ItemDisplayContext.FIXED,
                 packedLight, OverlayTexture.NO_OVERLAY,

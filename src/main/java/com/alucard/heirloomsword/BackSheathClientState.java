@@ -18,16 +18,25 @@ public final class BackSheathClientState {
     private BackSheathClientState() {}
 
     private static final Set<UUID> WEARING = ConcurrentHashMap.newKeySet();
+    // Blood level (0..1) of each wearer's sheathed blade, so the back splatter matches the blade.
+    private static final java.util.Map<UUID, Float> BLOOD = new ConcurrentHashMap<>();
 
-    public static void set(UUID id, boolean wearing) {
+    public static void set(UUID id, boolean wearing, float blood) {
         if (wearing) {
             WEARING.add(id);
+            BLOOD.put(id, blood);
         } else {
             WEARING.remove(id);
+            BLOOD.remove(id);
         }
     }
 
     public static boolean isWearing(UUID id) {
         return WEARING.contains(id);
+    }
+
+    /** Synced blood level (0..1) for this player's sheathed blade, or 0 if not wearing one. */
+    public static float getBlood(UUID id) {
+        return BLOOD.getOrDefault(id, 0f);
     }
 }

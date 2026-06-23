@@ -54,7 +54,7 @@ public record SwordModePacket() implements CustomPacketPayload {
                 HeirloomSwordItem.setMode(held, SwordMode.NORMAL);
                 held.remove(ModDataComponents.FAMILIAR_UUID.get());
                 SwordFamiliarEntity.despawnForOwner(level, player.getUUID());
-                SwordSounds.playModeExit(level, player.getX(), player.getY(), player.getZ());
+                SwordSounds.playModeExit(player);
                 player.setData(ManaAttachments.MODE_SWITCH_COOLDOWN.get(), MODE_SWITCH_COOLDOWN_TICKS);
             } else {
                 // Cooldown gates ONLY the transition INTO flying mode. Exiting is always allowed

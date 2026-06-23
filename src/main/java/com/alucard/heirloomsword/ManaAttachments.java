@@ -58,4 +58,11 @@ public class ManaAttachments {
             ATTACHMENT_TYPES.register("back_sheath_synced", () ->
                     AttachmentType.<Boolean>builder(() -> false)
                             .build());
+
+    // Last back-sheath blood level (quantized 0..20) broadcast for this player, used to edge-detect
+    // blood changes so the decaying splatter only re-syncs a handful of times. Transient.
+    public static final Supplier<AttachmentType<Integer>> BACK_SHEATH_BLOOD_SYNCED =
+            ATTACHMENT_TYPES.register("back_sheath_blood_synced", () ->
+                    AttachmentType.<Integer>builder(() -> 0)
+                            .build());
 }
