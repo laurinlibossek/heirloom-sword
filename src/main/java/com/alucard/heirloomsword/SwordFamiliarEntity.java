@@ -62,6 +62,10 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
             SynchedEntityData.defineId(SwordFamiliarEntity.class, EntityDataSerializers.INT);
     private static final EntityDataAccessor<Integer> DATA_GUARD_COOLDOWN =
             SynchedEntityData.defineId(SwordFamiliarEntity.class, EntityDataSerializers.INT);
+    // Rate-limit on the block-release slash only (not the guard itself). Synced so the client can
+    // play the slash facing-hold exactly when the server actually fires it (rising-edge detection).
+    private static final EntityDataAccessor<Integer> DATA_SLASH_COOLDOWN =
+            SynchedEntityData.defineId(SwordFamiliarEntity.class, EntityDataSerializers.INT);
     private static final EntityDataAccessor<Vector3f> DATA_LAUNCH_DIR =
             SynchedEntityData.defineId(SwordFamiliarEntity.class, EntityDataSerializers.VECTOR3);
     private static final EntityDataAccessor<Boolean> DATA_CHARGED =
@@ -304,6 +308,8 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
     private FamiliarState lastClientState = FamiliarState.HOVERING;
     private int slashVisualTicks = 0;
     private static final int SLASH_VISUAL_TICKS = 14; // matches block_slash clip (0.7s)
+    // Last synced slash-cooldown value seen client-side; a 0 -> >0 jump marks a real slash firing.
+    private int prevSlashCooldownClient = 0;
 
     // Render-only personality wobble (figure-eight / curiosity drift). Eased client-side toward
     // IdlePersonality.visualOffset and applied via the renderer's getRenderOffset. The networked
@@ -370,6 +376,7 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
         builder.define(DATA_OWNER_UUID, Optional.empty());
         builder.define(DATA_STATE, FamiliarState.HOVERING.getId());
         builder.define(DATA_GUARD_COOLDOWN, 0);
+        builder.define(DATA_SLASH_COOLDOWN, 0);
         builder.define(DATA_LAUNCH_DIR, new Vector3f());
         builder.define(DATA_CHARGED, false);
         builder.define(DATA_QUICKFIRE_TARGET, 0);
@@ -390,6 +397,9 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
         if (tag.contains("guardCooldown")) {
             setGuardCooldown(tag.getInt("guardCooldown"));
         }
+        if (tag.contains("slashCooldown")) {
+            setSlashCooldown(tag.getInt("slashCooldown"));
+        }
     }
 
     @Override
@@ -397,6 +407,7 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
         getOwnerUUID().ifPresent(uuid -> tag.putUUID("OwnerUUID", uuid));
         tag.putInt("FamiliarState", getState().getId());
         tag.putInt("guardCooldown", getGuardCooldown());
+        tag.putInt("slashCooldown", getSlashCooldown());
     }
 
     public Optional<UUID> getOwnerUUID() {
@@ -424,6 +435,14 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
 
     private void setGuardCooldown(int ticks) {
         this.entityData.set(DATA_GUARD_COOLDOWN, ticks);
+    }
+
+    public int getSlashCooldown() {
+        return this.entityData.get(DATA_SLASH_COOLDOWN);
+    }
+
+    private void setSlashCooldown(int ticks) {
+        this.entityData.set(DATA_SLASH_COOLDOWN, ticks);
     }
 
     @Override
@@ -463,6 +482,10 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
             return;
         }
 
+        // Slash cooldown counts down in every state, so holding guard for 3s still slashes on
+        // release while rapid guard-tapping cannot re-fire the slash within the window.
+        if (getSlashCooldown() > 0) setSlashCooldown(getSlashCooldown() - 1);
+
                 switch (getState()) {
             case HOVERING -> tickHovering(owner);
             case CHARGING -> tickCharging(owner);
@@ -488,6 +511,15 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
             lastClientState = st;
         }
         if (slashVisualTicks > 0) slashVisualTicks--;
+
+        // The server arms the slash cooldown (0 -> SLASH_COOLDOWN_TICKS) on the exact tick it fires
+        // the block slash. Detecting that rising edge holds the guard facing for the clip, staying in
+        // lockstep with the server's own rate-limit instead of re-guessing it client-side.
+        int slashCd = getSlashCooldown();
+        if (slashCd > prevSlashCooldownClient) {
+            slashVisualTicks = SLASH_VISUAL_TICKS;
+        }
+        prevSlashCooldownClient = slashCd;
 
         if (this.tickCount == 1) {
             skyDropSpawn = getState() == FamiliarState.ARRIVING;
@@ -532,12 +564,9 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
     }
 
     private void onClientStateChange(FamiliarState from, FamiliarState to) {
-        if (from == FamiliarState.BLOCKING && to == FamiliarState.HOVERING && hasSlashTarget()) {
-            // hasSlashTarget() already exists (smart-slash hotfix): the server only fires
-            // block_slash when a hostile is in reach, so mirror that gate here — otherwise
-            // this window would hold the guard pose on slash-less releases.
-            slashVisualTicks = SLASH_VISUAL_TICKS; // block_slash is playing — hold the guard pose
-        }
+        // The slash facing-hold is driven by the synced slash-cooldown rising edge (see clientTick),
+        // not the state transition, so it fires exactly when the server actually slashes — never on
+        // a slash-less release or while the slash is on cooldown.
         if (to == FamiliarState.CHARGING) {
             // Client predicts chargeTimer locally for the gather glyphs; the server's reset in
             // startCharging() isn't synced, so reset here on every entry or the timer stays
@@ -625,12 +654,18 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
         }
     }
 
+    // 3 s rate-limit on the release slash so it can't be spammed by tapping guard. Gates the
+    // slash only — raising the guard itself is never blocked by this.
+    private static final int SLASH_COOLDOWN_TICKS = 60;
+
     public void stopBlocking() {
         // "Smart" sword: only swing if a hostile is actually within slash reach —
         // releasing guard after deflecting a distant arrow shouldn't whiff a slash.
-        if (hasSlashTarget()) {
+        // The slash is also rate-limited (SLASH_COOLDOWN_TICKS); the guard raise is not.
+        if (getSlashCooldown() <= 0 && hasSlashTarget()) {
             triggerAnim("action", ANIM_PREFIX + "block_slash");
             doBlockSlashDamage();
+            setSlashCooldown(SLASH_COOLDOWN_TICKS);
         }
         setState(FamiliarState.HOVERING);
     }
@@ -729,6 +764,15 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
     }
 
     private void tickCharging(Player owner) {
+        // Charging requires the flying sword to stay the selected hotbar slot. If the player
+        // scrolls away mid-charge, abort back to HOVERING (no launch) instead of getting stuck —
+        // the client can't recover this itself: its cancel packet is gated on the held item too.
+        ItemStack selected = owner.getMainHandItem();
+        if (!(selected.getItem() instanceof HeirloomSwordItem) || !HeirloomSwordItem.isFlying(selected)) {
+            cancelCharge();
+            return;
+        }
+
         // Only drain while charging up; a fully-charged blade costs no further mana.
         if (!isChargeReady() && !ManaService.drain(owner, ManaService.CHARGE_DRAIN_PER_TICK)) {
             // Mana exhausted before charge is ready — stop, no launch.

@@ -10,7 +10,6 @@ import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Pose;
-import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.projectile.ProjectileUtil;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.AABB;
@@ -20,8 +19,8 @@ import net.minecraft.world.phys.Vec3;
 
 /**
  * Normal-mode warp-next-to-target. Server-authoritative: validates state / cooldown / mana,
- * raycasts the player's view for a living (non-player) target, finds a valid standing spot
- * beside it, and teleports the player there facing the target. No invincibility.
+ * raycasts the player's view for a living target (including other players), finds a valid
+ * standing spot beside it, and teleports the player there facing the target. No invincibility.
  */
 public final class WarpHandler {
     private WarpHandler() {}
@@ -44,8 +43,9 @@ public final class WarpHandler {
         }
 
         ServerLevel level = player.serverLevel();
+        // Targets any living entity in view, including other players (but never the warper itself).
         HitResult hit = ProjectileUtil.getHitResultOnViewVector(player,
-                e -> e instanceof LivingEntity && !(e instanceof Player) && e.isAlive(), WARP_RANGE);
+                e -> e instanceof LivingEntity && e != player && e.isAlive(), WARP_RANGE);
         if (hit.getType() != HitResult.Type.ENTITY) {
             SwordSounds.playDenied(player);
             return;
