@@ -117,6 +117,9 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
     private static final TagKey<Block> SWEPT_AWAY_BLOCKS = TagKey.create(
             Registries.BLOCK, ResourceLocation.fromNamespaceAndPath(HeirloomSwordMod.MODID, "swept_away"));
     private static final int CHARGE_THRESHOLD_TICKS = 60; // 3 seconds for charged tier
+    // Corkscrew playback multiplier at full charge. The charge_spin clip is 720°/s at 1.0x,
+    // so this whips it up to a fast spin right as the blade tops off. [TUNE]
+    private static final float CHARGE_SPIN_MAX_SPEED = 4.0f;
     private static final ResourceLocation CHARGE_SLOW_ID =
             ResourceLocation.fromNamespaceAndPath(HeirloomSwordMod.MODID, "charge_slowdown");
 
@@ -2124,11 +2127,15 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
         controllers.add(new AnimationController<>(this, "main", 5, this::animationPredicate)
                 .setAnimationSpeedHandler(state -> {
                     if (getState() == FamiliarState.CHARGING) {
-                        // Spin ramps with charge, but never to 0 — at speed 0 GeckoLib can't
-                        // advance the idle->charge_spin transition, so the very first charge
-                        // (chargeTimer just reset to 0) renders frozen on idle. Floor it.
-                        float t = Math.min(chargeTimer / 15.0f, 1.0f);
-                        return (double) Math.max(0.35f, t);
+                        // Corkscrew accelerates across the whole charge and whips up to a fast
+                        // spin right as the blade tops off (then holds there while fully charged,
+                        // since chargeTimer keeps climbing). Ease-in (t^2) keeps the early spin
+                        // lazy and the late spin dramatic. Floored at 0.35 — at speed 0 GeckoLib
+                        // can't advance the idle->charge_spin transition, so the very first charge
+                        // (chargeTimer just reset to 0) would render frozen on idle.
+                        float t = Math.min(chargeTimer / (float) CHARGE_THRESHOLD_TICKS, 1.0f);
+                        float eased = t * t;
+                        return (double) Math.max(0.35f, 0.5f + eased * (CHARGE_SPIN_MAX_SPEED - 0.5f));
                     }
                     return 1.0;
                 }));
