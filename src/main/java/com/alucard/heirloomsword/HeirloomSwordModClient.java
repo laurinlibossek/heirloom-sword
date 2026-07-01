@@ -1,8 +1,5 @@
 package com.alucard.heirloomsword;
 
-import com.alucard.heirloomsword.ClientManaState;
-import com.alucard.heirloomsword.ManaService;
-import com.alucard.heirloomsword.ModSounds;
 import com.alucard.heirloomsword.client.SwordFamiliarGeoRenderer;
 import com.alucard.heirloomsword.client.SweepHoldSoundInstance;
 import net.minecraft.util.Mth;
@@ -119,6 +116,11 @@ public class HeirloomSwordModClient {
             LocalPlayer player = mc.player;
             ItemStack held = player.getMainHandItem();
 
+            // Resolve the owner's familiar ONCE per tick. It was previously looked up 6-8 times per
+            // tick (each a 128-block entity query); the reference is stable within a tick, so every
+            // branch below reuses this.
+            SwordFamiliarEntity selfFamiliar = findClientFamiliar(player);
+
             // V quick-fire is drained here — above the held-item gate — so the familiar can
             // be
             // loosed even when the sword isn't the selected item (e.g. a quick defense
@@ -129,7 +131,7 @@ public class HeirloomSwordModClient {
             // signal;
             // normal-mode warp still requires the sword in hand.
             while (ModKeybinds.QUICK_FIRE.consumeClick()) {
-                SwordFamiliarEntity familiar = findClientFamiliar(player);
+                SwordFamiliarEntity familiar = selfFamiliar;
                 if (familiar != null) {
                     if (!isManaExempt(player) && ClientManaState.lockoutTicks > 0) {
                         playDeniedClient(player);
@@ -140,7 +142,6 @@ public class HeirloomSwordModClient {
                     if (familiar.getAwarenessTarget() == null)
                         continue; // needs a lock-on
                     PacketDistributor.sendToServer(new SwordQuickFirePacket());
-                    spawnLaunchPuff(player);
                 } else if (held.getItem() instanceof HeirloomSwordItem && !HeirloomSwordItem.isFlying(held)) {
                     // Normal mode: server validates target / mana / cooldown and gives feedback.
                     PacketDistributor.sendToServer(new SwordWarpPacket());
@@ -160,7 +161,7 @@ public class HeirloomSwordModClient {
             // exists in flying mode, so its presence is the flying-mode signal and the guard can be
             // raised even when the sword isn't the selected hotbar slot (e.g. while eating). It
             // persists while G is held and ends when G is released or the familiar is gone.
-            SwordFamiliarEntity guardFamiliar = findClientFamiliar(player);
+            SwordFamiliarEntity guardFamiliar = selfFamiliar;
             if (!isBlocking) {
                 if (ModKeybinds.GUARD.isDown() && guardFamiliar != null && guardFamiliar.getGuardCooldown() == 0) {
                     FamiliarState gs = guardFamiliar.getState();
@@ -223,13 +224,13 @@ public class HeirloomSwordModClient {
                             break;
                         }
                     }
-                    if (alreadyFlying || findClientFamiliar(player) != null) {
+                    if (alreadyFlying || selfFamiliar != null) {
                         continue;
                     }
                 }
 
                 if (HeirloomSwordItem.isFlying(held)) {
-                    SwordFamiliarEntity familiar = findClientFamiliar(player);
+                    SwordFamiliarEntity familiar = selfFamiliar;
                     if (familiar != null
                             && familiar.getState() != FamiliarState.HOVERING
                             && familiar.getState() != FamiliarState.SWEEPING_HOLD
@@ -262,7 +263,7 @@ public class HeirloomSwordModClient {
                     playDeniedClient(player);
                     continue;
                 }
-                SwordFamiliarEntity familiar = findClientFamiliar(player);
+                SwordFamiliarEntity familiar = selfFamiliar;
                 if (familiar != null && (familiar.getState() == FamiliarState.SWEEPING_HOLD
                         || familiar.getState() == FamiliarState.SWEEPING_RELEASE))
                     continue;
@@ -293,7 +294,7 @@ public class HeirloomSwordModClient {
                     && (isManaExempt(player) || ClientManaState.lockoutTicks <= 0)) {
                 attackHoldTicks++;
                 if (attackHoldTicks == TETHER_HOLD_TICKS) {
-                    SwordFamiliarEntity tetherFamiliar = findClientFamiliar(player);
+                    SwordFamiliarEntity tetherFamiliar = selfFamiliar;
                     if (tetherFamiliar != null && tetherFamiliar.getState() == FamiliarState.STUCK) {
                         if (!isManaExempt(player) && ClientManaState.current < ManaService.TETHER_COST) {
                             playDeniedClient(player);
@@ -315,7 +316,7 @@ public class HeirloomSwordModClient {
                 // Detect if the server dropped the charge (e.g. mana exhaustion). Only act
                 // once we've actually seen the server enter CHARGING — otherwise the network
                 // round-trip lag right after the click would reset before charging begins.
-                SwordFamiliarEntity chargeFamiliar = findClientFamiliar(player);
+                SwordFamiliarEntity chargeFamiliar = selfFamiliar;
                 if (chargeFamiliar != null) {
                     if (chargeFamiliar.getState() == FamiliarState.CHARGING) {
                         chargeConfirmed = true;
@@ -330,7 +331,6 @@ public class HeirloomSwordModClient {
                     Vec3 lookDir = player.getLookAngle();
                     boolean charged = clientChargeTimer >= 60;
                     PacketDistributor.sendToServer(new SwordLaunchPacket(lookDir, charged));
-                    spawnLaunchPuff(player);
                     resetChargeState();
                 } else {
                     clientChargeTimer++;
@@ -347,7 +347,7 @@ public class HeirloomSwordModClient {
                 // Detect if the server ended the sweep (e.g. mana exhaustion) to avoid
                 // sending a stale SwordLaunchPacket(Vec3.ZERO) that would corrupt server state.
                 // Only act once we've seen the server confirm SWEEPING_HOLD (network lag).
-                SwordFamiliarEntity sweepFamiliar = findClientFamiliar(player);
+                SwordFamiliarEntity sweepFamiliar = selfFamiliar;
                 if (sweepFamiliar != null) {
                     if (sweepFamiliar.getState() == FamiliarState.SWEEPING_HOLD) {
                         sweepConfirmed = true;
@@ -365,7 +365,7 @@ public class HeirloomSwordModClient {
                 boolean useHeld = mc.options.keyUse.isDown();
                 if (!useHeld) {
                     // Right-click released — trigger SWEEPING_RELEASE on server
-                    SwordFamiliarEntity familiar = findClientFamiliar(player);
+                    SwordFamiliarEntity familiar = selfFamiliar;
                     if (familiar != null && familiar.getState() == FamiliarState.SWEEPING_HOLD) {
                         familiar.releaseSweep();
                     }
@@ -389,7 +389,7 @@ public class HeirloomSwordModClient {
 
             // === Telekinetic hand shimmer (state-driven) ===
             if (HeirloomSwordItem.isFlying(held) && mc.level != null) {
-                SwordFamiliarEntity shimmerFamiliar = findClientFamiliar(player);
+                SwordFamiliarEntity shimmerFamiliar = selfFamiliar;
                 FamiliarState shimmerState = shimmerFamiliar != null ? shimmerFamiliar.getState() : null;
                 Vec3 handPos = telekineticHandPos(player);
                 var rng = player.getRandom();
@@ -570,13 +570,14 @@ public class HeirloomSwordModClient {
                 return;
 
             LocalPlayer player = mc.player;
+            SwordFamiliarEntity familiar = findClientFamiliar(player); // resolved once for this render
 
             // Mana bar: shown whenever the sword is in hand (normal or flying) or the
             // familiar is present. Hidden in creative — mana is infinite, so it conveys
             // nothing.
             boolean showMana = !isManaExempt(player)
                     && (player.getMainHandItem().getItem() instanceof HeirloomSwordItem
-                            || findClientFamiliar(player) != null);
+                            || familiar != null);
             if (showMana) {
                 renderManaBar(event.getGuiGraphics(),
                         mc.getWindow().getGuiScaledWidth(), mc.getWindow().getGuiScaledHeight(), player);
@@ -605,7 +606,6 @@ public class HeirloomSwordModClient {
 
             if (!player.isSpectator()) {
                 if (isFlying) {
-                    SwordFamiliarEntity familiar = findClientFamiliar(player);
                     boolean stuck = familiar != null && familiar.getState() == FamiliarState.STUCK;
                     renderPurpleGlow(guiGraphics, hotbarX, hotbarY, stuck);
                 } else {
@@ -888,11 +888,6 @@ public class HeirloomSwordModClient {
             double handOffsetX = Math.sin(yRot) * 0.4;
             return new Vec3(player.getX() - handOffsetX,
                     player.getY() + player.getBbHeight() * 0.5, player.getZ() + handOffsetZ);
-        }
-
-        /** One-shot telekinetic discharge burst at the hand the instant a launch fires. */
-        private static void spawnLaunchPuff(LocalPlayer player) {
-            // Deprecated: user requested removal of the launching puff/explosion effect.
         }
 
         @Nullable

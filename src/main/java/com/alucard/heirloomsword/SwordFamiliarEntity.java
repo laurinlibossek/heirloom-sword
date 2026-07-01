@@ -1,6 +1,8 @@
 package com.alucard.heirloomsword;
 
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.Tag;
 import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.network.syncher.EntityDataSerializers;
 import net.minecraft.network.syncher.SynchedEntityData;
@@ -34,6 +36,10 @@ import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.phys.shapes.VoxelShape;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.entity.item.PrimedTnt;
+import net.minecraft.world.entity.ExperienceOrb;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.ParticleTypes;
 
@@ -232,6 +238,11 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
 
     private static final double AWAKENING_DESCENT_SPEED = 0.32; // [TUNE] ~2.5s over a ~16-block drop
 
+    // Pin-to-wall: while embedded (STUCK) from a fully-charged launch, an enemy struck against the
+    // wall is held pinned at pinAnchor until the sword leaves STUCK. 0 = nothing pinned.
+    private int pinnedTargetId = 0;
+    private Vec3 pinAnchor = Vec3.ZERO;
+
     public void setAwakening(boolean value) { this.entityData.set(DATA_AWAKENING, value); }
     public boolean isAwakening() { return this.entityData.get(DATA_AWAKENING); }
 
@@ -274,6 +285,12 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
     // RETURNING state fields
     private final Set<Integer> returnHitSet = new HashSet<>();
     private boolean recallPending = false;
+    // Items swept up during the return flight, dropped at the owner's feet on arrival (never
+    // auto-inventoried). Persisted so a save/reload mid-flight can't lose them.
+    private final List<ItemStack> carriedDrops = new ArrayList<>();
+    private static final int MAX_CARRIED_DROPS = 256; // safety cap against absorbing a huge pile
+    // Experience swept up on the return flight, awarded to the owner on arrival.
+    private int carriedXp = 0;
 
     // SWEEPING state fields
     private Vec3 sweepVelocity = Vec3.ZERO;
@@ -403,6 +420,15 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
         if (tag.contains("slashCooldown")) {
             setSlashCooldown(tag.getInt("slashCooldown"));
         }
+        if (tag.contains("CarriedDrops")) {
+            carriedDrops.clear();
+            ListTag list = tag.getList("CarriedDrops", Tag.TAG_COMPOUND);
+            for (int i = 0; i < list.size(); i++) {
+                ItemStack.parse(this.registryAccess(), list.getCompound(i))
+                        .ifPresent(carriedDrops::add);
+            }
+        }
+        carriedXp = tag.getInt("CarriedXp"); // 0 if absent
     }
 
     @Override
@@ -411,6 +437,14 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
         tag.putInt("FamiliarState", getState().getId());
         tag.putInt("guardCooldown", getGuardCooldown());
         tag.putInt("slashCooldown", getSlashCooldown());
+        if (!carriedDrops.isEmpty()) {
+            ListTag list = new ListTag();
+            for (ItemStack s : carriedDrops) {
+                if (!s.isEmpty()) list.add(s.save(this.registryAccess()));
+            }
+            tag.put("CarriedDrops", list);
+        }
+        if (carriedXp > 0) tag.putInt("CarriedXp", carriedXp);
     }
 
     public Optional<UUID> getOwnerUUID() {
@@ -480,14 +514,18 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
             }
         }
         if (!hasFlyingSword) {
+            owner.setData(ManaAttachments.IS_BLOCKING.get(), false);
             removeChargeSlowdown();
             this.discard();
             return;
         }
 
-        // Slash cooldown counts down in every state, so holding guard for 3s still slashes on
-        // release while rapid guard-tapping cannot re-fire the slash within the window.
+        // Slash and guard cooldowns count down in every state. Slash so that holding guard for 3s
+        // still slashes on release while rapid guard-tapping cannot re-fire within the window; guard
+        // so a guard-break lockout keeps ticking even while the player charges or sweeps (it used to
+        // only decrement in HOVERING, freezing the cooldown during those states).
         if (getSlashCooldown() > 0) setSlashCooldown(getSlashCooldown() - 1);
+        if (getGuardCooldown() > 0) setGuardCooldown(getGuardCooldown() - 1);
 
                 switch (getState()) {
             case HOVERING -> tickHovering(owner);
@@ -505,6 +543,11 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
         }
         burnUndeadOnContact(owner);
         updateOrientation();
+
+        // Keep the owner's "is the familiar guarding?" fast-path flag in lockstep with the actual
+        // state so the per-damage event handlers can skip the full-level familiar scan unless we are
+        // really blocking. Cheap idempotent write; self-heals any desync (reload, etc.) every tick.
+        owner.setData(ManaAttachments.IS_BLOCKING.get(), getState() == FamiliarState.BLOCKING);
     }
 
     private void clientTick() {
@@ -613,7 +656,7 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
 
     private void tickHovering(Player owner) {
         if (quickFireCooldown > 0) quickFireCooldown--;
-        if (getGuardCooldown() > 0) setGuardCooldown(getGuardCooldown() - 1);
+        // guardCooldown now ticks in serverTick (every state), not just here.
         updateTargetPosition(owner);
         idle.tick(owner);          // adds idle offset to targetPosition (no-op when not idle)
         applySpringPhysics();
@@ -673,37 +716,38 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
         setState(FamiliarState.HOVERING);
     }
 
+    /**
+     * Living entities geometrically inside the frontal ~180° arc the block slash sweeps. Shared by
+     * {@link #hasSlashTarget} (the "should I swing?" test) and {@link #doBlockSlashDamage} (the swing
+     * itself) so the arc shape can never drift between them. Callers apply their own per-entity
+     * filter (hostility vs. PvP/team gating) on top.
+     */
+    private List<LivingEntity> frontalSlashTargets(Player owner) {
+        Vec3 look = owner.getLookAngle();
+        Vec3 center = owner.getEyePosition().add(look.scale(1.5));
+        AABB arc = new AABB(center, center).inflate(BLOCK_SLASH_RANGE, 1.2, BLOCK_SLASH_RANGE);
+        Vec3 lookFlat = new Vec3(look.x, 0, look.z).normalize();
+        return this.level().getEntitiesOfClass(LivingEntity.class, arc, e -> {
+            if (e == owner || !e.isAlive()) return false;
+            Vec3 toEntity = e.position().subtract(owner.position());
+            Vec3 toEntityFlat = new Vec3(toEntity.x, 0, toEntity.z).normalize();
+            return toEntityFlat.dot(lookFlat) > 0.1;
+        });
+    }
+
     /** True when a living hostile is inside the frontal arc the block slash would hit. */
     public boolean hasSlashTarget() {
         Player owner = getOwner();
         if (owner == null) return false;
-
-        Vec3 center = owner.getEyePosition().add(owner.getLookAngle().scale(1.5));
-        AABB arc = new AABB(center, center).inflate(BLOCK_SLASH_RANGE, 1.2, BLOCK_SLASH_RANGE);
-        Vec3 lookFlat = new Vec3(owner.getLookAngle().x, 0, owner.getLookAngle().z).normalize();
-
-        return !this.level().getEntitiesOfClass(LivingEntity.class, arc, e -> {
-            if (!isValidAwarenessTarget(owner, e)) return false;
-            Vec3 toEntity = e.position().subtract(owner.position());
-            Vec3 toEntityFlat = new Vec3(toEntity.x, 0, toEntity.z).normalize();
-            return toEntityFlat.dot(lookFlat) > 0.1;
-        }).isEmpty();
+        return frontalSlashTargets(owner).stream().anyMatch(e -> isValidAwarenessTarget(owner, e));
     }
 
     private void doBlockSlashDamage() {
         Player owner = getOwner();
         if (owner == null || this.level().isClientSide()) return;
 
-        Vec3 center = owner.getEyePosition().add(owner.getLookAngle().scale(1.5));
-        AABB arc = new AABB(center, center).inflate(BLOCK_SLASH_RANGE, 1.2, BLOCK_SLASH_RANGE);
-        Vec3 lookFlat = new Vec3(owner.getLookAngle().x, 0, owner.getLookAngle().z).normalize();
-
         DamageSource source = this.level().damageSources().playerAttack(owner);
-        for (LivingEntity entity : this.level().getEntitiesOfClass(LivingEntity.class, arc,
-                e -> e.isAlive() && e != owner)) {
-            Vec3 toEntity = entity.position().subtract(owner.position());
-            Vec3 toEntityFlat = new Vec3(toEntity.x, 0, toEntity.z).normalize();
-            if (toEntityFlat.dot(lookFlat) <= 0.1) continue; // frontal ~180° arc only
+        for (LivingEntity entity : frontalSlashTargets(owner)) {
             if (!canDamage(owner, entity)) continue;
             entity.hurt(source, blockSlashDamage());
             igniteIfUndead(entity);
@@ -900,7 +944,16 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
                 damageEntitiesInPath(currentPos, blockHit.getLocation(), outboundHitSet,
                         chargedLaunch ? launchDamageCharged() : launchDamageNormal(), owner);
                 // Embed in block face
-                this.setPos(blockHit.getLocation().subtract(launchDirection.scale(0.1)));
+                Vec3 embed = blockHit.getLocation().subtract(launchDirection.scale(0.1));
+                this.setPos(embed);
+                // A fully-charged blade impales an enemy struck against the wall, pinning it there.
+                if (chargedLaunch && Config.PIN_TO_WALL.get()) {
+                    tryPinTarget(owner, embed, blockHit.getDirection());
+                }
+                // A fully-charged strike into TNT lights the fuse.
+                if (chargedLaunch && hitState.is(Blocks.TNT)) {
+                    primeTnt(blockHit.getBlockPos(), owner);
+                }
                 enterStuck();
                 return;
             }
@@ -963,15 +1016,96 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
             return;
         }
 
+        holdPinnedTarget(owner);
+
         stuckTimer++;
         if (stuckTimer >= STUCK_TIMEOUT_TICKS) {
             enterReturning();
         }
     }
 
+    /**
+     * Find and latch the nearest valid enemy struck against the hit face at the embed point. Never
+     * pins players, bosses, mounted mobs, or anything friendly ({@link #canDamage}). {@code pinAnchor}
+     * is resolved to the target's FEET position, seated against the actual face the blade struck so a
+     * downward hit stands the target on the floor rather than sinking it. No-op if none found.
+     */
+    private void tryPinTarget(Player owner, Vec3 embed, net.minecraft.core.Direction face) {
+        LivingEntity best = null;
+        double bestSqr = Double.MAX_VALUE;
+        AABB box = new AABB(embed, embed).inflate(0.5); // ~1-block box around the embed point
+        for (LivingEntity e : this.level().getEntitiesOfClass(LivingEntity.class, box,
+                e -> e.isAlive() && e != owner && !e.isPassenger()
+                        && !(e instanceof Player) && !isBoss(e) && canDamage(owner, e))) {
+            double d = e.position().distanceToSqr(embed);
+            if (d < bestSqr) { bestSqr = d; best = e; }
+        }
+        if (best == null) return;
+        pinnedTargetId = best.getId();
+
+        double h = best.getBbHeight();
+        double halfW = best.getBbWidth() / 2.0;
+        double px = embed.x, py, pz = embed.z;
+        switch (face) {
+            case UP   -> py = embed.y;         // hit a floor from above → stand on the surface
+            case DOWN -> py = embed.y - h;     // hit a ceiling from below → hang beneath it
+            default -> {                        // vertical wall → impaled at blade height, in front of the face
+                py = embed.y - h / 2.0;
+                px = embed.x + face.getStepX() * (halfW + 0.05);
+                pz = embed.z + face.getStepZ() * (halfW + 0.05);
+            }
+        }
+        pinAnchor = new Vec3(px, py, pz);
+    }
+
+    /** Root the pinned enemy at the anchor each STUCK tick; drops the pin if it dies/despawns. */
+    private void holdPinnedTarget(Player owner) {
+        if (pinnedTargetId == 0) return;
+        Entity e = this.level().getEntity(pinnedTargetId);
+        if (!(e instanceof LivingEntity target) || !target.isAlive()) {
+            pinnedTargetId = 0;
+            return;
+        }
+        target.setDeltaMovement(Vec3.ZERO);
+        target.setPos(pinAnchor.x, pinAnchor.y, pinAnchor.z); // pinAnchor is the target's feet
+        target.hurtMarked = true;      // sync the forced position/velocity to clients
+        target.fallDistance = 0.0f;
+        target.hurtTime = Math.max(target.hurtTime, 2); // subtle "struck" flinch tint
+        if (this.tickCount % 6 == 0 && this.level() instanceof ServerLevel sl) {
+            sl.sendParticles(ParticleTypes.CRIT,
+                    target.getX(), target.getY() + target.getBbHeight() * 0.5, target.getZ(),
+                    3, 0.2, 0.3, 0.2, 0.0);
+        }
+    }
+
+    /** Release any pinned enemy (called whenever the sword leaves STUCK). */
+    private void clearPin() {
+        pinnedTargetId = 0;
+    }
+
+    /** Boss-tier enemies the wall-pin refuses to trap (Warden included as boss-like CC-immune). */
+    private static boolean isBoss(LivingEntity e) {
+        return e instanceof net.minecraft.world.entity.boss.enderdragon.EnderDragon
+                || e instanceof net.minecraft.world.entity.boss.wither.WitherBoss
+                || e instanceof net.minecraft.world.entity.monster.warden.Warden;
+    }
+
+    /** Light the fuse on a vanilla TNT block the charged blade embedded in (attributed to the owner). */
+    private void primeTnt(BlockPos pos, Player owner) {
+        if (this.level().isClientSide) return;
+        this.level().removeBlock(pos, false);
+        PrimedTnt tnt = new PrimedTnt(this.level(),
+                pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5, owner);
+        this.level().addFreshEntity(tnt);
+        this.level().playSound(null, pos, net.minecraft.sounds.SoundEvents.TNT_PRIMED,
+                net.minecraft.sounds.SoundSource.BLOCKS, 1.0f, 1.0f);
+        this.level().gameEvent(owner, net.minecraft.world.level.gameevent.GameEvent.PRIME_FUSE, pos);
+    }
+
     // === RETURNING ===
 
     private void enterReturning() {
+        clearPin();
         returnHitSet.clear();
         setState(FamiliarState.RETURNING);
     }
@@ -979,6 +1113,7 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
     // === TETHERING ===
 
     private void enterTether(Player owner) {
+        clearPin();
         Vec3 a = owner.position();               // player feet
         Vec3 b = this.position();                // embedded sword
         tetherMidpoint = a.add(b).scale(0.5);
@@ -1115,6 +1250,7 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
             this.velocity = Vec3.ZERO;
             this.smoothedAnchorY = Double.NaN;
             this.targetPosition = computeCandidatePosition(owner, 0);
+            depositCarriedDrops(owner); // drop anything fetched at the owner's feet
             if (owner instanceof ServerPlayer sp) {
                 SwordSounds.playReturnArrival(sp);
             }
@@ -1130,6 +1266,9 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
 
         // Damage entities on return path
         damageEntitiesInPath(currentPos, nextPos, returnHitSet, returnDamage(), owner);
+
+        // Sweep up dropped items the sword passes over on the way home.
+        collectDropsAlong(currentPos, nextPos);
     }
 
     private void tickReturningClient(Player owner) {
@@ -1145,6 +1284,76 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
         Vec3 direction = toOwner.normalize();
         Vec3 movement = direction.scale(RETURN_SPEED);
         this.setPos(this.position().add(movement));
+    }
+
+    /**
+     * Absorb dropped items whose bounding box the sword swept through this return step, storing their
+     * stacks to re-drop on arrival. Server-side; skips Heirloom Swords (never fetch itself) and
+     * respects the config toggle and the safety cap.
+     */
+    private void collectDropsAlong(Vec3 from, Vec3 to) {
+        if (this.level().isClientSide) return;
+        if (!Config.SWORD_FETCHES_ITEMS.get()) return;
+        double r = 0.9; // pickup radius around the flight segment
+        AABB box = new AABB(
+                Math.min(from.x, to.x) - r, Math.min(from.y, to.y) - r, Math.min(from.z, to.z) - r,
+                Math.max(from.x, to.x) + r, Math.max(from.y, to.y) + r, Math.max(from.z, to.z) + r);
+        for (ItemEntity item : this.level().getEntitiesOfClass(ItemEntity.class, box,
+                it -> it.isAlive() && !(it.getItem().getItem() instanceof HeirloomSwordItem))) {
+            if (carriedDrops.size() >= MAX_CARRIED_DROPS) break;
+            carriedDrops.add(item.getItem().copy());
+            item.discard();
+            if (this.level() instanceof ServerLevel sl) {
+                sl.sendParticles(ParticleTypes.ENCHANT,
+                        item.getX(), item.getY() + 0.2, item.getZ(), 4, 0.1, 0.1, 0.1, 0.02);
+            }
+        }
+        // Sweep up experience orbs too; their value is awarded to the owner on arrival.
+        for (ExperienceOrb orb : this.level().getEntitiesOfClass(ExperienceOrb.class, box,
+                ExperienceOrb::isAlive)) {
+            carriedXp += orb.getValue();
+            orb.discard();
+        }
+    }
+
+    /** Re-drop everything fetched at the owner's feet (ground items, never straight to inventory). */
+    private void depositCarriedDrops(Player owner) {
+        if (this.level().isClientSide) return;
+        boolean carriedAnything = !carriedDrops.isEmpty() || carriedXp > 0;
+        for (ItemStack stack : carriedDrops) {
+            if (stack.isEmpty()) continue;
+            ItemEntity drop = new ItemEntity(this.level(),
+                    owner.getX(), owner.getY() + 0.5, owner.getZ(), stack);
+            drop.setDeltaMovement(
+                    (this.random.nextDouble() - 0.5) * 0.1, 0.18, (this.random.nextDouble() - 0.5) * 0.1);
+            drop.setDefaultPickUpDelay();
+            this.level().addFreshEntity(drop);
+        }
+        carriedDrops.clear();
+        // Award swept-up XP at the owner (orbs spawn and are immediately drawn to them).
+        if (carriedXp > 0 && this.level() instanceof ServerLevel sl) {
+            ExperienceOrb.award(sl, owner.position(), carriedXp);
+        }
+        carriedXp = 0;
+        if (carriedAnything && this.level() instanceof ServerLevel sl) {
+            sl.sendParticles(ParticleTypes.ENCHANT,
+                    owner.getX(), owner.getY() + 1.0, owner.getZ(), 10, 0.3, 0.5, 0.3, 0.03);
+        }
+        // Arrival sound cue is played by the caller (tickReturning).
+    }
+
+    /** Drop any carried loot/XP at {@code pos} (used on discard so nothing fetched is lost). */
+    private void dropCarriedAt(Vec3 pos) {
+        if (this.level().isClientSide) return;
+        for (ItemStack stack : carriedDrops) {
+            if (stack.isEmpty()) continue;
+            this.level().addFreshEntity(new ItemEntity(this.level(), pos.x, pos.y, pos.z, stack));
+        }
+        carriedDrops.clear();
+        if (carriedXp > 0 && this.level() instanceof ServerLevel sl) {
+            ExperienceOrb.award(sl, pos, carriedXp);
+        }
+        carriedXp = 0;
     }
 
     // === SWEEPING_HOLD ===
@@ -1899,12 +2108,30 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
     }
 
     public static void despawnForOwner(ServerLevel level, UUID ownerUUID) {
+        Player owner = level.getPlayerByUUID(ownerUUID);
+        if (owner != null) owner.setData(ManaAttachments.IS_BLOCKING.get(), false);
         for (Entity entity : level.getAllEntities()) {
             if (entity instanceof SwordFamiliarEntity familiar
                     && familiar.getOwnerUUID().map(ownerUUID::equals).orElse(false)) {
-                familiar.discard();
+                familiar.discard(); // discard() -> remove() clears the charge debuff + light block
             }
         }
+    }
+
+    @Override
+    public void remove(RemovalReason reason) {
+        if (!this.level().isClientSide()) {
+            // Idempotent and safe on any reason: strip the charge move-speed debuff so it can't be
+            // stranded on the owner.
+            removeChargeSlowdown();
+            // Only drop carried loot when the entity is truly destroyed (DISCARDED / KILLED). For
+            // save-not-destroy reasons (chunk unload, dimension change) the items persist in NBT, so
+            // dropping them here too would dupe them on reload.
+            if (reason.shouldDestroy()) {
+                dropCarriedAt(this.position());
+            }
+        }
+        super.remove(reason);
     }
 
     @Nullable

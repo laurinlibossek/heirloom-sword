@@ -21,6 +21,8 @@ public class Config {
     public static final ModConfigSpec.DoubleValue BLOODLUST_DAMAGE_MULT;
     public static final ModConfigSpec.DoubleValue TETHER_SLAM_DAMAGE;
     public static final ModConfigSpec.BooleanValue SWEEP_MOWS_PLANTS;
+    public static final ModConfigSpec.BooleanValue PIN_TO_WALL;
+    public static final ModConfigSpec.BooleanValue SWORD_FETCHES_ITEMS;
 
     // === integration ===
     public static final ModConfigSpec.BooleanValue ALLOW_PVP_DAMAGE;
@@ -46,8 +48,8 @@ public class Config {
                 .defineInRange("blockSlashDamage", 12.0, 0.0, 1024.0);
         LANDING_IMPACT_DAMAGE = BUILDER.comment("Sky-drop landing impact AoE damage on spawn.")
                 .defineInRange("landingImpactDamage", 14.0, 0.0, 1024.0);
-        QUICK_FIRE_COOLDOWN_TICKS = BUILDER.comment("Minimum ticks between quick-fires (20 = 1s).")
-                .defineInRange("quickFireCooldownTicks", 20, 0, 1200);
+        QUICK_FIRE_COOLDOWN_TICKS = BUILDER.comment("Minimum ticks between quick-fires (30 = 1.5s).")
+                .defineInRange("quickFireCooldownTicks", 30, 0, 1200);
         GUARD_BREAK_COOLDOWN_TICKS = BUILDER.comment("Guard lockout ticks after a guard break (60 = 3s).")
                 .defineInRange("guardBreakCooldownTicks", 60, 0, 1200);
         UNDEAD_IGNITE_SECONDS = BUILDER.comment("Seconds an undead target burns when struck by the holy blade.")
@@ -69,6 +71,16 @@ public class Config {
                         "through (grass, flowers, bamboo, sugar cane, cobweb, vines, saplings, nether",
                         "foliage). Crops are never affected. false disables the mowing.")
                 .define("sweepMowsPlants", true);
+        PIN_TO_WALL = BUILDER.comment(
+                        "A fully-charged launched sword that embeds in a wall pins the enemy it struck",
+                        "against that wall for the duration it stays stuck (recall/tether frees them",
+                        "early). Never pins players or bosses. false disables it.")
+                .define("pinToWall", true);
+        SWORD_FETCHES_ITEMS = BUILDER.comment(
+                        "While the sword flies back to you it sweeps up dropped items it passes over",
+                        "and drops them at your feet on arrival (onto the ground, never straight into",
+                        "your inventory). false disables it.")
+                .define("swordFetchesItems", true);
         BUILDER.pop();
 
         BUILDER.comment("Cross-mod / server integration toggles.").push("integration");

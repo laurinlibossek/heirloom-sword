@@ -65,4 +65,13 @@ public class ManaAttachments {
             ATTACHMENT_TYPES.register("back_sheath_blood_synced", () ->
                     AttachmentType.<Integer>builder(() -> 0)
                             .build());
+
+    // Fast-path flag: true while this player's familiar is in BLOCKING. Kept in lockstep with the
+    // familiar's state every server tick (SwordFamiliarEntity#serverTick) so the per-damage event
+    // handlers can skip the full-level familiar scan unless the player is actually guarding.
+    // Server-only and transient (the familiar re-asserts it each tick; default false is always safe).
+    public static final Supplier<AttachmentType<Boolean>> IS_BLOCKING =
+            ATTACHMENT_TYPES.register("is_blocking", () ->
+                    AttachmentType.<Boolean>builder(() -> false)
+                            .build());
 }

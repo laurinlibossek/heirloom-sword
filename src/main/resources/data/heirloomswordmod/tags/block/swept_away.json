@@ -28,6 +28,10 @@
     "minecraft:hanging_roots",
     "minecraft:glow_lichen",
     "minecraft:lily_pad",
-    "minecraft:moss_carpet"
+    "minecraft:moss_carpet",
+    "minecraft:seagrass",
+    "minecraft:tall_seagrass",
+    "minecraft:kelp",
+    "minecraft:kelp_plant"
   ]
 }

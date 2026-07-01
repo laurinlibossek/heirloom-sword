@@ -54,6 +54,9 @@ public class SwordEventHandler {
     @SubscribeEvent
     public void onIncomingDamage(LivingIncomingDamageEvent event) {
         if (!(event.getEntity() instanceof ServerPlayer player)) return;
+        // Fast path: skip the familiar lookup entirely unless this player is actually guarding.
+        // The flag is kept in lockstep with the familiar's state every server tick.
+        if (!player.getData(ManaAttachments.IS_BLOCKING.get())) return;
 
         SwordFamiliarEntity familiar = SwordFamiliarEntity.findForOwner(player.serverLevel(), player.getUUID());
         if (familiar == null || familiar.getState() != FamiliarState.BLOCKING) return;
@@ -67,16 +70,19 @@ public class SwordEventHandler {
 
         Vec3 sourcePos = source.getSourcePosition();
         if (sourcePos == null) return;
+        if (!blockedFromFront(sourcePos, player)) return; // attack came from the side/behind
 
-        // Frontal cone test, mirroring vanilla Player#isDamageSourceBlocked
+        event.setCanceled(true);
+        SwordSounds.playShieldBlockMelee(player.level(), player.getX(), player.getY(), player.getZ());
+    }
+
+    /** Frontal cone test (horizontal), mirroring vanilla {@code Player#isDamageSourceBlocked}. */
+    private static boolean blockedFromFront(Vec3 sourcePos, ServerPlayer player) {
         Vec3 toPlayer = sourcePos.vectorTo(player.position());
         toPlayer = new Vec3(toPlayer.x, 0.0, toPlayer.z).normalize();
         Vec3 look = player.getViewVector(1.0f);
         look = new Vec3(look.x, 0.0, look.z).normalize();
-        if (toPlayer.dot(look) >= 0.0) return; // attack came from the side/behind
-
-        event.setCanceled(true);
-        SwordSounds.playShieldBlockMelee(player.level(), player.getX(), player.getY(), player.getZ());
+        return toPlayer.dot(look) < 0.0; // source is in front of the guard
     }
 
     @SubscribeEvent
@@ -103,6 +109,8 @@ public class SwordEventHandler {
     public void onProjectileImpact(ProjectileImpactEvent event) {
         if (!(event.getRayTraceResult() instanceof EntityHitResult hit)) return;
         if (!(hit.getEntity() instanceof ServerPlayer player)) return;
+        // Fast path: skip the familiar lookup unless this player is actually guarding.
+        if (!player.getData(ManaAttachments.IS_BLOCKING.get())) return;
 
         Projectile projectile = event.getProjectile();
         // Physical projectiles only (spec): arrows + tridents (AbstractArrow), fireballs.
@@ -114,11 +122,7 @@ public class SwordEventHandler {
         if (familiar == null || familiar.getState() != FamiliarState.BLOCKING) return;
 
         // Same frontal cone as melee blocking
-        Vec3 toPlayer = projectile.position().vectorTo(player.position());
-        toPlayer = new Vec3(toPlayer.x, 0.0, toPlayer.z).normalize();
-        Vec3 look = player.getViewVector(1.0f);
-        look = new Vec3(look.x, 0.0, look.z).normalize();
-        if (toPlayer.dot(look) >= 0.0) return;
+        if (!blockedFromFront(projectile.position(), player)) return;
 
         // Geometric deflection off the blade plane (normal = player look) at reduced speed.
         Vec3 velocity = projectile.getDeltaMovement();
@@ -157,9 +161,23 @@ public class SwordEventHandler {
     public void onPlayerTick(PlayerTickEvent.Post event) {
         if (!(event.getEntity() instanceof ServerPlayer player)) return;
 
-        updateBackSheath(player);
+        // Single inventory pass: grab the first flying-mode and first normal-mode sword (everything
+        // below derives from these, so we don't rescan the inventory four times per tick).
+        ItemStack flyingSword = ItemStack.EMPTY;
+        ItemStack normalSword = ItemStack.EMPTY;
+        for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
+            ItemStack s = player.getInventory().getItem(i);
+            if (!(s.getItem() instanceof HeirloomSwordItem)) continue;
+            if (HeirloomSwordItem.isFlying(s)) {
+                if (flyingSword.isEmpty()) flyingSword = s;
+            } else if (normalSword.isEmpty()) {
+                normalSword = s;
+            }
+        }
 
-        if (playerHasSword(player)) {
+        updateBackSheath(player, normalSword);
+
+        if (!flyingSword.isEmpty() || !normalSword.isEmpty()) {
             ManaService.tickRegen(player);
             int warpCd = player.getData(ManaAttachments.WARP_COOLDOWN.get());
             if (warpCd > 0) {
@@ -171,8 +189,8 @@ public class SwordEventHandler {
             }
         }
 
-        ItemStack swordStack = findFlyingSword(player);
-        if (swordStack == null) return;
+        if (flyingSword.isEmpty()) return;
+        ItemStack swordStack = flyingSword;
 
         java.util.UUID familiarUUID = swordStack.get(ModDataComponents.FAMILIAR_UUID.get());
         if (familiarUUID == null) {
@@ -304,25 +322,17 @@ public class SwordEventHandler {
         return null;
     }
 
-    private boolean playerHasSword(Player player) {
-        for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
-            if (player.getInventory().getItem(i).getItem() instanceof HeirloomSwordItem) {
-                return true;
-            }
-        }
-        return false;
-    }
-
     /**
      * Recomputes whether this player should display a sheathed sword and, if it changed since the
      * last broadcast, syncs the new state to every client (they render each other's backs but can't
-     * see each other's inventories, so the server must decide).
+     * see each other's inventories, so the server must decide). {@code normalSword} is the first
+     * NORMAL-mode sword from the caller's single inventory pass (or EMPTY).
      */
-    private void updateBackSheath(ServerPlayer player) {
-        boolean wearing = computeBackSheath(player);
+    private void updateBackSheath(ServerPlayer player, ItemStack normalSword) {
+        boolean wearing = computeBackSheath(player, normalSword);
         // Quantize blood to ~5% steps (0..20) so a decaying blade only re-broadcasts a handful of
         // times, not on every decay tick. Blood only matters while the blade is actually displayed.
-        int bloodQ = wearing ? Math.round(computeBackSheathBlood(player) * 20f) : 0;
+        int bloodQ = wearing ? Math.round(HeirloomSwordItem.getBlood(normalSword) * 20f) : 0;
         boolean wearingChanged = wearing != player.getData(ManaAttachments.BACK_SHEATH_SYNCED.get());
         boolean bloodChanged = bloodQ != player.getData(ManaAttachments.BACK_SHEATH_BLOOD_SYNCED.get());
         if (wearingChanged || bloodChanged) {
@@ -333,28 +343,12 @@ public class SwordEventHandler {
         }
     }
 
-    /** Blood level (0..1) of the NORMAL-mode sword that would be shown on the back, or 0 if none. */
-    private float computeBackSheathBlood(ServerPlayer player) {
-        for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
-            ItemStack s = player.getInventory().getItem(i);
-            if (s.getItem() instanceof HeirloomSwordItem && !HeirloomSwordItem.isFlying(s)) {
-                return HeirloomSwordItem.getBlood(s);
-            }
-        }
-        return 0f;
-    }
-
     /** Display preference on, a NORMAL-mode sword owned, and not currently held in either hand. */
-    private boolean computeBackSheath(ServerPlayer player) {
+    private boolean computeBackSheath(ServerPlayer player, ItemStack normalSword) {
         if (!player.getData(ManaAttachments.SHOW_BACK_SHEATH.get())) return false;
+        if (normalSword.isEmpty()) return false; // no normal-mode sword to display
         if (player.getMainHandItem().getItem() instanceof HeirloomSwordItem) return false;
         if (player.getOffhandItem().getItem() instanceof HeirloomSwordItem) return false;
-        for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
-            ItemStack s = player.getInventory().getItem(i);
-            if (s.getItem() instanceof HeirloomSwordItem && !HeirloomSwordItem.isFlying(s)) {
-                return true;
-            }
-        }
-        return false;
+        return true;
     }
 }
