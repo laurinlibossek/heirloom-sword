@@ -12,9 +12,10 @@ public class ManaAttachments {
             DeferredRegister.create(NeoForgeRegistries.Keys.ATTACHMENT_TYPES, HeirloomSwordMod.MODID);
 
     // Current mana. Persists across logout; a freshly-respawned player gets the default (full).
+    // The default supplier runs on first data access (in-world, config loaded), never at registration.
     public static final Supplier<AttachmentType<Float>> MANA =
             ATTACHMENT_TYPES.register("mana", () ->
-                    AttachmentType.<Float>builder(() -> ManaService.MAX_MANA)
+                    AttachmentType.<Float>builder(ManaService::maxMana)
                             .serialize(Codec.FLOAT)
                             .build());
 

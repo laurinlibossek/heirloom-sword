@@ -18,21 +18,22 @@ import net.neoforged.neoforge.network.PacketDistributor;
 public final class ManaService {
     private ManaService() {}
 
-    // All [TUNE] — kept cheap. Folded into the Phase 13 config pass later.
-    public static final float MAX_MANA = 100f;
-    public static final float REGEN_PER_TICK = 0.6f;        // 12 / sec
-    public static final int   REGEN_PAUSE_TICKS = 20;        // 1 s pause after any spend
-    public static final float CHARGE_DRAIN_PER_TICK = 0.556f; // ~1/3 pool over 3 s wind-up (60 ticks)
-    public static final float SWEEP_DRAIN_PER_TICK  = 0.60f; // 8 / sec
-    public static final float BLOCK_DRAIN_PER_TICK  = 0.60f; // 10 / sec
-    public static final float WARP_COST   = 10f;
-    public static final float LAUNCH_COST = 12.5f;           // 1/8 pool per quick-launch
-    public static final float TETHER_COST = 15f;
-    public static final float RECALL_COST = 5f;
-    public static final float MIN_CHARGE  = 10f;
-    public static final float MIN_SWEEP   = 10f;
-    public static final float MIN_BLOCK   = 10f;
-    public static final int   LOCKOUT_TICKS = 60;            // 3 s punishment after running dry
+    // Config-backed (mana section). Read per-use, like the combat values in SwordFamiliarEntity,
+    // so a config edit on world reload applies without a restart.
+    public static float maxMana()            { return (float) Config.MAX_MANA.getAsDouble(); }
+    public static float regenPerTick()       { return (float) Config.REGEN_PER_TICK.getAsDouble(); }
+    public static int   regenPauseTicks()    { return Config.REGEN_PAUSE_TICKS.getAsInt(); }
+    public static float chargeDrainPerTick() { return (float) Config.CHARGE_DRAIN_PER_TICK.getAsDouble(); }
+    public static float sweepDrainPerTick()  { return (float) Config.SWEEP_DRAIN_PER_TICK.getAsDouble(); }
+    public static float blockDrainPerTick()  { return (float) Config.BLOCK_DRAIN_PER_TICK.getAsDouble(); }
+    public static float warpCost()           { return (float) Config.WARP_COST.getAsDouble(); }
+    public static float launchCost()         { return (float) Config.LAUNCH_COST.getAsDouble(); }
+    public static float tetherCost()         { return (float) Config.TETHER_COST.getAsDouble(); }
+    public static float recallCost()         { return (float) Config.RECALL_COST.getAsDouble(); }
+    public static float minCharge()          { return (float) Config.MIN_CHARGE.getAsDouble(); }
+    public static float minSweep()           { return (float) Config.MIN_SWEEP.getAsDouble(); }
+    public static float minBlock()           { return (float) Config.MIN_BLOCK.getAsDouble(); }
+    public static int   lockoutTicks()       { return Config.LOCKOUT_TICKS.getAsInt(); }
 
     /**
      * True when mana costs do not apply to this player: either {@code combat.consumeMana=false}
@@ -64,7 +65,7 @@ public final class ManaService {
     public static void spend(Player player, float amount) {
         if (isExempt(player)) return; // creative — no cost
         setMana(player, get(player) - amount);
-        player.setData(ManaAttachments.REGEN_DELAY.get(), REGEN_PAUSE_TICKS);
+        player.setData(ManaAttachments.REGEN_DELAY.get(), regenPauseTicks());
     }
 
     /** Spend the full amount only if available. Returns true if spent. */
@@ -85,10 +86,10 @@ public final class ManaService {
         if (depleted) {
             // Punish running dry: freeze at 0, hold regen, lock out inputs. Lockout supersedes
             // the normal regen pause, so clear REGEN_DELAY and let LOCKOUT be the sole gate.
-            player.setData(ManaAttachments.LOCKOUT.get(), LOCKOUT_TICKS);
+            player.setData(ManaAttachments.LOCKOUT.get(), lockoutTicks());
             player.setData(ManaAttachments.REGEN_DELAY.get(), 0);
         } else {
-            player.setData(ManaAttachments.REGEN_DELAY.get(), REGEN_PAUSE_TICKS);
+            player.setData(ManaAttachments.REGEN_DELAY.get(), regenPauseTicks());
         }
         setMana(player, remaining); // setMana carries the (now-updated) lockout to the client
         return !depleted;
@@ -113,13 +114,13 @@ public final class ManaService {
             return;
         }
         float current = get(player);
-        if (current < MAX_MANA) {
-            setMana(player, current + REGEN_PER_TICK);
+        if (current < maxMana()) {
+            setMana(player, current + regenPerTick());
         }
     }
 
     private static void setMana(Player player, float value) {
-        float clamped = Mth.clamp(value, 0f, MAX_MANA);
+        float clamped = Mth.clamp(value, 0f, maxMana());
         float old = get(player);
         player.setData(ManaAttachments.MANA.get(), clamped);
         if (player instanceof ServerPlayer sp && shouldSync(old, clamped)) {
@@ -130,6 +131,6 @@ public final class ManaService {
     /** Bound packet traffic: sync on whole-unit changes and on the empty/full boundaries. */
     private static boolean shouldSync(float oldV, float newV) {
         if (oldV == newV) return false;
-        return Mth.floor(oldV) != Mth.floor(newV) || newV <= 0f || newV >= MAX_MANA;
+        return Mth.floor(oldV) != Mth.floor(newV) || newV <= 0f || newV >= maxMana();
     }
 }

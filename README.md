@@ -1,25 +1,38 @@
+# Heirloom Sword
 
-Installation information
-=======
+A legendary estoc bound to its wielder — a netherite-class greatsword in hand, or a telekinetic
+familiar hovering at your command. Toggle it into flying mode and it fights beside you: charge
+and hurl it through enemies, whirl it as a spinning guard, deflect arrows, pin foes to walls,
+or yank yourself to wherever it's embedded.
 
-This template repository can be directly cloned to get you started with a new
-mod. Simply create a new repository cloned from this one, by following the
-instructions provided by [GitHub](https://docs.github.com/en/repositories/creating-and-managing-repositories/creating-a-repository-from-a-template).
+![Launch](media/launch.gif)
 
-Once you have your clone, simply open the repository in the IDE of your choice. The usual recommendation for an IDE is either IntelliJ IDEA or Eclipse.
+## Controls
 
-If at any point you are missing libraries in your IDE, or you've run into problems you can
-run `gradlew --refresh-dependencies` to refresh the local cache. `gradlew clean` to reset everything 
-{this does not affect your code} and then start the process again.
+| Input | Normal mode | Flying mode |
+|---|---|---|
+| **F** | Summon the familiar | Recall to hand |
+| **Hold LMB** | Attack (greatsword) | Charge, release to launch |
+| **Hold RMB** | — | Sweep (spinning guard), release to fling |
+| **G** | — | Raise guard (blocks & deflects) |
+| **V** | Warp beside your target | Quick-fire at the locked-on enemy |
+| **R** | — | Recall mid-flight / from a wall |
+| **Hold LMB** (while embedded) | — | Tether-pull yourself to the blade |
+| `/heirloom show` | Display the sheathed sword on your back | — |
 
-Mapping Names:
-============
-By default, the MDK is configured to use the official mapping names from Mojang for methods and fields 
-in the Minecraft codebase. These names are covered by a specific license. All modders should be aware of this
-license. For the latest license text, refer to the mapping file itself, or the reference copy here:
-https://github.com/NeoForged/NeoForm/blob/main/Mojang.md
+All keys are rebindable under Options → Controls → *Heirloom Sword*.
 
-Additional Resources: 
-==========
-Community Documentation: https://docs.neoforged.net/  
-NeoForged Discord: https://discord.neoforged.net/
+Found in Ancient City chests. Powered by a regenerating mana pool (fully configurable, or
+disable costs entirely via `consumeMana = false` in the config).
+
+## Dependencies
+
+- [NeoForge](https://neoforged.net/) 1.21.1
+- [GeckoLib](https://modrinth.com/mod/geckolib) — **required**
+- [Epic Fight](https://www.curseforge.com/minecraft/mc-mods/epic-fight-mod) — *optional*: when
+  installed, the sword uses Epic Fight's greatsword moveset in normal mode
+
+## License & Credits
+
+Licensed under [Apache-2.0](LICENSE). Created by Laurin Libossek.
+Developed with the assistance of Claude (Anthropic).

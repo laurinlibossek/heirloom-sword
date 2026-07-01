@@ -37,7 +37,7 @@ public record SwordGuardPacket(boolean held) implements CustomPacketPayload {
                 // Press authorised by the familiar (the flying-mode signal), mirroring V quick-fire:
                 // no held-item check, so the guard can be raised while another slot is selected.
                 if (familiar.getGuardCooldown() > 0) return;
-                if (!ManaService.hasAtLeast(player, ManaService.MIN_BLOCK)) {
+                if (!ManaService.hasAtLeast(player, ManaService.minBlock())) {
                     SwordSounds.playDenied(player);
                     return;
                 }

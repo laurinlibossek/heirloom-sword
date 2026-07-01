@@ -36,7 +36,7 @@ public record SwordChargePacket() implements CustomPacketPayload {
 
             if (familiar.getState() != FamiliarState.HOVERING) return;
 
-            if (!ManaService.hasAtLeast(player, ManaService.MIN_CHARGE)) {
+            if (!ManaService.hasAtLeast(player, ManaService.minCharge())) {
                 SwordSounds.playDenied(player);
                 return;
             }

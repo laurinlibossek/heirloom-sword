@@ -24,5 +24,11 @@
   "advancements.heirloomswordmod.a_will_of_its_own.description": "Awaken the sword.",
   "subtitles.heirloomswordmod.sword_sweep_hold": "Sword whirls menacingly",
   "subtitles.heirloomswordmod.sword_sweep_release": "Sword launches with a fierce swoosh",
+  "subtitles.heirloomswordmod.sword_mode_exit": "Sword returns to its master's grip",
+  "subtitles.heirloomswordmod.sword_ambient": "Sword hums softly",
+  "subtitles.heirloomswordmod.sword_arrives": "Sword descends",
+  "subtitles.heirloomswordmod.sword_block_arrow": "Sword deflects a blow",
+  "subtitles.heirloomswordmod.sword_charging": "Sword gathers power",
+  "subtitles.heirloomswordmod.sword_guarding_start": "Sword takes a guarding stance",
   "tooltip.heirloomswordmod.bloodlust": "While blood clings to its blade, it strikes with greater hunger."
 }

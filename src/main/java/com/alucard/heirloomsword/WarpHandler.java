@@ -25,8 +25,9 @@ import net.minecraft.world.phys.Vec3;
 public final class WarpHandler {
     private WarpHandler() {}
 
-    public static final double WARP_RANGE = 20.0;       // [TUNE] eye-raycast distance (blocks)
-    public static final int WARP_COOLDOWN_TICKS = 100;  // [TUNE] 5 s
+    // Config-backed (combat section): warpRangeBlocks / warpCooldownTicks.
+    private static double warpRange()        { return Config.WARP_RANGE.getAsDouble(); }
+    private static int warpCooldownTicks()   { return Config.WARP_COOLDOWN_TICKS.getAsInt(); }
 
     public static void tryWarp(ServerPlayer player) {
         ItemStack held = player.getMainHandItem();
@@ -37,7 +38,7 @@ public final class WarpHandler {
             SwordSounds.playDenied(player);
             return;
         }
-        if (!ManaService.hasAtLeast(player, ManaService.WARP_COST)) {
+        if (!ManaService.hasAtLeast(player, ManaService.warpCost())) {
             SwordSounds.playDenied(player);
             return;
         }
@@ -45,7 +46,7 @@ public final class WarpHandler {
         ServerLevel level = player.serverLevel();
         // Targets any living entity in view, including other players (but never the warper itself).
         HitResult hit = ProjectileUtil.getHitResultOnViewVector(player,
-                e -> e instanceof LivingEntity && e != player && e.isAlive(), WARP_RANGE);
+                e -> e instanceof LivingEntity && e != player && e.isAlive(), warpRange());
         if (hit.getType() != HitResult.Type.ENTITY) {
             SwordSounds.playDenied(player);
             return;
@@ -69,8 +70,8 @@ public final class WarpHandler {
         level.playSound(null, BlockPos.containing(dest), SoundEvents.CHORUS_FRUIT_TELEPORT,
                 SoundSource.PLAYERS, 0.7f, 1.3f);
 
-        ManaService.spend(player, ManaService.WARP_COST);
-        player.setData(ManaAttachments.WARP_COOLDOWN.get(), WARP_COOLDOWN_TICKS);
+        ManaService.spend(player, ManaService.warpCost());
+        player.setData(ManaAttachments.WARP_COOLDOWN.get(), warpCooldownTicks());
     }
 
     /** First valid standing spot beside the target ("next to", with half-step-back fallbacks). */

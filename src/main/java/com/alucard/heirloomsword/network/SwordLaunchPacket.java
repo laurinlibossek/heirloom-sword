@@ -56,13 +56,13 @@ public record SwordLaunchPacket(Vec3 direction, boolean charged) implements Cust
             if (state == FamiliarState.CHARGING) {
                 Vec3 dir = packet.direction.normalize();
                 boolean charged = familiar.isChargeReady();
-                if (!charged && !ManaService.trySpend(player, ManaService.LAUNCH_COST)) return;
+                if (!charged && !ManaService.trySpend(player, ManaService.launchCost())) return;
                 familiar.launch(dir, charged);
             } else if (state == FamiliarState.HOVERING) {
                 // Guard against a zero-direction vector (can arrive as a stale sweep-release
                 // packet when the sweep was already ended server-side by mana exhaustion).
                 if (packet.direction.lengthSqr() > 1e-6) {
-                    if (!ManaService.trySpend(player, ManaService.LAUNCH_COST)) return;
+                    if (!ManaService.trySpend(player, ManaService.launchCost())) return;
                     Vec3 dir = packet.direction.normalize();
                     familiar.launch(dir, false);
                 }

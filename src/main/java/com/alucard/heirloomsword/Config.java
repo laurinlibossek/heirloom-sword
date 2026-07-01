@@ -20,9 +20,29 @@ public class Config {
     public static final ModConfigSpec.BooleanValue CONSUME_MANA;
     public static final ModConfigSpec.DoubleValue BLOODLUST_DAMAGE_MULT;
     public static final ModConfigSpec.DoubleValue TETHER_SLAM_DAMAGE;
+    public static final ModConfigSpec.DoubleValue TETHER_SLAM_RADIUS;
+    public static final ModConfigSpec.DoubleValue TETHER_SLAM_KNOCKBACK;
+    public static final ModConfigSpec.DoubleValue WARP_RANGE;
+    public static final ModConfigSpec.IntValue WARP_COOLDOWN_TICKS;
     public static final ModConfigSpec.BooleanValue SWEEP_MOWS_PLANTS;
     public static final ModConfigSpec.BooleanValue PIN_TO_WALL;
     public static final ModConfigSpec.BooleanValue SWORD_FETCHES_ITEMS;
+
+    // === mana ===
+    public static final ModConfigSpec.DoubleValue MAX_MANA;
+    public static final ModConfigSpec.DoubleValue REGEN_PER_TICK;
+    public static final ModConfigSpec.IntValue REGEN_PAUSE_TICKS;
+    public static final ModConfigSpec.DoubleValue CHARGE_DRAIN_PER_TICK;
+    public static final ModConfigSpec.DoubleValue SWEEP_DRAIN_PER_TICK;
+    public static final ModConfigSpec.DoubleValue BLOCK_DRAIN_PER_TICK;
+    public static final ModConfigSpec.DoubleValue WARP_COST;
+    public static final ModConfigSpec.DoubleValue LAUNCH_COST;
+    public static final ModConfigSpec.DoubleValue TETHER_COST;
+    public static final ModConfigSpec.DoubleValue RECALL_COST;
+    public static final ModConfigSpec.DoubleValue MIN_CHARGE;
+    public static final ModConfigSpec.DoubleValue MIN_SWEEP;
+    public static final ModConfigSpec.DoubleValue MIN_BLOCK;
+    public static final ModConfigSpec.IntValue LOCKOUT_TICKS;
 
     // === integration ===
     public static final ModConfigSpec.BooleanValue ALLOW_PVP_DAMAGE;
@@ -66,6 +86,14 @@ public class Config {
                         "AoE damage to all valid entities in a short radius when a tether pull slams the",
                         "player through an enemy.")
                 .defineInRange("tetherSlamDamage", 12.0, 0.0, 1024.0);
+        TETHER_SLAM_RADIUS = BUILDER.comment("AoE radius (blocks) of the tether slam.")
+                .defineInRange("tetherSlamRadius", 3.5, 0.0, 16.0);
+        TETHER_SLAM_KNOCKBACK = BUILDER.comment("Outward knockback strength of the tether slam.")
+                .defineInRange("tetherSlamKnockback", 1.2, 0.0, 4.0);
+        WARP_RANGE = BUILDER.comment("Normal-mode warp (V): max eye-raycast distance to the target, in blocks.")
+                .defineInRange("warpRangeBlocks", 20.0, 1.0, 64.0);
+        WARP_COOLDOWN_TICKS = BUILDER.comment("Normal-mode warp (V) cooldown in ticks (100 = 5s).")
+                .defineInRange("warpCooldownTicks", 100, 0, 1200);
         SWEEP_MOWS_PLANTS = BUILDER.comment(
                         "While the sword sweeps (SWEEPING_HOLD), destroy and drop foliage it passes",
                         "through (grass, flowers, bamboo, sugar cane, cobweb, vines, saplings, nether",
@@ -81,6 +109,43 @@ public class Config {
                         "and drops them at your feet on arrival (onto the ground, never straight into",
                         "your inventory). false disables it.")
                 .define("swordFetchesItems", true);
+        BUILDER.pop();
+
+        BUILDER.comment("Mana pool tuning. Only applies while combat.consumeMana is true.",
+                        "Values are read on both sides for HUD/prediction — keep server and client",
+                        "config files identical on dedicated servers (the server stays authoritative",
+                        "either way; a mismatch only makes client-side denial cues fire early/late).")
+                .push("mana");
+        MAX_MANA = BUILDER.comment("Maximum mana pool size.")
+                .defineInRange("maxMana", 100.0, 1.0, 10000.0);
+        REGEN_PER_TICK = BUILDER.comment("Mana regenerated per tick (0.6 = 12/sec).")
+                .defineInRange("regenPerTick", 0.6, 0.0, 1000.0);
+        REGEN_PAUSE_TICKS = BUILDER.comment("Ticks regen pauses after any spend (20 = 1s).")
+                .defineInRange("regenPauseTicks", 20, 0, 1200);
+        CHARGE_DRAIN_PER_TICK = BUILDER.comment("Mana drained per tick while charging (until fully charged).")
+                .defineInRange("chargeDrainPerTick", 0.556, 0.0, 1000.0);
+        SWEEP_DRAIN_PER_TICK = BUILDER.comment("Mana drained per tick during SWEEPING_HOLD.")
+                .defineInRange("sweepDrainPerTick", 0.60, 0.0, 1000.0);
+        BLOCK_DRAIN_PER_TICK = BUILDER.comment("Mana drained per tick while guarding (BLOCKING).")
+                .defineInRange("blockDrainPerTick", 0.60, 0.0, 1000.0);
+        WARP_COST = BUILDER.comment("Mana cost of the normal-mode warp (V).")
+                .defineInRange("warpCost", 10.0, 0.0, 10000.0);
+        LAUNCH_COST = BUILDER.comment("Mana cost of an uncharged quick-launch (a fully charged launch is free).")
+                .defineInRange("launchCost", 12.5, 0.0, 10000.0);
+        TETHER_COST = BUILDER.comment("Mana cost of the tether pull from STUCK.")
+                .defineInRange("tetherCost", 15.0, 0.0, 10000.0);
+        RECALL_COST = BUILDER.comment("Mana cost of recalling (R) from LAUNCHING/STUCK.")
+                .defineInRange("recallCost", 5.0, 0.0, 10000.0);
+        MIN_CHARGE = BUILDER.comment("Minimum mana required to begin charging.")
+                .defineInRange("minCharge", 10.0, 0.0, 10000.0);
+        MIN_SWEEP = BUILDER.comment("Minimum mana required to begin a sweep.")
+                .defineInRange("minSweep", 10.0, 0.0, 10000.0);
+        MIN_BLOCK = BUILDER.comment("Minimum mana required to raise the guard.")
+                .defineInRange("minBlock", 10.0, 0.0, 10000.0);
+        LOCKOUT_TICKS = BUILDER.comment(
+                        "Depletion punishment: ticks mana is frozen at 0 and all sword inputs",
+                        "(except the mode toggle) are rejected after running completely dry (60 = 3s).")
+                .defineInRange("lockoutTicks", 60, 0, 6000);
         BUILDER.pop();
 
         BUILDER.comment("Cross-mod / server integration toggles.").push("integration");

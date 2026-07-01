@@ -104,7 +104,8 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
     private static final double PICKUP_RANGE = 1.5;
     private static final int STUCK_TIMEOUT_TICKS = 60; // 3 seconds
     // TETHERING constants — single ballistic "force pull": one launch toward the midpoint, then the
-    // player arcs the rest of the way under gravity (no per-tick reel) [all TUNE → Phase 13 config]
+    // player arcs the rest of the way under gravity (no per-tick reel). Physics constants stay
+    // hardcoded (feel-tuned as a set); the slam damage/radius/knockback are config-backed below.
     private static final double TETHER_PULL_SPEED = 3.2;         // blocks/tick the launch closes the gap (snappiness)
     private static final int TETHER_MIN_FLIGHT_TICKS = 4;        // floor on flight time so close pulls arc, not teleport
     private static final int TETHER_MAX_FLIGHT_TICKS = 16;       // cap so far pulls stay snappy, not floaty
@@ -115,9 +116,9 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
     private static final int TETHER_GEOMETRY_BLOCK_TICKS = 10;   // ticks of near-zero travel (blocked / landed) → done
     private static final double TETHER_GEOMETRY_MOVE_SQR = 0.01; // (~0.1 block/tick)^2 movement floor
     private static final double TETHER_SLAM_DETECT_INFLATE = 1.2; // tight box around the player to detect the slam
-    private static final double TETHER_SLAM_RADIUS = 3.5;         // [TUNE] AoE radius of the slam
-    private static final float  TETHER_SLAM_KNOCKBACK = 1.2f;     // [TUNE] outward knockback strength
-    private static float tetherSlamDamage() { return (float) Config.TETHER_SLAM_DAMAGE.getAsDouble(); }
+    private static float tetherSlamDamage()     { return (float) Config.TETHER_SLAM_DAMAGE.getAsDouble(); }
+    private static double tetherSlamRadius()    { return Config.TETHER_SLAM_RADIUS.getAsDouble(); }
+    private static float tetherSlamKnockback()  { return (float) Config.TETHER_SLAM_KNOCKBACK.getAsDouble(); }
     private static final TagKey<Block> PIERCEABLE_BLOCKS = TagKey.create(
             Registries.BLOCK, ResourceLocation.fromNamespaceAndPath(HeirloomSwordMod.MODID, "pierceable"));
     private static final TagKey<Block> SWEPT_AWAY_BLOCKS = TagKey.create(
@@ -769,7 +770,7 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
     }
 
     private void tickBlocking(Player owner) {
-        if (!ManaService.drain(owner, ManaService.BLOCK_DRAIN_PER_TICK)) {
+        if (!ManaService.drain(owner, ManaService.blockDrainPerTick())) {
             // Mana exhausted while guarding — guard break (existing 3s cooldown applies).
             guardBreak();
             return;
@@ -821,7 +822,7 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
         }
 
         // Only drain while charging up; a fully-charged blade costs no further mana.
-        if (!isChargeReady() && !ManaService.drain(owner, ManaService.CHARGE_DRAIN_PER_TICK)) {
+        if (!isChargeReady() && !ManaService.drain(owner, ManaService.chargeDrainPerTick())) {
             // Mana exhausted before charge is ready — stop, no launch.
             removeChargeSlowdown();
             chargeTimer = 0;
@@ -1201,13 +1202,13 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
         Vec3 center = owner.position();
         DamageSource source = this.level().damageSources().playerAttack(owner);
         for (LivingEntity target : this.level().getEntitiesOfClass(LivingEntity.class,
-                new AABB(center, center).inflate(TETHER_SLAM_RADIUS),
+                new AABB(center, center).inflate(tetherSlamRadius()),
                 e -> e.isAlive() && e != owner && canDamage(owner, e))) {
             target.hurt(source, tetherSlamDamage());
             igniteIfUndead(target);
             bloodyOwnerBlade(target);
             // Push away from the player (mirrors doBlockSlashDamage's knockback convention).
-            target.knockback(TETHER_SLAM_KNOCKBACK,
+            target.knockback(tetherSlamKnockback(),
                     owner.getX() - target.getX(), owner.getZ() - target.getZ());
         }
         if (this.level() instanceof ServerLevel sl) {
@@ -1387,7 +1388,7 @@ public class SwordFamiliarEntity extends Entity implements GeoEntity {
     }
 
     private void tickSweepingHold(Player owner) {
-        if (!ManaService.drain(owner, ManaService.SWEEP_DRAIN_PER_TICK)) {
+        if (!ManaService.drain(owner, ManaService.sweepDrainPerTick())) {
             // Mana exhausted mid-sweep — end it (transitions to SWEEPING_RELEASE / HOVERING).
             releaseSweep();
             return;

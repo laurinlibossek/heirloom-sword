@@ -26,7 +26,8 @@ import java.util.Optional;
  * independently-ticking sides. Purely visual — no damage, no interaction, no new
  * {@link FamiliarState}.
  *
- * <p>All constants are {@code [TUNE]} and bound for the Phase 13 {@code idle} config section.
+ * <p>All constants are {@code [TUNE]} and deliberately hardcoded — cosmetic feel values,
+ * not server-balance knobs.
  */
 public final class IdlePersonality {
 

@@ -39,7 +39,7 @@ public record SwordTetherPacket() implements CustomPacketPayload {
             // Tether only triggers from STUCK (server is authoritative — a stray packet is inert).
             if (familiar.getState() != FamiliarState.STUCK) return;
 
-            if (!ManaService.trySpend(player, ManaService.TETHER_COST)) {
+            if (!ManaService.trySpend(player, ManaService.tetherCost())) {
                 SwordSounds.playDenied(player);
                 return;
             }

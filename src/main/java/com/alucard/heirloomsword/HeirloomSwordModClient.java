@@ -14,9 +14,11 @@ import com.alucard.heirloomsword.network.SwordRecallPacket;
 import com.alucard.heirloomsword.network.SwordWarpPacket;
 import com.alucard.heirloomsword.network.SwordSweepPacket;
 import com.alucard.heirloomsword.network.SwordTetherPacket;
+import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.world.item.ItemStack;
@@ -30,11 +32,12 @@ import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.neoforged.neoforge.client.event.EntityRenderersEvent;
 import net.neoforged.neoforge.client.event.InputEvent;
+import net.neoforged.neoforge.client.event.RegisterGuiLayersEvent;
 import net.neoforged.neoforge.client.event.RegisterKeyMappingsEvent;
-import net.neoforged.neoforge.client.event.RenderGuiLayerEvent;
 import net.neoforged.neoforge.client.event.RenderHandEvent;
 import net.neoforged.neoforge.client.gui.ConfigurationScreen;
 import net.neoforged.neoforge.client.gui.IConfigScreenFactory;
+import net.neoforged.neoforge.client.gui.VanillaGuiLayers;
 
 import net.neoforged.neoforge.network.PacketDistributor;
 
@@ -59,6 +62,16 @@ public class HeirloomSwordModClient {
         @SubscribeEvent
         public static void onRegisterRenderers(EntityRenderersEvent.RegisterRenderers event) {
             event.registerEntityRenderer(ModEntities.SWORD_FAMILIAR.get(), SwordFamiliarGeoRenderer::new);
+        }
+
+        // A registered layer renders exactly once per frame. The previous RenderGuiLayerEvent.Post
+        // handler had no layer filter, so it ran after EVERY vanilla layer (~15-20x/frame),
+        // compounding every translucent fill toward opaque.
+        @SubscribeEvent
+        public static void onRegisterGuiLayers(RegisterGuiLayersEvent event) {
+            event.registerAbove(VanillaGuiLayers.HOTBAR,
+                    ResourceLocation.fromNamespaceAndPath(HeirloomSwordMod.MODID, "sword_hud"),
+                    ClientEvents::renderSwordHud);
         }
 
         @SubscribeEvent
@@ -168,7 +181,7 @@ public class HeirloomSwordModClient {
                     if (gs == FamiliarState.HOVERING
                             || gs == FamiliarState.CHARGING
                             || gs == FamiliarState.SWEEPING_HOLD) {
-                        if (!isManaExempt(player) && ClientManaState.current < ManaService.MIN_BLOCK) {
+                        if (!isManaExempt(player) && ClientManaState.current < ManaService.minBlock()) {
                             playDeniedClient(player);
                         } else {
                             if (isCharging)
@@ -272,7 +285,7 @@ public class HeirloomSwordModClient {
                         && (familiar.getState() == FamiliarState.LAUNCHING
                                 || familiar.getState() == FamiliarState.STUCK)
                         && !isManaExempt(player)
-                        && ClientManaState.current < ManaService.RECALL_COST) {
+                        && ClientManaState.current < ManaService.recallCost()) {
                     playDeniedClient(player);
                     continue;
                 }
@@ -296,7 +309,7 @@ public class HeirloomSwordModClient {
                 if (attackHoldTicks == TETHER_HOLD_TICKS) {
                     SwordFamiliarEntity tetherFamiliar = selfFamiliar;
                     if (tetherFamiliar != null && tetherFamiliar.getState() == FamiliarState.STUCK) {
-                        if (!isManaExempt(player) && ClientManaState.current < ManaService.TETHER_COST) {
+                        if (!isManaExempt(player) && ClientManaState.current < ManaService.tetherCost()) {
                             playDeniedClient(player);
                         } else {
                             PacketDistributor.sendToServer(new SwordTetherPacket());
@@ -435,7 +448,7 @@ public class HeirloomSwordModClient {
 
                 SwordFamiliarEntity familiar = findClientFamiliar(player);
                 if (familiar != null && familiar.getState() == FamiliarState.HOVERING) {
-                    if (!isManaExempt(player) && ClientManaState.current < ManaService.MIN_CHARGE) {
+                    if (!isManaExempt(player) && ClientManaState.current < ManaService.minCharge()) {
                         playDeniedClient(player);
                         event.setCanceled(true);
                         event.setSwingHand(false);
@@ -463,7 +476,7 @@ public class HeirloomSwordModClient {
 
                 SwordFamiliarEntity familiar = findClientFamiliar(player);
                 if (familiar != null && familiar.getState() == FamiliarState.HOVERING) {
-                    if (!isManaExempt(player) && ClientManaState.current < ManaService.MIN_SWEEP) {
+                    if (!isManaExempt(player) && ClientManaState.current < ManaService.minSweep()) {
                         playDeniedClient(player);
                         event.setCanceled(true);
                         event.setSwingHand(false);
@@ -563,14 +576,15 @@ public class HeirloomSwordModClient {
             }
         }
 
-        @SubscribeEvent
-        public static void onRenderGuiPost(RenderGuiLayerEvent.Post event) {
+        /** Custom GUI layer body (registered above the hotbar in {@code onRegisterGuiLayers}). */
+        static void renderSwordHud(GuiGraphics layerGraphics, DeltaTracker deltaTracker) {
             Minecraft mc = Minecraft.getInstance();
             if (mc.player == null)
                 return;
 
             // Respect the F1 "hide GUI" toggle — suppress the mana bar, hotbar glow,
-            // and charge bar just like vanilla hides its own HUD.
+            // and charge bar just like vanilla hides its own HUD. (The layer system already
+            // skips hidden GUIs; this guard keeps the behavior explicit and future-proof.)
             if (mc.options.hideGui)
                 return;
 
@@ -584,7 +598,7 @@ public class HeirloomSwordModClient {
                     && (player.getMainHandItem().getItem() instanceof HeirloomSwordItem
                             || familiar != null);
             if (showMana) {
-                renderManaBar(event.getGuiGraphics(),
+                renderManaBar(layerGraphics,
                         mc.getWindow().getGuiScaledWidth(), mc.getWindow().getGuiScaledHeight(), player);
             }
 
@@ -602,7 +616,7 @@ public class HeirloomSwordModClient {
                 return;
             }
 
-            GuiGraphics guiGraphics = event.getGuiGraphics();
+            GuiGraphics guiGraphics = layerGraphics;
             int screenWidth = mc.getWindow().getGuiScaledWidth();
             int screenHeight = mc.getWindow().getGuiScaledHeight();
 
@@ -625,7 +639,7 @@ public class HeirloomSwordModClient {
         }
 
         private static void renderManaBar(GuiGraphics guiGraphics, int screenWidth, int screenHeight, LocalPlayer player) {
-            float ratio = Mth.clamp(ClientManaState.current / ManaService.MAX_MANA, 0f, 1f);
+            float ratio = Mth.clamp(ClientManaState.current / ManaService.maxMana(), 0f, 1f);
 
             int barWidth = 81; // [TUNE] matches hunger-bar span (10 icons × 9px, right-aligned)
             int barHeight = 4;
@@ -666,8 +680,10 @@ public class HeirloomSwordModClient {
             guiGraphics.fill(barX - 1, barY, barX, barY + barHeight, borderCol); // Left
             guiGraphics.fill(barX + barWidth, barY, barX + barWidth + 1, barY + barHeight, borderCol); // Right
 
-            // Soft-blend corner pixels to round the rectangle's sharp vertices
-            int cornerCol = (borderCol & 0x00FFFFFF) | 0x77000000;
+            // Soft-blend corner pixels to round the rectangle's sharp vertices.
+            // Alpha compensated for the single-pass layer: was 0x77, tuned while the old
+            // event handler drew ~15x/frame (compounding to ~opaque). [TUNE in-game]
+            int cornerCol = (borderCol & 0x00FFFFFF) | 0xF5000000;
             guiGraphics.fill(barX - 1, barY - 1, barX, barY, cornerCol); // Top-left
             guiGraphics.fill(barX + barWidth, barY - 1, barX + barWidth + 1, barY, cornerCol); // Top-right
             guiGraphics.fill(barX - 1, barY + barHeight, barX, barY + barHeight + 1, cornerCol); // Bottom-left
@@ -708,15 +724,17 @@ public class HeirloomSwordModClient {
             }
 
             // 4. Draw Segment Notches (Thin, elegant markers dividing the bar at 25%, 50%, and 75%)
+            // Notch alphas compensated for the single-pass layer: were 0x3C / 0x30, tuned
+            // while the old event handler drew ~15x/frame (compounding to ~opaque). [TUNE in-game]
             int[] notches = {20, 40, 60};
             for (int notch : notches) {
                 int notchX = barX + notch;
                 if (fillWidth > notch) {
-                    // Shaded notch on filled bar (semi-transparent dark overlay)
-                    guiGraphics.fill(notchX, barY, notchX + 1, barY + barHeight, 0x3C000030);
+                    // Shaded notch on filled bar (dark overlay)
+                    guiGraphics.fill(notchX, barY, notchX + 1, barY + barHeight, 0xF0000030);
                 } else {
-                    // Empty notch on empty bar (semi-transparent slate overlay)
-                    guiGraphics.fill(notchX, barY, notchX + 1, barY + barHeight, 0x302C324D);
+                    // Empty notch on empty bar (slate overlay)
+                    guiGraphics.fill(notchX, barY, notchX + 1, barY + barHeight, 0xE82C324D);
                 }
             }
         }
@@ -738,14 +756,16 @@ public class HeirloomSwordModClient {
             guiGraphics.fill(barX - 1, barY, barX, barY + barHeight, borderCol); // Left
             guiGraphics.fill(barX + barWidth, barY, barX + barWidth + 1, barY + barHeight, borderCol); // Right
 
-            int cornerCol = (borderCol & 0x00FFFFFF) | 0x66000000;
+            // Corner/track alphas compensated for the single-pass layer: were 0x66 / 0xAA,
+            // tuned while the old event handler drew ~15x/frame (compounding). [TUNE in-game]
+            int cornerCol = (borderCol & 0x00FFFFFF) | 0xF0000000;
             guiGraphics.fill(barX - 1, barY - 1, barX, barY, cornerCol); // Top-left
             guiGraphics.fill(barX + barWidth, barY - 1, barX + barWidth + 1, barY, cornerCol); // Top-right
             guiGraphics.fill(barX - 1, barY + barHeight, barX, barY + barHeight + 1, cornerCol); // Bottom-left
             guiGraphics.fill(barX + barWidth, barY + barHeight, barX + barWidth + 1, barY + barHeight + 1, cornerCol); // Bottom-right
 
             // 2. Draw Interior Track
-            guiGraphics.fill(barX, barY, barX + barWidth, barY + barHeight, 0xAA000000);
+            guiGraphics.fill(barX, barY, barX + barWidth, barY + barHeight, 0xFA000000);
 
             // 3. Draw Cylindrical Fill
             if (fillWidth > 0) {
