@@ -569,6 +569,11 @@ public class HeirloomSwordModClient {
             if (mc.player == null)
                 return;
 
+            // Respect the F1 "hide GUI" toggle — suppress the mana bar, hotbar glow,
+            // and charge bar just like vanilla hides its own HUD.
+            if (mc.options.hideGui)
+                return;
+
             LocalPlayer player = mc.player;
             SwordFamiliarEntity familiar = findClientFamiliar(player); // resolved once for this render
 
